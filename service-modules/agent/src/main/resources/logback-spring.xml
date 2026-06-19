@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!--
+        日志根目录
+        ${user.dir} 表示项目启动目录：
+        1. IDEA 启动时，通常是项目根目录
+        2. java -jar 启动时，是执行 java -jar 命令所在的目录
+        这里日志会输出到：
+        项目根路径/logs/
+    -->
+    <property name="LOG_HOME" value="${user.dir}/service-modules/agent/logs"/>
+
+    <!--
+        普通业务日志格式
+
+        %d       ：日志时间
+        %-5level ：日志级别，左对齐，占 5 位
+        [%thread]：线程名
+        %X{}     ：MDC 上下文信息
+        %logger  ：日志输出类
+        %msg     ：日志内容
+        %n       ：换行
+    -->
+    <property name="LOG_PATTERN"
+              value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [tenantId=%X{tenantId} userId=%X{userId} sessionId=%X{sessionId}] %logger{36} - %msg%n"/>
+
+    <!--
+        SQL 日志格式
+
+        这里只输出 MyBatis 原始日志内容，不输出时间、线程、logger 等前缀
+        输出效果：
+
+        ==>  Preparing: SELECT ...
+        ==> Parameters: 1(String)
+        <==      Total: 1
+    -->
+    <property name="SQL_PATTERN" value="%msg%n"/>
+
+    <!-- 控制台输出：普通业务日志 -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!--
+        错误日志文件输出
+        只额外保存 ERROR 级别日志
+    -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <!--
+            过滤器：
+            只允许 ERROR 及以上级别日志进入该文件
+        -->
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+
+            <!--
+                错误日志文件，按天生成
+
+                示例：
+                service-modules/agent/logs/AgentApplication-error-2026-06-20.txt
+            -->
+            <fileNamePattern>${LOG_HOME}/AgentApplication-error-%d{yyyy-MM-dd}.txt</fileNamePattern>
+
+            <!-- 保留最近 30 天错误日志 -->
+            <maxHistory>30</maxHistory>
+
+            <!-- 所有历史错误日志总大小最大 2GB -->
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!-- 文件输出：普通业务日志，按天生成 txt 文件 -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+
+        <!--
+            按天切割日志文件
+
+            示例：
+            项目根路径/logs/application-2026-06-20.txt
+            项目根路径/logs/application-2026-06-21.txt
+        -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_HOME}/AgentApplication-%d{yyyy-MM-dd}.txt</fileNamePattern>
+
+            <!-- 保留最近 30 天日志 -->
+            <maxHistory>30</maxHistory>
+
+            <!-- 所有历史日志总大小最大 2GB -->
+            <totalSizeCap>2GB</totalSizeCap>
+        </rollingPolicy>
+
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!--
+        接口调用日志
+
+        这个 logger 对应下面 ApiLogFilter 类
+        用于输出接口请求方法、路径、请求参数、请求体、状态码、耗时等信息
+    -->
+    <logger name="com.zw.common.filter.ApiLogFilter" level="INFO"/>
+
+    <!-- 控制台输出：SQL 日志，只输出 msg -->
+    <appender name="SQL_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${SQL_PATTERN}</pattern>
+            <charset>UTF-8</charset>
+        </encoder>
+    </appender>
+
+    <!--
+        MyBatis Mapper SQL 日志
+
+        additivity="false" 表示：
+        这类日志不会继续传递给 root logger，
+        避免 SQL 日志既按 SQL_PATTERN 输出一次，又按 LOG_PATTERN 输出一次。
+    -->
+    <logger name="com.zw.agent.mapper" level="DEBUG" additivity="false">
+        <appender-ref ref="SQL_CONSOLE"/>
+    </logger>
+
+    <!--MyBatis 框架日志-->
+    <logger name="org.apache.ibatis" level="INFO"/>
+
+    <!-- JDBC 日志 -->
+    <logger name="java.sql" level="INFO"/>
+
+    <!-- Spring HTTP 客户端相关日志 -->
+    <logger name="org.springframework.web.client" level="DEBUG"/>
+
+    <!-- OpenAI SDK 相关日志 -->
+    <logger name="com.openai" level="DEBUG"/>
+
+    <!--
+        根日志配置
+
+        默认输出 INFO、WARN、ERROR 日志
+    -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+        <appender-ref ref="ERROR_FILE"/>
+    </root>
+
+</configuration>

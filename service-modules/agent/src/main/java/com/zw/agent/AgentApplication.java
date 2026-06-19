@@ -3,7 +3,7 @@ package com.zw.agent;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
-@SpringBootApplication
+@SpringBootApplication(scanBasePackages = {"com.zw.agent","com.zw.common"})
 public class AgentApplication {
 
     public static void main(String[] args) {

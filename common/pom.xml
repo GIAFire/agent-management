@@ -25,5 +25,13 @@
     <modules>
         <module>common-redis</module>
         <module>common-log</module>
+        <module>common-core</module>
     </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+    </dependencies>
 </project>

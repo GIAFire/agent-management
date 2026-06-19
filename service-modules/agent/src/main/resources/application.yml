@@ -1,7 +1,7 @@
 server:
   port: 8080
   servlet:
-    context-path: /agent
+    context-path: /agent-api
 spring:
   application:
     name: agent
@@ -24,9 +24,10 @@ spring:
         # 主库数据源
         master:
           driver-class-name: com.mysql.cj.jdbc.Driver
-          url: jdbc:mysql://localhost:3306/ecommerce_db?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+          url: jdbc:mysql://${FE_IP}:3306/test_qms?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+#          url: jdbc:mysql://116.205.176.185:3306/test_qms?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
           username: root
-          password: root
+          password: ${FE185PWD}
           # 从库数据源
           # slave:
           #   driver-class-name: com.mysql.cj.jdbc.Driver
@@ -36,16 +37,14 @@ spring:
 
 # mybatis配置
 mybatis:
+  global-config:
+    db-config:
+      # 全局设置主键生成策略
+      id-type: ASSIGN_ID
+      logic-delete-field: deleted   # 全局逻辑删除字段名，与实体类字段对应
+      logic-delete-value: 1         # 逻辑已删除值（默认1）
+      logic-not-delete-value: 0     # 逻辑未删除值（默认0）
   # 搜索指定包别名
   typeAliasesPackage: com.zw.agent.mapper
   # 配置mapper的扫描，找到所有的mapper.xml映射文件
   mapperLocations: classpath:mapper/*.xml
-  configuration:
-    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
-
-logging:
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [tenantId=%X{tenantId} userId=%X{userId} sessionId=%X{sessionId}] %logger{36} - %msg%n"
-  level:
-    org.springframework.web.client: DEBUG
-    com.openai: DEBUG

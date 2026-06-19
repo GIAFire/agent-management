@@ -7,7 +7,7 @@
         <version>1.0.0</version>
     </parent>
     <packaging>pom</packaging>
-    <artifactId>service-module</artifactId>
+    <artifactId>service-modules</artifactId>
     <name>service-module</name>
 
     <description>
@@ -31,6 +31,11 @@
         <dependency>
             <groupId>com.zw</groupId>
             <artifactId>common-log</artifactId>
+            <version>1.0.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.zw</groupId>
+            <artifactId>common-core</artifactId>
             <version>1.0.0</version>
         </dependency>
 
@@ -98,6 +103,11 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
         </dependency>
     </dependencies>
 </project>
