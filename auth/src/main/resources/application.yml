@@ -1,5 +1,5 @@
 server:
-  port: 8081
+  port: 8082
   servlet:
     context-path: /auth
 spring:
@@ -7,11 +7,18 @@ spring:
     name: auth
   cloud:
     nacos:
+      server-addr: localhost:8848
+      username: nacos
+      password: nacos
       discovery:
-        server-addr: localhost:8848   # Nacos 注册中心地址
-      config:
+        namespace: 418ac824-016b-4eff-bbde-82b7ce26305d
         import-check:
           enabled: false
+      config:
+        namespace: 418ac824-016b-4eff-bbde-82b7ce26305d
+  config:
+    import:
+      - optional:nacos:auth.yml?group=DEFAULT_GROUP&refreshEnabled=true
 
   data:
     redis:
