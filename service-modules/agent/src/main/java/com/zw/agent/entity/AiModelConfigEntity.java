@@ -58,6 +58,13 @@ public class AiModelConfigEntity extends BaseEntity {
     @TableField("model_name")
     private String modelName;
 
+
+    /**
+     * 是否流式输出:1是,0否
+     */
+    @TableField("is_stream")
+    private Integer isStream;
+
     /**
      * 采样温度，控制随机性
      */

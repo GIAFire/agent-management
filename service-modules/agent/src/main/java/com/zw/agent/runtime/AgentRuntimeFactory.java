@@ -73,8 +73,10 @@ public class AgentRuntimeFactory {
      * @return Mono封装的字符串响应，包含Agent处理后的文本内容
      */
     public Mono<String> call(AgentRuntimeConfig config, String runtimeUserKey, String sessionKey, String text) {
+        // 获取或创建Agent实例
         HarnessAgent agent = getOrCreate(config);
 
+        // 构建运行时上下文
         RuntimeContext context = RuntimeContext.builder()
                 .userId(AgentRuntimeKeys.pathSafeSegment(runtimeUserKey, "anonymous"))
                 .sessionId(AgentRuntimeKeys.sessionKey(sessionKey))

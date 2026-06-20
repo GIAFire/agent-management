@@ -25,6 +25,7 @@ public class AgentChatController {
             @PathVariable String sessionKey,
             @RequestBody AgentChatRequest request
     ) {
+        // 获取运行时配置
         AgentRuntimeConfig config = agentConfigQueryService.loadPublishedConfig(tenantCode, agentId);
         String runtimeUserKey = AgentRuntimeKeys.userKey(tenantCode, userId);
 
