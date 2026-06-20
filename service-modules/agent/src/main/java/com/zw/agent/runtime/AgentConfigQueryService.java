@@ -48,13 +48,13 @@ public class AgentConfigQueryService {
             throw new AgentConfigException("agentId 不能为空");
         }
 
-        // 级联加载租户、Agent定义、版本信息和模型配置
+        // 查询租户信息、Agent定义、Agent配置信息和模型配置
         SysTenantEntity tenant = loadEnabledTenant(tenantCode);
         AiAgentEntity agent = loadEnabledAgentDefinition(tenant.getId(), agentId);
         AiAgentConfigEntity agentVersion = loadPublishedAgentVersion(
                 tenant.getId(),
                 agent.getId(),
-                agent.getCurrentVersionId()
+                agent.getAgentConfigId()
         );
         AiModelConfigEntity modelConfig = loadEnabledModelConfig(
                 tenant.getId(),
@@ -136,13 +136,13 @@ public class AgentConfigQueryService {
      * @throws AgentConfigException 当Agent不存在、状态为非启用或未发布版本时抛出异常
      */
     private AiAgentEntity loadEnabledAgentDefinition(Long tenantId, Long agentId) {
-        AiAgentEntity agentDefinition = agentDefinitionMapper.selectOne(
+        AiAgentEntity agent = agentDefinitionMapper.selectOne(
                 Wrappers.<AiAgentEntity>lambdaQuery()
                         .select(
                                 AiAgentEntity::getId,
                                 AiAgentEntity::getTenantId,
                                 AiAgentEntity::getAgentName,
-                                AiAgentEntity::getCurrentVersionId,
+                                AiAgentEntity::getAgentConfigId,
                                 AiAgentEntity::getStatus
                         )
                         .eq(AiAgentEntity::getTenantId, tenantId)
@@ -151,15 +151,15 @@ public class AgentConfigQueryService {
                         .last("LIMIT 1")
         );
 
-        if (agentDefinition == null) {
+        if (agent == null) {
             throw new AgentConfigException("Agent 不存在或已停用: " + agentId);
         }
 
-        if (agentDefinition.getCurrentVersionId() == null) {
+        if (agent.getAgentConfigId() == null) {
             throw new AgentConfigException("Agent 尚未发布版本: " + agentId);
         }
 
-        return agentDefinition;
+        return agent;
     }
 
     /**
@@ -197,7 +197,7 @@ public class AgentConfigQueryService {
         );
 
         if (agentVersion == null) {
-            throw new AgentConfigException("Agent 当前版本不存在或未发布: " + currentVersionId);
+            throw new AgentConfigException("Agent 当前配置不存在或未启用: " + currentVersionId);
         }
 
         return agentVersion;
