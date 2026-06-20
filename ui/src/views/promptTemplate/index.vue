@@ -18,8 +18,8 @@ const rows = [
 
 <template>
   <ResourcePage
-    title="系统提示词模板"
-    keyword-placeholder="请输入模板名称"
+    title="智能体配置"
+    keyword-placeholder="请输入名称"
     :columns="columns"
     :rows="rows"
   />

@@ -1,6 +1,6 @@
 package com.zw.agent.mapper;
 
-import com.zw.agent.entity.AiAgentVersionEntity;
+import com.zw.agent.entity.AiAgentConfigEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -13,6 +13,6 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-06-20
  */
 @Mapper
-public interface AiAgentVersionMapper extends BaseMapper<AiAgentVersionEntity> {
+public interface AiAgentConfigMapper extends BaseMapper<AiAgentConfigEntity> {
 
 }

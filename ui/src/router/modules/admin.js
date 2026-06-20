@@ -19,6 +19,12 @@ export const adminRoutes = [
             meta: { title: '智能体管理', icon: 'Cpu' }
           },
           {
+            path: 'prompt-template',
+            name: 'PromptTemplateManage',
+            component: () => import('@/views/promptTemplate/index.vue'),
+            meta: { title: '智能体配置', icon: 'Document' }
+          },
+          {
             path: 'model',
             name: 'ModelManage',
             component: () => import('@/views/model/index.vue'),
@@ -53,12 +59,6 @@ export const adminRoutes = [
             name: 'HookManage',
             component: () => import('@/views/hook/index.vue'),
             meta: { title: '钩子管理', icon: 'Link' }
-          },
-          {
-            path: 'prompt-template',
-            name: 'PromptTemplateManage',
-            component: () => import('@/views/promptTemplate/index.vue'),
-            meta: { title: '系统提示词模板', icon: 'Document' }
           },
           {
             path: 'sensitive-word',
