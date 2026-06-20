@@ -19,9 +19,9 @@ export const adminRoutes = [
             meta: { title: '智能体管理', icon: 'Cpu' }
           },
           {
-            path: 'prompt-template',
-            name: 'PromptTemplateManage',
-            component: () => import('@/views/promptTemplate/index.vue'),
+            path: 'agent-config',
+            name: 'agentConfigManage',
+            component: () => import('@/views/agentConfig/index.vue'),
             meta: { title: '智能体配置', icon: 'Document' }
           },
           {

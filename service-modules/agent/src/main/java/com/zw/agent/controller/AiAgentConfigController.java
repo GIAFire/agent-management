@@ -12,16 +12,16 @@ import java.util.List;
 
 /**
  * <p>
- * Agent 版本表：保存每次可视化配置发布后的不可变快照 前端控制器
+ * Agent 配置表：保存每次可视化配置发布后的不可变快照 前端控制器
  * </p>
  *
  * @author 
  * @since 2026-06-20
  */
 @RestController
-@RequestMapping("/agentVersion")
+@RequestMapping("/agentConfig")
 @AllArgsConstructor
-public class AiAgentVersionController {
+public class AiAgentConfigController {
     private final AiAgentConfigService aiAgentConfigService;
 
     @GetMapping("/list")
