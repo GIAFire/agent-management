@@ -17,7 +17,7 @@ public class AgentConfigQueryService {
     private static final int ENABLED = 1;
     private static final int PUBLISHED = 1;
 
-    private final AiTenantMapper tenantMapper;
+    private final SysTenantMapper tenantMapper;
     private final AiAgentDefinitionMapper agentDefinitionMapper;
     private final AiAgentVersionMapper agentVersionMapper;
     private final AiModelConfigMapper modelConfigMapper;
@@ -33,7 +33,7 @@ public class AgentConfigQueryService {
             throw new AgentConfigException("agentId 不能为空");
         }
 
-        AiTenantEntity tenant = loadEnabledTenant(tenantCode);
+        SysTenantEntity tenant = loadEnabledTenant(tenantCode);
         AiAgentDefinitionEntity agentDefinition = loadEnabledAgentDefinition(tenant.getId(), agentId);
         AiAgentVersionEntity agentVersion = loadPublishedAgentVersion(
                 tenant.getId(),
@@ -82,16 +82,16 @@ public class AgentConfigQueryService {
         );
     }
 
-    private AiTenantEntity loadEnabledTenant(String tenantCode) {
-        AiTenantEntity tenant = tenantMapper.selectOne(
-                Wrappers.<AiTenantEntity>lambdaQuery()
+    private SysTenantEntity loadEnabledTenant(String tenantCode) {
+        SysTenantEntity tenant = tenantMapper.selectOne(
+                Wrappers.<SysTenantEntity>lambdaQuery()
                         .select(
-                                AiTenantEntity::getId,
-                                AiTenantEntity::getTenantCode,
-                                AiTenantEntity::getStatus
+                                SysTenantEntity::getId,
+                                SysTenantEntity::getTenantCode,
+                                SysTenantEntity::getStatus
                         )
-                        .eq(AiTenantEntity::getTenantCode, tenantCode)
-                        .eq(AiTenantEntity::getStatus, ENABLED)
+                        .eq(SysTenantEntity::getTenantCode, tenantCode)
+                        .eq(SysTenantEntity::getStatus, ENABLED)
                         .last("LIMIT 1")
         );
 

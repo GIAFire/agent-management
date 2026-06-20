@@ -1,6 +1,6 @@
 package com.zw.agent.service;
 
-import com.zw.agent.entity.AiTenantEntity;
+import com.zw.agent.entity.SysTenantEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 /**
@@ -11,6 +11,6 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * @author 
  * @since 2026-06-20
  */
-public interface AiTenantService extends IService<AiTenantEntity> {
+public interface SysTenantService extends IService<SysTenantEntity> {
 
 }

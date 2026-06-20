@@ -1,8 +1,8 @@
 package com.zw.agent.service.impl;
 
-import com.zw.agent.entity.AiTenantEntity;
-import com.zw.agent.mapper.AiTenantMapper;
-import com.zw.agent.service.AiTenantService;
+import com.zw.agent.entity.SysTenantEntity;
+import com.zw.agent.mapper.SysTenantMapper;
+import com.zw.agent.service.SysTenantService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +15,6 @@ import org.springframework.stereotype.Service;
  * @since 2026-06-20
  */
 @Service
-public class AiTenantServiceImpl extends ServiceImpl<AiTenantMapper, AiTenantEntity> implements AiTenantService {
+public class SysTenantServiceImpl extends ServiceImpl<SysTenantMapper, SysTenantEntity> implements SysTenantService {
 
 }

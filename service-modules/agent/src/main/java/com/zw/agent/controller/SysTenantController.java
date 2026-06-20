@@ -2,8 +2,8 @@ package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zw.agent.entity.AiTenantEntity;
-import com.zw.agent.service.AiTenantService;
+import com.zw.agent.entity.SysTenantEntity;
+import com.zw.agent.service.SysTenantService;
 import com.zw.common.entity.Result;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -20,16 +20,16 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/tenant")
 @AllArgsConstructor
-public class AiTenantController {
-    private final AiTenantService aiTenantService;
+public class SysTenantController {
+    private final SysTenantService aiTenantService;
 
     @GetMapping("/list")
-    public Result<List<AiTenantEntity>> list() {
+    public Result<List<SysTenantEntity>> list() {
         return Result.ok(aiTenantService.list());
     }
 
     @GetMapping("/page")
-    public Result<IPage<AiTenantEntity>> page(
+    public Result<IPage<SysTenantEntity>> page(
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size
     ) {
@@ -37,17 +37,17 @@ public class AiTenantController {
     }
 
     @GetMapping("/{id}")
-    public Result<AiTenantEntity> getById(@PathVariable Long id) {
+    public Result<SysTenantEntity> getById(@PathVariable Long id) {
         return Result.ok(aiTenantService.getById(id));
     }
 
     @PostMapping
-    public Result<Boolean> create(@RequestBody AiTenantEntity entity) {
+    public Result<Boolean> create(@RequestBody SysTenantEntity entity) {
         return Result.ok(aiTenantService.save(entity));
     }
 
     @PutMapping
-    public Result<Boolean> update(@RequestBody AiTenantEntity entity) {
+    public Result<Boolean> update(@RequestBody SysTenantEntity entity) {
         return Result.ok(aiTenantService.updateById(entity));
     }
 

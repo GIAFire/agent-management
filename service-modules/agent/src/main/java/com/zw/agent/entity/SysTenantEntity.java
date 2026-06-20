@@ -2,14 +2,12 @@ package com.zw.agent.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
 import com.fasterxml.jackson.annotation.JsonFormat;
-import com.zw.common.entity.BaseEntity;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Date;
 
 /**
  * <p>
@@ -23,7 +21,7 @@ import java.util.Date;
 @Setter
 @Accessors(chain = true)
 @TableName("ai_tenant")
-public class AiTenantEntity implements Serializable {
+public class SysTenantEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

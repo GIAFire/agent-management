@@ -3,10 +3,12 @@ package com.zw.agent.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiModelConfigEntity;
+import com.zw.agent.entity.vo.AiModelConfigVO;
 import com.zw.agent.service.AiModelConfigService;
 import com.zw.common.entity.Result;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -25,7 +27,8 @@ public class AiModelConfigController {
 
     @GetMapping("/list")
     public Result<List<AiModelConfigEntity>> list() {
-        return Result.ok(aiModelConfigService.list());
+        aiModelConfigService.list();
+        return Result.ok();
     }
 
     @GetMapping("/page")
@@ -41,8 +44,11 @@ public class AiModelConfigController {
         return Result.ok(aiModelConfigService.getById(id));
     }
 
-    @PostMapping
-    public Result<Boolean> create(@RequestBody AiModelConfigEntity entity) {
+    @PostMapping("/save")
+    public Result<Boolean> save(@RequestBody AiModelConfigVO entity) {
+        AiModelConfigEntity modelConfigEntity = new AiModelConfigEntity();
+//        BeanUtils.copyProperties(entity, modelConfigEntity);
+
         return Result.ok(aiModelConfigService.save(entity));
     }
 
