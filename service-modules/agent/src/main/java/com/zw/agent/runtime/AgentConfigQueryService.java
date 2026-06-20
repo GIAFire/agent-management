@@ -51,34 +51,34 @@ public class AgentConfigQueryService {
         // 查询租户信息、Agent定义、Agent配置信息和模型配置
         SysTenantEntity tenant = loadEnabledTenant(tenantCode);
         AiAgentEntity agent = loadEnabledAgentDefinition(tenant.getId(), agentId);
-        AiAgentConfigEntity agentVersion = loadPublishedAgentVersion(
+        AiAgentConfigEntity AgentConfig = loadPublishedAgentVersion(
                 tenant.getId(),
                 agent.getId(),
                 agent.getAgentConfigId()
         );
         AiModelConfigEntity modelConfig = loadEnabledModelConfig(
                 tenant.getId(),
-                agentVersion.getModelConfigId()
+                AgentConfig.getModelConfigId()
         );
 
         // 从JSON配置中提取工作空间路径，若未配置则使用默认路径
         String workspacePath = readText(
-                agentVersion.getWorkspaceConfigJson(),
-                defaultWorkspacePath(tenantCode, agentId, agentVersion.getId()),
+                AgentConfig.getWorkspaceConfigJson(),
+                defaultWorkspacePath(tenantCode, agentId, AgentConfig.getId()),
                 "workspacePath",
                 "path"
         );
 
         // 从JSON配置中提取消息压缩触发阈值和保留数量
         int compactionTriggerMessages = readInt(
-                agentVersion.getCompactionConfigJson(),
+                AgentConfig.getCompactionConfigJson(),
                 20,
                 "triggerMessages",
                 "compactionTriggerMessages"
         );
 
         int compactionKeepMessages = readInt(
-                agentVersion.getCompactionConfigJson(),
+                AgentConfig.getCompactionConfigJson(),
                 8,
                 "keepMessages",
                 "compactionKeepMessages"
@@ -87,9 +87,9 @@ public class AgentConfigQueryService {
         return new AgentRuntimeConfig(
                 tenant.getId(),
                 agent.getId(),
-                agentVersion.getId(),
+                AgentConfig.getId(),
                 agent.getAgentName(),
-                agentVersion.getSysPrompt(),
+                AgentConfig.getSysPrompt(),
                 modelConfig.getProvider(),
                 modelConfig.getModelName(),
                 workspacePath,
@@ -168,16 +168,16 @@ public class AgentConfigQueryService {
      *
      * @param tenantId 租户ID，用于限定查询范围
      * @param agentId Agent ID，用于定位具体的Agent
-     * @param currentVersionId 当前版本ID，用于查询具体的版本记录
+     * @param agentConfigId 当前版本ID，用于查询具体的版本记录
      * @return Agent版本实体对象，包含系统提示词、模型配置ID、压缩配置JSON、工作空间配置JSON等
      * @throws AgentConfigException 当版本不存在或状态为非发布时抛出异常
      */
     private AiAgentConfigEntity loadPublishedAgentVersion(
             Long tenantId,
             Long agentId,
-            Long currentVersionId
+            Long agentConfigId
     ) {
-        AiAgentConfigEntity agentVersion = agentVersionMapper.selectOne(
+        AiAgentConfigEntity agentConfig = agentVersionMapper.selectOne(
                 Wrappers.<AiAgentConfigEntity>lambdaQuery()
                         .select(
                                 AiAgentConfigEntity::getId,
@@ -191,16 +191,16 @@ public class AgentConfigQueryService {
                         )
                         .eq(AiAgentConfigEntity::getTenantId, tenantId)
                         .eq(AiAgentConfigEntity::getAgentId, agentId)
-                        .eq(AiAgentConfigEntity::getId, currentVersionId)
+                        .eq(AiAgentConfigEntity::getId, agentConfigId)
                         .eq(AiAgentConfigEntity::getPublishStatus, PUBLISHED)
                         .last("LIMIT 1")
         );
 
-        if (agentVersion == null) {
-            throw new AgentConfigException("Agent 当前配置不存在或未启用: " + currentVersionId);
+        if (agentConfig == null) {
+            throw new AgentConfigException("Agent 当前配置不存在或未启用: " + agentConfigId);
         }
 
-        return agentVersion;
+        return agentConfig;
     }
 
     /**

@@ -3,7 +3,7 @@ package com.zw.agent.runtime;
 public record AgentRuntimeConfig(
         Long tenantId,
         Long agentId,
-        Long versionNo,
+        Long configId,
         String agentName,
         String sysPrompt,
         String provider,

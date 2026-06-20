@@ -32,8 +32,7 @@ public class AgentRuntimeFactory {
      * @return 构建好的HarnessAgent实例，如果是首次请求则创建新实例，否则返回缓存中的实例
      */
     public HarnessAgent getOrCreate(AgentRuntimeConfig config) {
-//        String cacheKey = config.tenantId() + ":" + config.agentId() + ":" + config.versionNo();
-        String cacheKey = config.tenantId() + ":" + config.agentId();
+        String cacheKey = config.tenantId() + ":" + config.agentId() + ":" + config.configId();
         return cache.computeIfAbsent(cacheKey, key ->
                 HarnessAgent.builder()
                         .name(config.agentName())
