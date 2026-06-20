@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.Date;
 
 /**
@@ -14,19 +15,18 @@ import java.util.Date;
  */
 @Data
 public class BaseEntity implements Serializable {
+
     private static final long serialVersionUID = 1L;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private Date createTime;
-
-    private Long createdAt;
+    private LocalDateTime createdAt;
 
     private Long updateBy;
 
     private Long createdBy;
 
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private Date updatedAt;
+    private LocalDateTime updatedAt;
 
     private Long tenantId;
 

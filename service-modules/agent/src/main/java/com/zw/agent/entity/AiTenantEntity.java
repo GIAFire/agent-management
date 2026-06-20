@@ -1,13 +1,15 @@
 package com.zw.agent.entity;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableField;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.zw.common.entity.BaseEntity;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+
+import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.util.Date;
 
 /**
  * <p>
@@ -21,7 +23,7 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @TableName("ai_tenant")
-public class AiTenantEntity extends BaseEntity {
+public class AiTenantEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -60,5 +62,20 @@ public class AiTenantEntity extends BaseEntity {
      */
     @TableField("remark")
     private String remark;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime createdAt;
+
+    private Long updateBy;
+
+    private Long createdBy;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private LocalDateTime updatedAt;
+
+    private Integer deleted;
+
+    @Version
+    private Integer version;
 
 }

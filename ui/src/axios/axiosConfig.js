@@ -1,6 +1,6 @@
 export const config = {
-    baseURL: '',
-    timeout: 10000
+  baseURL: '/agent-api',
+  timeout: 10000
 }
 
 export default config

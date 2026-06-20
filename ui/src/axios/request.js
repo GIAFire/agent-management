@@ -1,25 +1,74 @@
-import config from '@/axios/axiosConfig' // 导入 axios 配置文件
-import { useUserStore } from '@/stores/user.js'
-import {request} from "axios"; // 导入用户状态管理 store
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import config from '@/axios/axiosConfig'
 
-const userStore = useUserStore()
-export const BASE_URL = config.baseURL // 导出基础 URL 常量
-const TIMEOUT = config.timeout // 定义请求超时常量
+export const BASE_URL = config.baseURL
 
-export const get = (url, data = {}) => { // 导出 GET 请求方法
-	return request(url, 'GET', data) // 调用通用请求函数，方法为 GET
+const service = axios.create({
+  baseURL: config.baseURL,
+  timeout: config.timeout
+})
+
+service.interceptors.request.use(
+  (requestConfig) => requestConfig,
+  (error) => Promise.reject(error)
+)
+
+service.interceptors.response.use(
+  (response) => {
+    const body = response.data
+
+    if (body && Object.prototype.hasOwnProperty.call(body, 'code')) {
+      if (body.code !== 200) {
+        ElMessage.error(body.msg || '接口请求失败')
+        return Promise.reject(new Error(body.msg || '接口请求失败'))
+      }
+
+      return body.data
+    }
+
+    return body
+  },
+  (error) => {
+    const errorData = error.response?.data
+    const message = errorData?.msg || errorData?.error || error.message || '网络请求异常'
+    ElMessage.error(message)
+    return Promise.reject(error)
+  }
+)
+
+export const request = (options) => service(options)
+
+export const get = (url, params = {}) => {
+  return service({
+    url,
+    method: 'get',
+    params
+  })
 }
 
-export const post = (url, data = {}) => { // 导出 POST 请求方法
-	return request(url, 'POST', data) // 调用通用请求函数，方法为 POST
+export const post = (url, data = {}) => {
+  return service({
+    url,
+    method: 'post',
+    data
+  })
 }
 
-export const put = (url, data = {}) => { // 导出 PUT 请求方法
-	return request(url, 'PUT', data) // 调用通用请求函数，方法为 PUT
+export const put = (url, data = {}) => {
+  return service({
+    url,
+    method: 'put',
+    data
+  })
 }
 
-export const del = (url, data = {}) => { // 导出 DELETE 请求方法
-	return request(url, 'DELETE', data) // 调用通用请求函数，方法为 DELETE
+export const del = (url, params = {}) => {
+  return service({
+    url,
+    method: 'delete',
+    params
+  })
 }
 
-export { config } // 导出配置对象
+export { config }
