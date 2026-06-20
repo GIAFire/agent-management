@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("ai_tenant")
+@TableName("sys_tenant")
 public class SysTenantEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;

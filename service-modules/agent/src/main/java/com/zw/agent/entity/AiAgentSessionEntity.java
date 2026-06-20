@@ -52,7 +52,7 @@ public class AiAgentSessionEntity extends BaseEntity {
     private Long userId;
 
     /**
-     * 传给 AgentScope RuntimeContext 的 userId，建议 tenantCode:userId
+     * 传给 AgentScope RuntimeContext 的 userId，需要使用跨平台文件名安全格式
      */
     @TableField("runtime_user_key")
     private String runtimeUserKey;

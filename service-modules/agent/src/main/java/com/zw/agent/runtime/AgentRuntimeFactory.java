@@ -64,9 +64,8 @@ public class AgentRuntimeFactory {
         HarnessAgent agent = getOrCreate(config);
 
         RuntimeContext context = RuntimeContext.builder()
-                // TODO userID拼成租户ID:用户ID,后续方便Redis/MySQL/OSS天然租户隔离
-                .userId(runtimeUserKey)
-                .sessionId(sessionKey)
+                .userId(AgentRuntimeKeys.pathSafeSegment(runtimeUserKey, "anonymous"))
+                .sessionId(AgentRuntimeKeys.sessionKey(sessionKey))
                 .build();
 
         return agent.call(new UserMessage(text), context)

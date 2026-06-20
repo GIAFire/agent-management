@@ -3,13 +3,14 @@ package com.zw.agent.controller;
 import com.zw.agent.runtime.AgentConfigQueryService;
 import com.zw.agent.runtime.AgentRuntimeConfig;
 import com.zw.agent.runtime.AgentRuntimeFactory;
+import com.zw.agent.runtime.AgentRuntimeKeys;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
 @AllArgsConstructor
 @RestController
-@RequestMapping("/api/agents")
+@RequestMapping("/chat")
 public class AgentChatController {
 
     private final AgentRuntimeFactory agentRuntimeFactory;
@@ -26,7 +27,7 @@ public class AgentChatController {
     ) {
         AgentRuntimeConfig config = agentConfigQueryService.loadPublishedConfig(tenantCode, agentId);
 
-        String runtimeUserKey = tenantCode + ":" + userId;
+        String runtimeUserKey = AgentRuntimeKeys.userKey(tenantCode, userId);
 
         return agentRuntimeFactory
                 .call(config, runtimeUserKey, sessionKey, request.content())
