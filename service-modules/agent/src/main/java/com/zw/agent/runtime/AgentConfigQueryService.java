@@ -18,10 +18,9 @@ public class AgentConfigQueryService {
     private static final int PUBLISHED = 1;
 
     private final SysTenantMapper tenantMapper;
-    private final AiAgentDefinitionMapper agentDefinitionMapper;
+    private final AiAgentMapper agentDefinitionMapper;
     private final AiAgentVersionMapper agentVersionMapper;
     private final AiModelConfigMapper modelConfigMapper;
-    private final AiLlmCredentialMapper llmCredentialMapper;
     private ObjectMapper objectMapper;
 
 
@@ -34,7 +33,7 @@ public class AgentConfigQueryService {
         }
 
         SysTenantEntity tenant = loadEnabledTenant(tenantCode);
-        AiAgentDefinitionEntity agentDefinition = loadEnabledAgentDefinition(tenant.getId(), agentId);
+        AiAgentEntity agentDefinition = loadEnabledAgentDefinition(tenant.getId(), agentId);
         AiAgentVersionEntity agentVersion = loadPublishedAgentVersion(
                 tenant.getId(),
                 agentDefinition.getId(),
@@ -44,8 +43,6 @@ public class AgentConfigQueryService {
                 tenant.getId(),
                 agentVersion.getModelConfigId()
         );
-
-        validateCredentialIfNecessary(tenant.getId(), modelConfig);
 
         String workspacePath = readText(
                 agentVersion.getWorkspaceConfigJson(),
@@ -102,19 +99,19 @@ public class AgentConfigQueryService {
         return tenant;
     }
 
-    private AiAgentDefinitionEntity loadEnabledAgentDefinition(Long tenantId, Long agentId) {
-        AiAgentDefinitionEntity agentDefinition = agentDefinitionMapper.selectOne(
-                Wrappers.<AiAgentDefinitionEntity>lambdaQuery()
+    private AiAgentEntity loadEnabledAgentDefinition(Long tenantId, Long agentId) {
+        AiAgentEntity agentDefinition = agentDefinitionMapper.selectOne(
+                Wrappers.<AiAgentEntity>lambdaQuery()
                         .select(
-                                AiAgentDefinitionEntity::getId,
-                                AiAgentDefinitionEntity::getTenantId,
-                                AiAgentDefinitionEntity::getAgentName,
-                                AiAgentDefinitionEntity::getCurrentVersionId,
-                                AiAgentDefinitionEntity::getStatus
+                                AiAgentEntity::getId,
+                                AiAgentEntity::getTenantId,
+                                AiAgentEntity::getAgentName,
+                                AiAgentEntity::getCurrentVersionId,
+                                AiAgentEntity::getStatus
                         )
-                        .eq(AiAgentDefinitionEntity::getTenantId, tenantId)
-                        .eq(AiAgentDefinitionEntity::getId, agentId)
-                        .eq(AiAgentDefinitionEntity::getStatus, ENABLED)
+                        .eq(AiAgentEntity::getTenantId, tenantId)
+                        .eq(AiAgentEntity::getId, agentId)
+                        .eq(AiAgentEntity::getStatus, ENABLED)
                         .last("LIMIT 1")
         );
 
@@ -170,7 +167,8 @@ public class AgentConfigQueryService {
                         .select(
                                 AiModelConfigEntity::getId,
                                 AiModelConfigEntity::getTenantId,
-                                AiModelConfigEntity::getCredentialId,
+                                AiModelConfigEntity::getBaseURL,
+                                AiModelConfigEntity::getApiKeyCipher,
                                 AiModelConfigEntity::getProvider,
                                 AiModelConfigEntity::getModelName,
                                 AiModelConfigEntity::getStatus
@@ -194,42 +192,6 @@ public class AgentConfigQueryService {
         }
 
         return modelConfig;
-    }
-
-    private void validateCredentialIfNecessary(Long tenantId, AiModelConfigEntity modelConfig) {
-        Long credentialId = modelConfig.getCredentialId();
-
-        // Ollama、本地模型或者平台内置模型，credential_id 可以为空
-        if (credentialId == null) {
-            return;
-        }
-
-        AiLlmCredentialEntity credential = llmCredentialMapper.selectOne(
-                Wrappers.<AiLlmCredentialEntity>lambdaQuery()
-                        .select(
-                                AiLlmCredentialEntity::getId,
-                                AiLlmCredentialEntity::getTenantId,
-                                AiLlmCredentialEntity::getProvider,
-                                AiLlmCredentialEntity::getStatus
-                        )
-                        .eq(AiLlmCredentialEntity::getTenantId, tenantId)
-                        .eq(AiLlmCredentialEntity::getId, credentialId)
-                        .eq(AiLlmCredentialEntity::getStatus, ENABLED)
-                        .last("LIMIT 1")
-        );
-
-        if (credential == null) {
-            throw new AgentConfigException("模型凭证不存在或已停用: " + credentialId);
-        }
-
-        if (!modelConfig.getProvider().equalsIgnoreCase(credential.getProvider())) {
-            throw new AgentConfigException(
-                    "模型配置 provider 与凭证 provider 不一致，modelConfigId="
-                            + modelConfig.getId()
-                            + ", credentialId="
-                            + credentialId
-            );
-        }
     }
 
     private String defaultWorkspacePath(String tenantCode, Long agentId, Long versionId) {

@@ -20,8 +20,8 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("ai_agent_definition")
-public class AiAgentDefinitionEntity extends BaseEntity {
+@TableName("ai_agent")
+public class AiAgentEntity extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
 
@@ -48,12 +48,6 @@ public class AiAgentDefinitionEntity extends BaseEntity {
      */
     @TableField("description")
     private String description;
-
-    /**
-     * Agent 头像URL
-     */
-    @TableField("avatar_url")
-    private String avatarUrl;
 
     /**
      * Agent 类型：HARNESS 或 REACT；平台默认 HARNESS

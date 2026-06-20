@@ -27,8 +27,8 @@ public class AiModelConfigController {
 
     @GetMapping("/list")
     public Result<List<AiModelConfigEntity>> list() {
-        aiModelConfigService.list();
-        return Result.ok();
+
+        return Result.ok(aiModelConfigService.list());
     }
 
     @GetMapping("/page")
@@ -46,9 +46,7 @@ public class AiModelConfigController {
 
     @PostMapping("/save")
     public Result<Boolean> save(@RequestBody AiModelConfigVO entity) {
-        AiModelConfigEntity modelConfigEntity = new AiModelConfigEntity();
 //        BeanUtils.copyProperties(entity, modelConfigEntity);
-
         return Result.ok(aiModelConfigService.save(entity));
     }
 

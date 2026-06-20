@@ -34,22 +34,23 @@ public class AiModelConfigEntity extends BaseEntity {
     private Long id;
 
     /**
-     * 关联 ai_llm_credential.id；Ollama 等本地模型可为空
-     */
-    @TableField("credential_id")
-    private Long credentialId;
-
-    /**
-     * 平台内模型别名，例如 qwen-plus-prod
-     */
-    @TableField("model_alias")
-    private String modelAlias;
-
-    /**
      * 模型供应商
      */
     @TableField("provider")
     private String provider;
+
+    /**
+     * apiUrl
+     */
+    @TableField("base_URL")
+    private String baseURL;
+
+    /**
+     * apiKey密文
+     */
+    @TableField("api_key_cipher")
+    private String apiKeyCipher;
+
 
     /**
      * 真实模型名称，例如 qwen-plus、gpt-4.1、claude-sonnet-4-5

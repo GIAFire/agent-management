@@ -15,7 +15,7 @@ export const getModelConfig = (id) => {
 }
 
 export const addModelConfig = (data) => {
-  return post(baseUrl, data)
+  return post(`${baseUrl}/save`, data)
 }
 
 export const updateModelConfig = (data) => {
