@@ -1,7 +1,7 @@
 package com.zw.agent.entity;
 
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.zw.entity.BaseEntity;
+import com.zw.common.entity.BaseEntity;
 import lombok.Data;
 
 @Data

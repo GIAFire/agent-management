@@ -1,7 +1,7 @@
-package com.zw.entity;
+package com.zw.common.entity;
 
 
-import com.zw.constant.HttpStatus;
+import com.zw.common.constant.HttpStatus;
 
 import java.io.Serializable;
 
