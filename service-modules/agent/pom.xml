@@ -25,6 +25,18 @@
             <artifactId>agentscope-harness</artifactId>
             <version>${agentscope.version}</version>
         </dependency>
+
+        <!-- Spring Boot 4 MVC API -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webmvc</artifactId>
+        </dependency>
+
+        <!-- SSE / Flux 支持 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-reactor-netty</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

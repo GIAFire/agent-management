@@ -19,12 +19,14 @@ public class BaseEntity implements Serializable {
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private Date createTime;
 
-    private Long createBy;
+    private Long createdAt;
 
     private Long updateBy;
 
+    private Long createdBy;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private Date updateTime;
+    private Date updatedAt;
 
     private Long tenantId;
 

@@ -1,0 +1,65 @@
+package com.zw.agent.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.zw.entity.BaseEntity;
+import java.io.Serializable;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.experimental.Accessors;
+
+/**
+ * <p>
+ * 租户表：平台多租户隔离的根表
+ * </p>
+ *
+ * @author 
+ * @since 2026-06-20
+ */
+@Getter
+@Setter
+@Accessors(chain = true)
+@TableName("ai_tenant")
+public class AiTenantEntity extends BaseEntity {
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 租户主键ID
+     */
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
+
+    /**
+     * 租户唯一编码，用于接口、Nacos namespace、日志隔离
+     */
+    @TableField("tenant_code")
+    private String tenantCode;
+
+    /**
+     * 租户名称
+     */
+    @TableField("tenant_name")
+    private String tenantName;
+
+    /**
+     * 租户状态：1启用，0停用
+     */
+    @TableField("status")
+    private Byte status;
+
+    /**
+     * 租户对应的 Nacos 命名空间ID，用于 Agent/Skill 隔离
+     */
+    @TableField("nacos_namespace_id")
+    private String nacosNamespaceId;
+
+    /**
+     * 租户备注
+     */
+    @TableField("remark")
+    private String remark;
+
+}

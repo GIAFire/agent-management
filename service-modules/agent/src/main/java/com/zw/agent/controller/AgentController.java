@@ -1,13 +1,12 @@
 package com.zw.agent.controller;
 
-import com.zw.agent.entity.AgentEntity;
+import com.zw.agent.runtime.AgentConfigQueryService;
+import com.zw.agent.runtime.AgentRuntimeConfig;
+import com.zw.agent.runtime.AgentRuntimeFactory;
 import com.zw.agent.service.impl.AgentServiceImpl;
-import com.zw.entity.Result;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
-import java.util.UUID;
+import reactor.core.publisher.Mono;
 
 @AllArgsConstructor
 @RestController
@@ -15,9 +14,29 @@ import java.util.UUID;
 public class AgentController {
     private final AgentServiceImpl agentService;
 
-    @GetMapping("/{agentId}")
-    public Result getAgent(@PathVariable String agentId) {
-        AgentEntity byId = agentService.getById(agentId);
-        return Result.ok(byId);
+    private final AgentRuntimeFactory agentRuntimeFactory;
+    private final AgentConfigQueryService agentConfigQueryService;
+
+    @PostMapping("/{agentId}/sessions/{sessionKey}/messages")
+    public Mono<AgentChatResponse> chat(
+            @RequestHeader("X-Tenant-Code") String tenantCode,
+            @RequestHeader("X-User-Id") Long userId,
+            @PathVariable Long agentId,
+            @PathVariable String sessionKey,
+            @RequestBody AgentChatRequest request
+    ) {
+        AgentRuntimeConfig config = agentConfigQueryService.loadPublishedConfig(tenantCode, agentId);
+
+        String runtimeUserKey = tenantCode + ":" + userId;
+
+        return agentRuntimeFactory
+                .call(config, runtimeUserKey, sessionKey, request.content())
+                .map(AgentChatResponse::new);
+    }
+
+    public record AgentChatRequest(String content) {
+    }
+
+    public record AgentChatResponse(String content) {
     }
 }
