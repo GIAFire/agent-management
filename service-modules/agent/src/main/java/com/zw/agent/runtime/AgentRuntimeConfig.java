@@ -8,6 +8,8 @@ public record AgentRuntimeConfig(
         String sysPrompt,
         String provider,
         String modelName,
+        String baseURL,
+        String apiKey,
         String workspacePath,
         int compactionTriggerMessages,
         int compactionKeepMessages

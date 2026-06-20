@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.zw.agent.entity.*;
 import com.zw.agent.exception.AgentConfigException;
 import com.zw.agent.mapper.*;
+import com.zw.common.utils.AESUtil;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -92,6 +93,8 @@ public class AgentConfigQueryService {
                 AgentConfig.getSysPrompt(),
                 modelConfig.getProvider(),
                 modelConfig.getModelName(),
+                modelConfig.getBaseURL(),
+                modelConfig.getApiKey(),
                 workspacePath,
                 compactionTriggerMessages,
                 compactionKeepMessages
@@ -223,7 +226,7 @@ public class AgentConfigQueryService {
                                 AiModelConfigEntity::getId,
                                 AiModelConfigEntity::getTenantId,
                                 AiModelConfigEntity::getBaseURL,
-                                AiModelConfigEntity::getApiKeyCipher,
+                                AiModelConfigEntity::getApiKey,
                                 AiModelConfigEntity::getProvider,
                                 AiModelConfigEntity::getModelName,
                                 AiModelConfigEntity::getStatus
@@ -245,7 +248,13 @@ public class AgentConfigQueryService {
         if (!StringUtils.hasText(modelConfig.getModelName())) {
             throw new AgentConfigException("模型配置 modelName 不能为空: " + modelConfigId);
         }
-
+        String apiKey = modelConfig.getApiKey();
+        try {
+            String decrypt = AESUtil.decrypt(apiKey);
+            modelConfig.setApiKey(decrypt);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
         return modelConfig;
     }
 

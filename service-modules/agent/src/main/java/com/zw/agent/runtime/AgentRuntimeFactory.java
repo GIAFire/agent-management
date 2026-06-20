@@ -1,7 +1,10 @@
 package com.zw.agent.runtime;
 
 import io.agentscope.core.agent.RuntimeContext;
+import io.agentscope.core.credential.OpenAICredential;
+import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.message.UserMessage;
+import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import org.springframework.stereotype.Component;
@@ -33,11 +36,20 @@ public class AgentRuntimeFactory {
      */
     public HarnessAgent getOrCreate(AgentRuntimeConfig config) {
         String cacheKey = config.tenantId() + ":" + config.agentId() + ":" + config.configId();
+
+        OpenAIChatModel model = OpenAIChatModel.builder()
+                .apiKey(config.apiKey())
+                .modelName(config.modelName())
+                .baseUrl(config.baseURL())
+                .stream(true)
+                .formatter(new OpenAIChatFormatter())
+                .build();
+
         return cache.computeIfAbsent(cacheKey, key ->
                 HarnessAgent.builder()
                         .name(config.agentName())
                         .sysPrompt(config.sysPrompt())
-                        .model(config.provider() + ":" + config.modelName())
+                        .model(model)
                         .workspace(Path.of(config.workspacePath()))
                         .compaction(
                                 CompactionConfig.builder()

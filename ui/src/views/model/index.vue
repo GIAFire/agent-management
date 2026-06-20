@@ -2,6 +2,7 @@
 import {computed, nextTick, onMounted, reactive, ref} from 'vue'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {Delete, Edit, Plus, Refresh, Search} from '@element-plus/icons-vue'
+import ApiKeyCrypto from '@/utils/encryption';
 import {
     addModelConfig,
     deleteModelConfig,
@@ -27,7 +28,7 @@ const queryParams = reactive({
 const form = reactive({
     id: null,
     credentialId: null,
-    apiKeyCipher: '',
+    apiKey: '',
     baseURL: '',
     provider: '',
     modelName: '',
@@ -41,7 +42,7 @@ const form = reactive({
 })
 
 const rules = {
-    apiKeyCipher: [
+    apiKey: [
         {required: true, message: '请输入apiKey', trigger: 'blur'}
     ],
     baseURL: [
@@ -85,7 +86,7 @@ const resetForm = () => {
     Object.assign(form, {
         id: null,
         credentialId: null,
-        apiKeyCipher: '',
+        apiKey: '',
         baseURL: '',
         provider: '',
         modelName: '',
@@ -140,7 +141,7 @@ const handleEdit = async (row) => {
     Object.assign(form, {
         id: data?.id,
         credentialId: data?.credentialId ?? null,
-        apiKeyCipher: data?.apiKeyCipher || '',
+        apiKey: data?.apiKey || '',
         baseURL: data?.baseURL || '',
         provider: data?.provider || '',
         modelName: data?.modelName || '',
@@ -157,11 +158,12 @@ const handleEdit = async (row) => {
     formRef.value?.clearValidate()
 }
 
-const buildPayload = () => {
+const buildPayload = async  () => {
+    const key = await ApiKeyCrypto.encrypt(form.apiKey, ApiKeyCrypto.masterKeyB64key);
     return {
         id: form.id,
         credentialId: normalizeNumber(form.credentialId),
-        apiKeyCipher: form.apiKeyCipher,
+        apiKey: key,
         baseURL: form.baseURL,
         provider: form.provider,
         modelName: form.modelName,
@@ -179,11 +181,12 @@ const submitForm = async () => {
     await formRef.value.validate()
     submitting.value = true
     try {
+        const payload = await buildPayload()
         if (form.id) {
-            await updateModelConfig(buildPayload())
+            await updateModelConfig(payload)
             ElMessage.success('模型配置更新成功')
         } else {
-            await addModelConfig(buildPayload())
+            await addModelConfig(payload)
             ElMessage.success('模型配置新增成功')
         }
 
@@ -266,7 +269,7 @@ onMounted(() => {
                 <el-table-column prop="provider" label="供应商" min-width="120" show-overflow-tooltip/>
                 <el-table-column prop="modelName" label="模型名称" min-width="170" show-overflow-tooltip/>
                 <el-table-column prop="baseURL" label="baseURL" min-width="160" show-overflow-tooltip/>
-                <el-table-column prop="apiKeyCipher" label="apiKey" min-width="160" show-overflow-tooltip/>
+                <el-table-column prop="apiKey" label="apiKey" min-width="160" show-overflow-tooltip/>
                 <el-table-column label="温度" width="90">
                     <template #default="{ row }">
                         {{ formatValue(row.temperature) }}
@@ -332,8 +335,8 @@ onMounted(() => {
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">
-                        <el-form-item label="api_key" prop="apiKeyCipher">
-                            <el-input v-model="form.apiKeyCipher"/>
+                        <el-form-item label="api_key" prop="apiKey">
+                            <el-input v-model="form.apiKey"/>
                         </el-form-item>
                     </el-col>
                     <el-col :span="12">

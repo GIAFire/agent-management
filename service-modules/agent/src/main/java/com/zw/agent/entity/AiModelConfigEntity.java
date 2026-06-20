@@ -48,8 +48,8 @@ public class AiModelConfigEntity extends BaseEntity {
     /**
      * apiKey密文
      */
-    @TableField("api_key_cipher")
-    private String apiKeyCipher;
+    @TableField("api_key")
+    private String apiKey;
 
 
     /**

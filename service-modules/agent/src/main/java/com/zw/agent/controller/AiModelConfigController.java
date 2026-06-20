@@ -45,7 +45,7 @@ public class AiModelConfigController {
     }
 
     @PostMapping("/save")
-    public Result<Boolean> save(@RequestBody AiModelConfigVO entity) {
+    public Result<Boolean> save(@RequestBody AiModelConfigEntity entity) {
 //        BeanUtils.copyProperties(entity, modelConfigEntity);
         return Result.ok(aiModelConfigService.save(entity));
     }

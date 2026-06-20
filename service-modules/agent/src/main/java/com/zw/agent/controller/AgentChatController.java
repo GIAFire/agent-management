@@ -26,7 +26,6 @@ public class AgentChatController {
             @RequestBody AgentChatRequest request
     ) {
         AgentRuntimeConfig config = agentConfigQueryService.loadPublishedConfig(tenantCode, agentId);
-
         String runtimeUserKey = AgentRuntimeKeys.userKey(tenantCode, userId);
 
         return agentRuntimeFactory
