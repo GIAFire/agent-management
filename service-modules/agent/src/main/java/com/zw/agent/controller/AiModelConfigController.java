@@ -1,7 +1,13 @@
 package com.zw.agent.controller;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zw.agent.entity.AiModelConfigEntity;
+import com.zw.agent.service.AiModelConfigService;
+import com.zw.common.entity.Result;
+import java.util.List;
+import lombok.AllArgsConstructor;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * <p>
@@ -12,7 +18,42 @@ import org.springframework.web.bind.annotation.RestController;
  * @since 2026-06-20
  */
 @RestController
-@RequestMapping("/ai-model-config-entity")
+@RequestMapping("/modelConfig")
+@AllArgsConstructor
 public class AiModelConfigController {
+    private final AiModelConfigService aiModelConfigService;
+
+    @GetMapping("/list")
+    public Result<List<AiModelConfigEntity>> list() {
+        return Result.ok(aiModelConfigService.list());
+    }
+
+    @GetMapping("/page")
+    public Result<IPage<AiModelConfigEntity>> page(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size
+    ) {
+        return Result.ok(aiModelConfigService.page(new Page<>(current, size)));
+    }
+
+    @GetMapping("/{id}")
+    public Result<AiModelConfigEntity> getById(@PathVariable Long id) {
+        return Result.ok(aiModelConfigService.getById(id));
+    }
+
+    @PostMapping
+    public Result<Boolean> create(@RequestBody AiModelConfigEntity entity) {
+        return Result.ok(aiModelConfigService.save(entity));
+    }
+
+    @PutMapping
+    public Result<Boolean> update(@RequestBody AiModelConfigEntity entity) {
+        return Result.ok(aiModelConfigService.updateById(entity));
+    }
+
+    @DeleteMapping("/{id}")
+    public Result<Boolean> delete(@PathVariable Long id) {
+        return Result.ok(aiModelConfigService.removeById(id));
+    }
 
 }

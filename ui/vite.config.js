@@ -11,8 +11,8 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0',
     proxy: {
-      '/agent': {
-        target: 'http://localhost:8080',
+      '/agent-api': {
+        target: 'http://localhost:8081',
         changeOrigin: true
       },
     }
