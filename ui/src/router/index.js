@@ -1,23 +1,17 @@
-import {createRouter, createWebHistory} from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
+import { adminRoutes } from './modules/admin'
 
 const routes = [
+  ...adminRoutes,
   {
-    path: '/',
-    component: () => import('@/views/index/index.vue')
-  },
-  {
-    path: '/index',
-    component: () => import('@/views/index/index.vue')
-  },
-  {
-    path: '/login',
-    component: () => import('@/views/login.vue')
-  },
+    path: '/:pathMatch(.*)*',
+    redirect: '/agent/manage'
+  }
 ]
 
 const router = createRouter({
-  history: createWebHistory('/agentScope/'),
-  routes: routes,
+  history: createWebHistory(),
+  routes
 })
 
 export default router
