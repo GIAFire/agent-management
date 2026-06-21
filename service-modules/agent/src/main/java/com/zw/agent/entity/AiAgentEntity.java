@@ -56,12 +56,6 @@ public class AiAgentEntity extends BaseEntity {
     private String agentType;
 
     /**
-     * 当前发布版本ID，关联 agent_config_id.id
-     */
-    @TableField("agent_config_id")
-    private Long agentConfigId;
-
-    /**
      * 状态：1启用，0停用，2草稿
      */
     @TableField("status")

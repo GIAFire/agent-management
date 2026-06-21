@@ -1,9 +1,11 @@
 package com.zw.agent.service.impl;
 
 import com.zw.agent.entity.AiAgentEntity;
+import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.mapper.AiAgentMapper;
 import com.zw.agent.service.AiAgentService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -17,4 +19,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity> implements AiAgentService {
 
+    @Autowired
+    private AiAgentMapper aiAgentMapper;
+    @Override
+    public AgentConfigDTO getAgentFullInfo(Long agentId, Long tenantId) {
+        return aiAgentMapper.getAgentFullInfo(agentId, tenantId);
+    }
 }

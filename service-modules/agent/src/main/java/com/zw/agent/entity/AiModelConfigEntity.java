@@ -34,6 +34,12 @@ public class AiModelConfigEntity extends BaseEntity {
     private Long id;
 
     /**
+     * 模型配置主键ID
+     */
+    @TableField("agent_id")
+    private Long agentId;
+
+    /**
      * 模型供应商
      */
     @TableField("provider")

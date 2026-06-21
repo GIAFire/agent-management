@@ -2,6 +2,7 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiAgentEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.entity.DTO.AgentConfigDTO;
 
 /**
  * <p>
@@ -13,4 +14,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiAgentService extends IService<AiAgentEntity> {
 
+    AgentConfigDTO getAgentFullInfo(Long agentId, Long tenantId);
 }

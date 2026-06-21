@@ -1,8 +1,8 @@
 package com.zw.agent.controller;
 
+import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentChatRequest;
-import com.zw.agent.runtime.AgentConfigQueryService;
-import com.zw.agent.runtime.AgentRuntimeConfig;
+import com.zw.agent.runtime.AgentFullConfigService;
 import com.zw.agent.runtime.AgentRuntimeFactory;
 import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
@@ -16,14 +16,14 @@ import reactor.core.publisher.Mono;
 public class AgentChatController {
 
     private final AgentRuntimeFactory agentRuntimeFactory;
-    private final AgentConfigQueryService agentConfigQueryService;
+    private final AgentFullConfigService agentFullConfigService;
 
 
     @PostMapping("/messages")
     public Mono<AgentChatResponse> chat(@RequestBody AgentChatRequest request) {
         UserInfo userInfo = UserContext.get();
         // 获取运行时配置
-        AgentRuntimeConfig config = agentConfigQueryService.loadPublishedConfig(userInfo.getTenantId(), request.getAgentId());
+        AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(userInfo.getTenantId(), request.getAgentId());
         String runtimeUserKey = userInfo.getTenantId().toString()+userInfo.getUserId().toString();
 
         return agentRuntimeFactory

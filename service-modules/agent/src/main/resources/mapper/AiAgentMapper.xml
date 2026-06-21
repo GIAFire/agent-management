@@ -1,7 +1,97 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiAgentMapper">
-    <resultMap id="BaseResultMap" type="com.zw.agent.entity.AiAgentEntity">
+    <!-- 定义结果映射 -->
+    <resultMap id="AgentFullResultMap" type="com.zw.agent.entity.DTO.AgentConfigDTO">
+        <!-- Agent 字段映射 -->
+        <result property="agentId" column="agent_id"/>
+        <result property="agentIdentifier" column="agent_identifier"/>
+        <result property="agentKey" column="agent_key"/>
+        <result property="agentName" column="agent_name"/>
+        <result property="agentDescription" column="agent_description"/>
+        <result property="agentAvatarUrl" column="agent_avatar_url"/>
+        <result property="agentType" column="agent_type"/>
+        <result property="agentStatus" column="agent_status"/>
+
+        <!-- Tenant 字段映射 -->
+        <result property="tenantId" column="tenant_id"/>
+        <result property="tenantName" column="tenant_name"/>
+        <result property="tenantStatus" column="tenant_status"/>
+        <result property="tenantNacosNamespaceId" column="tenant_nacos_namespace_id"/>
+        <result property="tenantRemark" column="tenant_remark"/>
+
+        <!-- AgentConfig 字段映射 -->
+        <result property="agentConfigId" column="agent_config_id"/>
+        <result property="sysPrompt" column="sys_prompt"/>
+        <result property="modelConfigId" column="model_config_id"/>
+        <result property="maxIters" column="max_iters"/>
+        <result property="compactionConfigJson" column="compaction_config_json"/>
+        <result property="workspaceConfigJson" column="workspace_config_json"/>
+        <result property="permissionMode" column="permission_mode"/>
+        <result property="visualSchemaJson" column="visual_schema_json"/>
+        <result property="publishStatus" column="publish_status"/>
+        <result property="publishedAt" column="published_at"/>
+
+        <!-- ModelConfig 字段映射 -->
+        <result property="modelId" column="model_id"/>
+        <result property="provider" column="provider"/>
+        <result property="baseUrl" column="base_url"/>
+        <result property="apiKey" column="api_key"/>
+        <result property="modelName" column="model_name"/>
+        <result property="isStream" column="is_stream"/>
+        <result property="temperature" column="temperature"/>
+        <result property="topP" column="top_p"/>
+        <result property="maxTokens" column="max_tokens"/>
+        <result property="timeoutMs" column="timeout_ms"/>
+        <result property="maxAttempts" column="max_attempts"/>
+        <result property="fallbackModelConfigId" column="fallback_model_config_id"/>
+        <result property="modelStatus" column="model_status"/>
     </resultMap>
 
+    <select id="getAgentFullInfo" resultType="com.zw.agent.entity.DTO.AgentConfigDTO" parameterType="Long">
+        SELECT
+            agent.id AS agentId,
+            agent.agent_key AS agentKey,
+            agent.agent_name AS agentName,
+            agent.description AS agentDescription,
+            agent.avatar_url AS agentAvatarUrl,
+            agent.agent_type AS agentType,
+            agent.STATUS AS agentStatus,
+
+            tenant.id AS tenantId,
+            tenant.tenant_name AS tenantName,
+            tenant.STATUS AS tenantStatus,
+            tenant.nacos_namespace_id AS tenantNacosNamespaceId,
+            tenant.remark AS tenantRemark,
+
+            ac.id AS agentConfigId,
+            ac.sys_prompt AS sysPrompt,
+            ac.model_config_id AS modelConfigId,
+            ac.max_iters AS maxIters,
+            ac.compaction_config_json AS compactionConfigJson,
+            ac.workspace_config_json AS workspaceConfigJson,
+            ac.permission_mode AS permissionMode,
+            ac.visual_schema_json AS visualSchemaJson,
+            ac.publish_status AS publishStatus,
+            ac.published_at AS publishedAt,
+
+            model.id AS modelId,
+            model.provider AS provider,
+            model.base_URL AS baseUrl,
+            model.api_key AS apiKey,
+            model.model_name AS modelName,
+            model.is_stream AS isStream,
+            model.temperature AS temperature,
+            model.top_p AS topP,
+            model.max_tokens AS maxTokens,
+            model.timeout_ms AS timeoutMs,
+            model.max_attempts AS maxAttempts,
+            model.fallback_model_config_id AS fallbackModelConfigId,
+            model.STATUS AS modelStatus
+        FROM ai_agent  agent
+                 LEFT JOIN sys_tenant tenant ON agent.tenant_id = tenant.id
+                 LEFT JOIN ai_agent_config ac ON ac.agent_id = agent.id
+                 LEFT JOIN ai_model_config model ON model.agent_id = agent.id
+        WHERE agent.id = #{agentId} and agent.tenant_id = #{tenantId} and agent.deleted = 0
+    </select>
 </mapper>
