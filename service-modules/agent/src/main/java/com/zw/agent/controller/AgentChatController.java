@@ -22,10 +22,7 @@ public class AgentChatController {
     private final AgentFullConfigService agentFullConfigService;
 
 
-    @PostMapping(
-            value = "/chatStream",
-            produces = MediaType.TEXT_EVENT_STREAM_VALUE
-    )
+    @PostMapping(value = "/chatStream",produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentChatResponse>> chatStream(@RequestBody AgentChatRequest request) {
         UserInfo userInfo = UserContext.get();
 

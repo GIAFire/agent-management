@@ -44,9 +44,6 @@ public class AgentRuntimeFactory {
      */
 
     public Flux<String> callStream(AgentConfigDTO config, String TenantUserId, String sessionId, String text) {
-        /**
-         * 构造模型实例
-         */
         OpenAIChatModel model = OpenAIChatModel.builder()
                 .apiKey(config.getApiKey())
                 .modelName(config.getModelName())
@@ -54,13 +51,6 @@ public class AgentRuntimeFactory {
                 .stream(config.getIsStream())
                 .formatter(new OpenAIChatFormatter())
                 .build();
-        /**
-         * 获取Agent实例,其主要职责包括：
-         * 1.接收输入消息或事件，调用工具完成任务
-         * 2.管理上下文（会话历史保存在 AgentState.getContext() 中，可通过 AgentStateStore 自动持久化）
-         * 3.在关键生命周期阶段提供中间件钩子，支持自定义逻辑
-         * 4.自动管理并发和串行工具执行
-         */
         String cacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
         HarnessAgent harnessAgent = cache.computeIfAbsent(cacheKey, key ->
                 HarnessAgent.builder()
