@@ -1,0 +1,94 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /api
+spring:
+  application:
+    name: gateway
+  main:
+    web-application-type: reactive
+  cloud:
+    nacos:
+      server-addr: localhost:8848
+      username: nacos
+      password: nacos
+      discovery:
+        namespace: 418ac824-016b-4eff-bbde-82b7ce26305d
+        import-check:
+          enabled: false
+      config:
+        namespace: 418ac824-016b-4eff-bbde-82b7ce26305d
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: agent
+              uri: lb://agent
+              predicates:
+                - Path=/api/agent/**
+              filters:
+                - StripPrefix=1
+            - id: auth
+              uri: lb://auth
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - StripPrefix=1
+
+          discovery:
+            locator:
+              enabled: false
+              lower-case-service-id: true
+      discovery:
+        locator:
+          lowerCaseServiceId: true
+          enabled: true
+  config:
+    import:
+      - optional:nacos:gateway.yml?group=DEFAULT_GROUP&refreshEnabled=true
+  loadbalancer:
+    nacos:
+      enabled: true
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,nacos-discovery,nacosconfig
+  endpoint:
+    gateway:
+      access: unrestricted
+
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+
+# feign 配置
+feign:
+  sentinel:
+    enabled: true
+  okhttp:
+    enabled: true
+  httpclient:
+    enabled: false
+  client:
+    config:
+      default:
+        connectTimeout: 10000
+        readTimeout: 10000
+  compression:
+    request:
+      enabled: true
+      min-request-size: 8192
+    response:
+      enabled: true
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] [userId=%X{userId}] %logger{36} - %msg%n"
+  level:
+    org.springframework.web.client: DEBUG
