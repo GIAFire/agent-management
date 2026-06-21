@@ -2,6 +2,7 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiAgentRunEventEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.event.AgentRuntimeEvent;
 
 /**
  * <p>
@@ -13,4 +14,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiAgentRunEventService extends IService<AiAgentRunEventEntity> {
 
+    int saveEvent(Long tenantId, Long runId, Long sessionId, int eventSeq, AgentRuntimeEvent runtimeEvent);
 }

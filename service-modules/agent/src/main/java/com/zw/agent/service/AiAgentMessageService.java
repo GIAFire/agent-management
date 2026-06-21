@@ -13,4 +13,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiAgentMessageService extends IService<AiAgentMessageEntity> {
 
+    AiAgentMessageEntity saveUserMessage(Long tenantId, Long sessionId, String content);
+
+    AiAgentMessageEntity saveAssistantMessage(Long tenantId, Long sessionId, Long runId, String msg);
 }

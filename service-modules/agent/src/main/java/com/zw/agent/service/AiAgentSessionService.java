@@ -13,4 +13,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiAgentSessionService extends IService<AiAgentSessionEntity> {
 
+    AiAgentSessionEntity getOrCreateSession(Long tenantId, Long userId, Long agentId, Long agentConfigId, String sessionId);
 }

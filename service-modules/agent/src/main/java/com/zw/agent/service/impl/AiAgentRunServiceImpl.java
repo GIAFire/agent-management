@@ -4,6 +4,7 @@ import com.zw.agent.entity.AiAgentRunEntity;
 import com.zw.agent.mapper.AiAgentRunMapper;
 import com.zw.agent.service.AiAgentRunService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 /**
@@ -16,5 +17,35 @@ import org.springframework.stereotype.Service;
  */
 @Service
 public class AiAgentRunServiceImpl extends ServiceImpl<AiAgentRunMapper, AiAgentRunEntity> implements AiAgentRunService {
+    @Autowired
+    private AiAgentRunMapper agentRunMapper;
 
+    @Override
+    public AiAgentRunEntity createRunningRun(Long tenantId, Long agentId, Long agentConfigId, Long sessionId, Long messageId) {
+        AiAgentRunEntity agentRunEntity = new AiAgentRunEntity();
+        agentRunEntity.setAgentId(agentId);
+        agentRunEntity.setAgentConfigId(agentConfigId);
+        agentRunEntity.setSessionId(sessionId);
+        agentRunEntity.setInputMessageId(messageId);
+        agentRunEntity.setStatus("RUNNING");
+        agentRunEntity.setTenantId(tenantId);
+        agentRunMapper.insert(agentRunEntity);
+        return agentRunEntity;
+    }
+
+    @Override
+    public void markSuccess(Long runId, Long messageId) {
+        AiAgentRunEntity aiAgentRunEntity = agentRunMapper.selectById(runId);
+        aiAgentRunEntity.setOutputMessageId(messageId);
+        agentRunMapper.updateById(aiAgentRunEntity);
+    }
+
+    @Override
+    public void markFailed(Long runId, String agentRunFailed, String message) {
+        AiAgentRunEntity aiAgentRunEntity = agentRunMapper.selectById(runId);
+        aiAgentRunEntity.setStatus("FAILED");
+        aiAgentRunEntity.setErrorCode(agentRunFailed);
+        aiAgentRunEntity.setErrorMessage(message);
+        agentRunMapper.updateById(aiAgentRunEntity);
+    }
 }

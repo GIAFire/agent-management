@@ -46,16 +46,22 @@ public class AiAgentRunEntity extends BaseEntity {
     private Long agentId;
 
     /**
-     * 关联 ai_agent_version.id
+     * 关联 ai_agent_config.id
      */
-    @TableField("agent_version_id")
-    private Long agentVersionId;
+    @TableField("agent_config_id")
+    private Long agentConfigId;
 
     /**
      * 触发本次运行的用户消息ID
      */
     @TableField("input_message_id")
     private Long inputMessageId;
+
+    /**
+     * 触发本次运行的AI消息ID
+     */
+    @TableField("output_message_id")
+    private Long outputMessageId;
 
     /**
      * 运行状态：RUNNING/SUCCESS/FAILED/CANCELLED

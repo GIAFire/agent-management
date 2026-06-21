@@ -38,6 +38,12 @@ public class AiAgentRunEventEntity extends BaseEntity {
     private Long runId;
 
     /**
+     * 关联 session.id
+     */
+    @TableField("session_id")
+    private Long sessionId;
+
+    /**
      * 本次运行内事件序号
      */
     @TableField("seq")

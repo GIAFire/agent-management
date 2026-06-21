@@ -40,10 +40,10 @@ public class AiAgentSessionEntity extends BaseEntity {
     private Long agentId;
 
     /**
-     * 本会话使用的 Agent 版本ID
+     * 本会话使用的 Agent 配置ID
      */
-    @TableField("agent_version_id")
-    private Long agentVersionId;
+    @TableField("agent_config_id")
+    private Long agentConfigId;
 
     /**
      * 平台用户ID，可为空表示匿名用户
@@ -60,8 +60,8 @@ public class AiAgentSessionEntity extends BaseEntity {
     /**
      * 传给 AgentScope RuntimeContext 的 sessionId
      */
-    @TableField("session_key")
-    private String sessionKey;
+    @TableField("session_id")
+    private String sessionId;
 
     /**
      * 会话标题
@@ -79,7 +79,7 @@ public class AiAgentSessionEntity extends BaseEntity {
      * 状态：1正常，0关闭
      */
     @TableField("status")
-    private Byte status;
+    private Integer status;
 
     /**
      * 最后消息时间
