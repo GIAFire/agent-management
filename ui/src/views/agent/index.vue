@@ -1,9 +1,11 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Edit, Plus, Refresh, Search } from '@element-plus/icons-vue'
+import { ChatLineRound, Delete, Edit, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { addAgent, deleteAgent, getAgent, listAgent, updateAgent } from '@/axios/agent'
 
+const router = useRouter()
 const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
@@ -193,6 +195,17 @@ const handleDelete = async (row) => {
   await loadAgentList()
 }
 
+const handleChat = (row) => {
+  router.push({
+    name: 'AgentChat',
+    params: { agentId: row.id },
+    query: {
+      agentName: row.agentName || undefined,
+      agentKey: row.agentKey || undefined
+    }
+  })
+}
+
 onMounted(() => {
   loadAgentList()
 })
@@ -268,8 +281,9 @@ onMounted(() => {
             {{ formatTime(row) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
+            <el-button link type="success" :icon="ChatLineRound" @click="handleChat(row)">对话</el-button>
             <el-button link type="primary" :icon="Edit" @click="handleEdit(row)">编辑</el-button>
             <el-button link type="danger" :icon="Delete" @click="handleDelete(row)">删除</el-button>
           </template>

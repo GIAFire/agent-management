@@ -17,8 +17,15 @@ import {
 import { adminRoutes } from '@/router/modules/admin'
 
 const route = useRoute()
-const menus = adminRoutes[0].children
-const activeMenu = computed(() => route.path)
+const menus = computed(() => {
+  return adminRoutes[0].children
+    .filter((item) => !item.meta?.hidden)
+    .map((item) => ({
+      ...item,
+      children: item.children?.filter((child) => !child.meta?.hidden)
+    }))
+})
+const activeMenu = computed(() => route.meta.activeMenu || route.path)
 const defaultOpeneds = computed(() => route.matched.map((item) => item.path).filter(Boolean))
 
 const iconMap = {

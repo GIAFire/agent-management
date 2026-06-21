@@ -19,6 +19,12 @@ export const adminRoutes = [
             meta: { title: '智能体管理', icon: 'Cpu' }
           },
           {
+            path: 'chat/:agentId',
+            name: 'AgentChat',
+            component: () => import('@/views/agent/chat.vue'),
+            meta: { title: '智能体对话', hidden: true, activeMenu: '/agent/manage' }
+          },
+          {
             path: 'agent-config',
             name: 'agentConfigManage',
             component: () => import('@/views/agentConfig/index.vue'),
