@@ -10,7 +10,7 @@ import java.util.List;
 @ConfigurationProperties(prefix = "gateway.auth")
 public class GatewayAuthProperties {
     private List<String> whiteList = new ArrayList<>(List.of(
-            "/api/auth/login",
+            "/api/auth/auth/login",
             "/actuator/**"
     ));
 

@@ -1,5 +1,6 @@
 package com.zw.gateway.filter;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.ObjectMapper;
 import com.zw.common.constant.HttpStatus;
 import com.zw.common.entity.Result;
@@ -27,6 +28,7 @@ import java.util.Map;
 public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
     private final JwtProperties jwtProperties;
     private final GatewayAuthProperties authProperties;
+    @Autowired
     private ObjectMapper objectMapper;
     private final PathMatcher pathMatcher = new AntPathMatcher();
 

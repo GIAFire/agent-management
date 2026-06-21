@@ -70,7 +70,7 @@ management:
 gateway:
   auth:
     white-list:
-      - /api/auth/login
+      - /api/auth/auth/login
       - /actuator/**
 
 auth:
