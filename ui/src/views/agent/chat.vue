@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ChatLineRound, Close, Delete, Plus, Promotion } from '@element-plus/icons-vue'
+import { Bottom, ChatLineRound, Close, Delete, Plus, Promotion } from '@element-plus/icons-vue'
 import { chatStream } from '@/axios/chat'
 
 const route = useRoute()
@@ -10,6 +10,7 @@ const sessions = ref([])
 const activeSessionId = ref('')
 const inputMessage = ref('')
 const streaming = ref(false)
+const autoScrollEnabled = ref(true)
 const messageListRef = ref()
 const abortController = ref(null)
 
@@ -21,8 +22,10 @@ let typewriterSession = null
 let typewriterIdleResolve = null
 let saveTimer = null
 let scrollFrame = null
+let pendingScrollForce = false
 
 const TYPEWRITER_CHARS_PER_FRAME = 1
+const SCROLL_BOTTOM_THRESHOLD = 64
 
 const agentInfo = reactive({
   id: null,
@@ -88,25 +91,42 @@ const flushScheduledSave = () => {
   saveSessions()
 }
 
-const scrollToBottom = async () => {
-  await nextTick()
+const isNearBottom = (container) => {
+  return container.scrollHeight - container.scrollTop - container.clientHeight <= SCROLL_BOTTOM_THRESHOLD
+}
+
+const handleMessageScroll = () => {
   const container = messageListRef.value
   if (container) {
-    container.scrollTop = container.scrollHeight
+    autoScrollEnabled.value = isNearBottom(container)
   }
 }
 
-const scheduleScrollToBottom = () => {
+const scrollToBottom = async (force = false) => {
+  await nextTick()
+  const container = messageListRef.value
+  if (container && (force || autoScrollEnabled.value)) {
+    container.scrollTop = container.scrollHeight
+    autoScrollEnabled.value = true
+  }
+}
+
+const scheduleScrollToBottom = (force = false) => {
+  pendingScrollForce = pendingScrollForce || force
+
   if (scrollFrame) {
     return
   }
 
-  // 滚动跟随浏览器绘制节奏，减少连续 token 到来时的布局抖动。
+  // 仅在用户停留在底部附近时跟随输出；用户上滑阅读历史后不抢滚动位置。
   scrollFrame = window.requestAnimationFrame(() => {
     scrollFrame = null
+    const forceScroll = pendingScrollForce
+    pendingScrollForce = false
     const container = messageListRef.value
-    if (container) {
+    if (container && (forceScroll || autoScrollEnabled.value)) {
       container.scrollTop = container.scrollHeight
+      autoScrollEnabled.value = true
     }
   })
 }
@@ -223,8 +243,9 @@ const createSession = () => {
 
   sessions.value.unshift(session)
   activeSessionId.value = session.id
+  autoScrollEnabled.value = true
   saveSessions()
-  scrollToBottom()
+  scrollToBottom(true)
   return session
 }
 
@@ -256,12 +277,14 @@ const loadSessions = () => {
   }
 
   activeSessionId.value = sessions.value[0].id
-  scrollToBottom()
+  autoScrollEnabled.value = true
+  scrollToBottom(true)
 }
 
 const selectSession = (session) => {
   activeSessionId.value = session.id
-  scrollToBottom()
+  autoScrollEnabled.value = true
+  scrollToBottom(true)
 }
 
 const removeSession = async (session) => {
@@ -290,7 +313,7 @@ const removeSession = async (session) => {
   saveSessions()
 }
 
-const appendMessage = (role, content, extra = {}) => {
+const appendMessage = (role, content, extra = {}, options = {}) => {
   const session = activeSession.value || createSession()
   const message = {
     id: `${role}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -309,7 +332,7 @@ const appendMessage = (role, content, extra = {}) => {
   }
 
   saveSessions()
-  scrollToBottom()
+  scrollToBottom(Boolean(options.forceScroll))
   return session.messages[session.messages.length - 1]
 }
 
@@ -330,8 +353,9 @@ const sendMessage = async () => {
   }
 
   inputMessage.value = ''
-  appendMessage('user', content)
-  const assistantMessage = appendMessage('assistant', '', { pending: true, typing: true })
+  autoScrollEnabled.value = true
+  appendMessage('user', content, {}, { forceScroll: true })
+  const assistantMessage = appendMessage('assistant', '', { pending: true, typing: true }, { forceScroll: true })
   const session = activeSession.value
 
   resetTypewriter()
@@ -418,6 +442,7 @@ onBeforeUnmount(() => {
     window.cancelAnimationFrame(scrollFrame)
     scrollFrame = null
   }
+  pendingScrollForce = false
 })
 </script>
 
@@ -476,7 +501,11 @@ onBeforeUnmount(() => {
         </el-tag>
       </header>
 
-      <div ref="messageListRef" class="message-list">
+      <div
+        ref="messageListRef"
+        class="message-list"
+        @scroll="handleMessageScroll"
+      >
         <div
           v-for="message in activeMessages"
           :key="message.id"
@@ -497,6 +526,15 @@ onBeforeUnmount(() => {
           暂无消息
         </div>
       </div>
+
+      <el-button
+        v-if="!autoScrollEnabled"
+        class="back-bottom-button"
+        :icon="Bottom"
+        circle
+        type="primary"
+        @click="scrollToBottom(true)"
+      />
 
       <footer class="chat-input-panel">
         <el-input
@@ -645,6 +683,7 @@ onBeforeUnmount(() => {
 
 .chat-window {
   display: flex;
+  position: relative;
   flex-direction: column;
 }
 
@@ -682,6 +721,14 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   padding: 18px;
   background: var(--page-bg);
+}
+
+.back-bottom-button {
+  position: absolute;
+  right: 24px;
+  bottom: 112px;
+  z-index: 3;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.18);
 }
 
 .message-row {
