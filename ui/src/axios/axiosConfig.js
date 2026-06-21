@@ -1,5 +1,5 @@
 export const config = {
-  baseURL: '/agent-api',
+  baseURL: '/api',
   timeout: 10000
 }
 

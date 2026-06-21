@@ -1,10 +1,19 @@
 <script setup>
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { Bell, FullScreen, Refresh, UserFilled } from '@element-plus/icons-vue'
+import { useRoute, useRouter } from 'vue-router'
+import { Bell, FullScreen, Refresh, SwitchButton, UserFilled } from '@element-plus/icons-vue'
+import { clearAuth, getUser } from '@/utils/auth'
 
 const route = useRoute()
+const router = useRouter()
 const title = computed(() => route.meta.title || '后台管理')
+const user = getUser()
+const userName = user?.userName || '管理员'
+
+const logout = () => {
+  clearAuth()
+  router.replace('/login')
+}
 </script>
 
 <template>
@@ -25,8 +34,11 @@ const title = computed(() => route.meta.title || '后台管理')
       </el-tooltip>
       <div class="navbar-user">
         <el-icon><UserFilled /></el-icon>
-        <span>管理员</span>
+        <span>{{ userName }}</span>
       </div>
+      <el-tooltip content="退出登录" placement="bottom">
+        <el-button :icon="SwitchButton" circle @click="logout" />
+      </el-tooltip>
     </div>
   </header>
 </template>

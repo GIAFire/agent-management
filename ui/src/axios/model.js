@@ -1,21 +1,21 @@
 import { del, get, post, put } from '@/axios/request'
 
-const baseUrl = '/modelConfig'
+const baseUrl = '/agent'
 
 export const listModelConfig = () => {
-  return get(`${baseUrl}/list`)
+  return get(`${baseUrl}/modelConfig/list`)
 }
 
 export const pageModelConfig = (params) => {
-  return get(`${baseUrl}/page`, params)
+  return get(`${baseUrl}/modelConfig/page`, params)
 }
 
 export const getModelConfig = (id) => {
-  return get(`${baseUrl}/${id}`)
+  return get(`${baseUrl}/modelConfig/${id}`)
 }
 
 export const addModelConfig = (data) => {
-  return post(`${baseUrl}/save`, data)
+  return post(`${baseUrl}/modelConfig/save`, data)
 }
 
 export const updateModelConfig = (data) => {
@@ -23,5 +23,5 @@ export const updateModelConfig = (data) => {
 }
 
 export const deleteModelConfig = (id) => {
-  return del(`${baseUrl}/${id}`)
+  return del(`${baseUrl}/modelConfig/${id}`)
 }

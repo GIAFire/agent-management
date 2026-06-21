@@ -3,15 +3,15 @@ import { del, get, post, put } from '@/axios/request'
 const baseUrl = '/agent'
 
 export const listAgent = () => {
-  return get(`${baseUrl}/list`)
+  return get(`${baseUrl}/agent/list`)
 }
 
 export const pageAgent = (params) => {
-  return get(`${baseUrl}/page`, params)
+  return get(`${baseUrl}/agent/page`, params)
 }
 
 export const getAgent = (id) => {
-  return get(`${baseUrl}/${id}`)
+  return get(`${baseUrl}/agent/${id}`)
 }
 
 export const addAgent = (data) => {
@@ -23,5 +23,5 @@ export const updateAgent = (data) => {
 }
 
 export const deleteAgent = (id) => {
-  return del(`${baseUrl}/${id}`)
+  return del(`${baseUrl}/agent/${id}`)
 }

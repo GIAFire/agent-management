@@ -67,6 +67,19 @@ management:
       port: 6379
       password:
 
+gateway:
+  auth:
+    white-list:
+      - /api/auth/login
+      - /actuator/**
+
+auth:
+  jwt:
+    secret: agentScopeJwtSecretKeyForLocalDevChangeMe20260621
+    issuer: agent-scope
+    header: Authorization
+    token-prefix: "Bearer "
+
 # feign 配置
 feign:
   sentinel:
