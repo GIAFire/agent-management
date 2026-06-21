@@ -3,12 +3,15 @@ package com.zw.agent.runtime;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.credential.OpenAICredential;
+import io.agentscope.core.event.AgentEventType;
+import io.agentscope.core.event.TextBlockDeltaEvent;
 import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.file.Path;
@@ -34,12 +37,13 @@ public class AgentRuntimeFactory {
      * 最后异步执行Agent调用并返回文本格式的响应内容。
      *
      * @param config Agent运行时配置，用于获取或创建Agent实例
-     * @param runtimeUserKey 运行时用户标识键，用于构建运行时上下文
-     * @param sessionKey 会话标识键，用于跟踪会话状态
+     * @param TenantUserId 运行时用户标识键，用于构建运行时上下文
+     * @param sessionId 会话标识键，用于跟踪会话状态
      * @param text 用户输入的文本消息内容
      * @return Mono封装的字符串响应，包含Agent处理后的文本内容
      */
-    public Mono<String> call(AgentConfigDTO config, String runtimeUserKey, String sessionKey, String text) {
+
+    public Flux<String> callStream(AgentConfigDTO config, String TenantUserId, String sessionId, String text) {
         /**
          * 构造模型实例
          */
@@ -47,7 +51,7 @@ public class AgentRuntimeFactory {
                 .apiKey(config.getApiKey())
                 .modelName(config.getModelName())
                 .baseUrl(config.getBaseUrl())
-                .stream(true)
+                .stream(config.getIsStream())
                 .formatter(new OpenAIChatFormatter())
                 .build();
         /**
@@ -63,19 +67,41 @@ public class AgentRuntimeFactory {
                         .name(config.getAgentName())
                         .sysPrompt(config.getSysPrompt())
                         .model(model)
-//                        .workspace(Path.of(config.getWorkspaceConfigJson()))
-//                        .compaction(
-//                                CompactionConfig.builder()
-//                                        .triggerMessages(config.getCompactionTriggerMessages())
-//                                        .keepMessages(config.getCompactionKeepMessages())
-//                                        .build()
-//                        )
-                        .build()
-        );
+                        .build());
         // 构建运行时上下文
         RuntimeContext context = RuntimeContext.builder()
-                .userId(AgentRuntimeKeys.pathSafeSegment(runtimeUserKey, "anonymous"))
-                .sessionId(AgentRuntimeKeys.sessionKey(sessionKey))
+                .userId(TenantUserId)
+                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
+                .build();
+
+        return harnessAgent.streamEvents(new UserMessage(text), context)
+                .filter(event -> event.getType() == AgentEventType.TEXT_BLOCK_DELTA)
+                .cast(TextBlockDeltaEvent.class)
+                .map(TextBlockDeltaEvent::getDelta)
+                .filter(delta -> delta != null && !delta.isEmpty());
+    }
+    public Mono<String> call(AgentConfigDTO config, String TenantUserId, String sessionId, String text) {
+        /**
+         * 构造模型实例
+         */
+        OpenAIChatModel model = OpenAIChatModel.builder()
+                .apiKey(config.getApiKey())
+                .modelName(config.getModelName())
+                .baseUrl(config.getBaseUrl())
+                .stream(config.getIsStream())
+                .formatter(new OpenAIChatFormatter())
+                .build();
+        String cacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
+        HarnessAgent harnessAgent = cache.computeIfAbsent(cacheKey, key ->
+                HarnessAgent.builder()
+                        .name(config.getAgentName())
+                        .sysPrompt(config.getSysPrompt())
+                        .model(model)
+                        .build());
+        // 构建运行时上下文
+        RuntimeContext context = RuntimeContext.builder()
+                .userId(AgentRuntimeKeys.pathSafeSegment(TenantUserId, "anonymous"))
+                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
                 .build();
 
         return harnessAgent.call(new UserMessage(text), context)
