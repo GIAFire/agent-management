@@ -36,13 +36,13 @@ public class AgentConfigQueryService {
      * 该方法会依次验证并加载：启用的租户、启用的Agent定义、已发布的Agent版本、启用的模型配置，
      * 并从JSON配置中提取工作空间路径和消息压缩配置，最终构建完整的AgentRuntimeConfig对象。
      *
-     * @param tenantCode 租户编码，用于标识多租户环境中的具体租户
+     * @param tenantId 租户编码，用于标识多租户环境中的具体租户
      * @param agentId Agent唯一标识ID，用于定位具体的Agent实例
      * @return 完整的Agent运行时配置对象，包含租户ID、Agent信息、模型配置、工作空间路径、压缩策略等
      * @throws AgentConfigException 当租户不存在或已停用、Agent不存在或未发布、模型配置无效时抛出异常
      */
-    public AgentRuntimeConfig loadPublishedConfig(String tenantCode, Long agentId) {
-        if (!StringUtils.hasText(tenantCode)) {
+    public AgentRuntimeConfig loadPublishedConfig(Long tenantId, Long agentId) {
+        if (!StringUtils.hasText(tenantId.toString())) {
             throw new AgentConfigException("tenantCode 不能为空");
         }
         if (agentId == null) {
@@ -50,7 +50,7 @@ public class AgentConfigQueryService {
         }
 
         // 查询租户信息、Agent定义、Agent配置信息和模型配置
-        SysTenantEntity tenant = loadEnabledTenant(tenantCode);
+        SysTenantEntity tenant = loadEnabledTenant(tenantId);
         AiAgentEntity agent = loadEnabledAgentDefinition(tenant.getId(), agentId);
         AiAgentConfigEntity AgentConfig = loadPublishedAgentVersion(
                 tenant.getId(),
@@ -65,7 +65,7 @@ public class AgentConfigQueryService {
         // 从JSON配置中提取工作空间路径，若未配置则使用默认路径
         String workspacePath = readText(
                 AgentConfig.getWorkspaceConfigJson(),
-                defaultWorkspacePath(tenantCode, agentId, AgentConfig.getId()),
+                defaultWorkspacePath(tenantId, agentId, AgentConfig.getId()),
                 "workspacePath",
                 "path"
         );
@@ -109,7 +109,7 @@ public class AgentConfigQueryService {
      * @return 租户实体对象，包含租户ID、编码、状态等信息
      * @throws AgentConfigException 当租户不存在或状态为非启用时抛出异常
      */
-    private SysTenantEntity loadEnabledTenant(String tenantCode) {
+    private SysTenantEntity loadEnabledTenant(Long tenantCode) {
         SysTenantEntity tenant = tenantMapper.selectOne(
                 Wrappers.<SysTenantEntity>lambdaQuery()
                         .select(
@@ -267,7 +267,7 @@ public class AgentConfigQueryService {
      * @param versionId 版本ID，用于区分不同的Agent版本
      * @return 默认的工作空间路径字符串，格式为 /tmp/agentscope/workspaces/{tenantCode}/agent-{agentId}/version-{versionId}
      */
-    private String defaultWorkspacePath(String tenantCode, Long agentId, Long versionId) {
+    private String defaultWorkspacePath(Long tenantCode, Long agentId, Long versionId) {
         return "/tmp/agentscope/workspaces/"
                 + tenantCode
                 + "/agent-"

@@ -5,9 +5,13 @@ import com.zw.auth.dto.LoginRequest;
 import com.zw.auth.dto.LoginResponse;
 import com.zw.auth.entity.SysUserEntity;
 import com.zw.auth.service.SysUserService;
+import com.zw.common.RedisService;
+import com.zw.common.constant.RedisConstants;
 import com.zw.common.entity.Result;
 import com.zw.common.utils.JwtUtils;
+import com.zw.common.context.UserInfo;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -16,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequiredArgsConstructor
@@ -23,6 +28,7 @@ import java.util.Map;
 public class AuthController {
     private final SysUserService sysUserService;
     private final JwtProperties jwtProperties;
+    private final RedisService redisService;
 
     @PostMapping("/login")
     public Result<LoginResponse> login(@RequestBody LoginRequest request) {
@@ -36,6 +42,10 @@ public class AuthController {
         claims.put("userName", user.getUserName());
         claims.put("tenantId", user.getTenantId());
 
+        UserInfo userInfo = new UserInfo();
+        BeanUtils.copyProperties(user, userInfo);
+        userInfo.setUserId(user.getId());
+        redisService.setCacheObject(RedisConstants.USER_INFO + userInfo.getUserId(), userInfo,3L, TimeUnit.DAYS);
         String token = JwtUtils.createToken(
                 String.valueOf(user.getId()),
                 jwtProperties.getIssuer(),

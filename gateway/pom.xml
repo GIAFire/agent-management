@@ -28,6 +28,11 @@
             <artifactId>common-redis</artifactId>
             <version>1.0.0</version>
         </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.zw</groupId>-->
+<!--            <artifactId>common-security</artifactId>-->
+<!--            <version>1.0.0</version>-->
+<!--        </dependency>-->
         <!-- Gateway 5 / WebFlux 网关 -->
         <dependency>
             <groupId>org.springframework.cloud</groupId>

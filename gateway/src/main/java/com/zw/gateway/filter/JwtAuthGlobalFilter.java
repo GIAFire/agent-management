@@ -1,5 +1,8 @@
 package com.zw.gateway.filter;
 
+import com.zw.common.RedisService;
+import com.zw.common.constant.RedisConstants;
+import com.zw.common.constant.UserHeaderConstants;
 import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.ObjectMapper;
 import com.zw.common.constant.HttpStatus;
@@ -43,9 +46,9 @@ public class JwtAuthGlobalFilter implements GlobalFilter, Ordered {
             String token = resolveToken(exchange.getRequest());
             Map<String, Object> claims = JwtUtils.parseToken(token, jwtProperties.getSecret(), jwtProperties.getIssuer());
             ServerHttpRequest request = exchange.getRequest().mutate()
-                    .header("X-User-Id", stringClaim(claims, "userId"))
-                    .header("X-User-Name", stringClaim(claims, "userName"))
-                    .header("X-Tenant-Id", stringClaim(claims, "tenantId"))
+                    .header(UserHeaderConstants.USER_ID, stringClaim(claims, "userId"))
+                    .header(UserHeaderConstants.USER_NAME, stringClaim(claims, "userName"))
+                    .header(UserHeaderConstants.TENANT_ID, stringClaim(claims, "tenantId"))
                     .build();
             return chain.filter(exchange.mutate().request(request).build());
         } catch (IllegalArgumentException e) {

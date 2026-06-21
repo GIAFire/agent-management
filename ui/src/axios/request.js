@@ -5,6 +5,8 @@ import { clearAuth, getToken, getTokenType, saveLoginSession } from '@/utils/aut
 
 export const BASE_URL = config.baseURL
 
+const USER_KEY = 'agent_scope_user'
+
 const service = axios.create({
   baseURL: config.baseURL,
   timeout: config.timeout
@@ -16,6 +18,7 @@ service.interceptors.request.use(
     if (token) {
       requestConfig.headers = requestConfig.headers || {}
       requestConfig.headers.Authorization = `${getTokenType()} ${token}`
+      const user = JSON.parse(sessionStorage.getItem(USER_KEY))
     }
     return requestConfig
   },
@@ -43,7 +46,7 @@ service.interceptors.response.use(
         return Promise.reject(new Error(body.msg || '接口请求失败'))
       }
 
-      if (response.config?.url?.includes('/auth/login')) {
+      if (response.config?.url?.includes('/auth/auth/login')) {
         saveLoginSession(body.data)
       }
       return body.data

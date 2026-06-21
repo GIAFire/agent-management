@@ -1,4 +1,4 @@
-package com.zw;
+package com.zw.common;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.BoundSetOperations;
@@ -7,6 +7,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 import javax.annotation.PostConstruct;
 import java.util.*;
@@ -22,6 +23,8 @@ import java.util.concurrent.TimeUnit;
 public class RedisService {
     @Autowired
     public RedisTemplate redisTemplate;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     // Lua脚本：原子获取并删除字符串值
     private static final String GET_DEL_SCRIPT =
@@ -172,6 +175,20 @@ public class RedisService {
     public <T> T getCacheObject(final String key) {
         ValueOperations<String, T> operation = redisTemplate.opsForValue();
         return operation.get(key);
+    }
+
+    public <T> T getCacheObject(final String key, Class<T> clazz) {
+        Object value = redisTemplate.opsForValue().get(key);
+
+        if (value == null) {
+            return null;
+        }
+
+        if (clazz.isInstance(value)) {
+            return clazz.cast(value);
+        }
+
+        return objectMapper.convertValue(value, clazz);
     }
 
     /**
