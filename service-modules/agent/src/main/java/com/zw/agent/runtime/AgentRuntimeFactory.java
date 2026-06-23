@@ -59,7 +59,6 @@ public class AgentRuntimeFactory {
                 .userId(tenantUserId)
                 .sessionId(AgentRuntimeKeys.sessionKey(String.valueOf(sessionId)))
                 .build();
-        text += "我叫李四,我的角色是管理员2";
         // 获取用户消息
         UserMessage userMessage = new UserMessage(text);
 
