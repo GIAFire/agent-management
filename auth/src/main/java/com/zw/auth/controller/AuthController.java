@@ -45,7 +45,7 @@ public class AuthController {
         UserInfo userInfo = new UserInfo();
         BeanUtils.copyProperties(user, userInfo);
         userInfo.setUserId(user.getId());
-        redisService.setCacheObject(RedisConstants.USER_INFO + userInfo.getUserId(), userInfo,3L, TimeUnit.DAYS);
+        redisService.setCacheObject(RedisConstants.USER_INFO + userInfo.getUserId(), userInfo,7L, TimeUnit.DAYS);
         String token = JwtUtils.createToken(
                 String.valueOf(user.getId()),
                 jwtProperties.getIssuer(),
