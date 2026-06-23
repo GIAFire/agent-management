@@ -61,7 +61,7 @@ public class AiAgentSessionEntity extends BaseEntity {
      * 传给 AgentScope RuntimeContext 的 sessionId
      */
     @TableField("session_id")
-    private String sessionId;
+    private Long sessionId;
 
     /**
      * 会话标题

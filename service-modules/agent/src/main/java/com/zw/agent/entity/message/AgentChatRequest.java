@@ -5,6 +5,6 @@ import lombok.Data;
 @Data
 public class AgentChatRequest {
     private Long agentId;
-    private String sessionId;
+    private Long sessionId;
     private String content;
 }

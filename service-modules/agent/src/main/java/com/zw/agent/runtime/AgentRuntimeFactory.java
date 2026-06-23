@@ -4,6 +4,7 @@ import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.credential.OpenAICredential;
+import io.agentscope.core.event.AgentEvent;
 import io.agentscope.core.event.AgentEventType;
 import io.agentscope.core.event.TextBlockDeltaEvent;
 import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
@@ -47,17 +48,24 @@ public class AgentRuntimeFactory {
     public Flux<AgentRuntimeEvent> callStreamEvents(
             AgentConfigDTO config,
             String tenantUserId,
-            String sessionId,
+            Long sessionId,
             String text
     ) {
+        // 通过Agent配置,获取或创建Agent实例
         HarnessAgent harnessAgent = getOrCreateAgent(config);
 
+        // 通过租户ID-用户ID,还有sessionId,构建运行时上下文
         RuntimeContext context = RuntimeContext.builder()
                 .userId(tenantUserId)
-                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
+                .sessionId(AgentRuntimeKeys.sessionKey(String.valueOf(sessionId)))
                 .build();
+        text += "我叫李四,我的角色是管理员2";
+        // 获取用户消息
+        UserMessage userMessage = new UserMessage(text);
 
-        return harnessAgent.streamEvents(new UserMessage(text), context)
+        // 获取Agent事件流
+        Flux<AgentEvent> agentEventFlux = harnessAgent.streamEvents(userMessage, context);
+        return agentEventFlux
                 .map(event -> {
                     if (event.getType() == AgentEventType.TEXT_BLOCK_DELTA) {
                         TextBlockDeltaEvent textEvent = (TextBlockDeltaEvent) event;
@@ -77,7 +85,7 @@ public class AgentRuntimeFactory {
                     );
                 });
     }
-    public Mono<String> call(AgentConfigDTO config, String TenantUserId, String sessionId, String text) {
+    public Mono<String> call(AgentConfigDTO config, String TenantUserId, Long sessionId, String text) {
         /**
          * 构造模型实例
          */
@@ -98,7 +106,7 @@ public class AgentRuntimeFactory {
         // 构建运行时上下文
         RuntimeContext context = RuntimeContext.builder()
                 .userId(AgentRuntimeKeys.pathSafeSegment(TenantUserId, "anonymous"))
-                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
+                .sessionId(AgentRuntimeKeys.sessionKey(String.valueOf(sessionId)))
                 .build();
 
         return harnessAgent.call(new UserMessage(text), context)

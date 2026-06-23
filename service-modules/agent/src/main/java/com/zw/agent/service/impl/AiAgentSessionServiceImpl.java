@@ -25,7 +25,7 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
     @Autowired
     private AiAgentSessionMapper agentSessionMapper;
     @Override
-    public AiAgentSessionEntity getOrCreateSession(Long tenantId, Long userId, Long agentId, Long agentConfigId, String sessionId) {
+    public AiAgentSessionEntity getOrCreateSession(Long tenantId, Long userId, Long agentId, Long agentConfigId, Long sessionId) {
         AiAgentSessionEntity sessionEntity = agentSessionMapper.selectOne(new LambdaQueryWrapper<AiAgentSessionEntity>()
                 .eq(AiAgentSessionEntity::getTenantId, tenantId)
                 .eq(AiAgentSessionEntity::getUserId, userId)
