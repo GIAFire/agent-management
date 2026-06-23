@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 public class JwtProperties {
     private String secret = "agentScopeJwtSecretKeyForLocalDevChangeMe20260621";
     private String issuer = "agent-scope";
-    private long expireSeconds = 7200;
+    private long expireSeconds = 7 * 24 * 60 * 60;//7天过期
 
     public String getSecret() {
         return secret;
