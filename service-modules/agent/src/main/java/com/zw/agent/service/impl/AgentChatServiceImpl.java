@@ -5,6 +5,7 @@ import com.zw.agent.controller.AgentChatController;
 import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.AiAgentMessageEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.runtime.AgentRuntimeFactory;
 import com.zw.agent.service.AgentChatService;
 import com.zw.agent.service.AiAgentMessageService;
@@ -12,6 +13,7 @@ import com.zw.agent.service.AiAgentRunEventService;
 import com.zw.agent.service.AiAgentRunService;
 import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
+import io.agentscope.core.event.AgentEventType;
 import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.codec.ServerSentEvent;
@@ -39,19 +41,19 @@ public class AgentChatServiceImpl implements AgentChatService {
     private final AiAgentMessageService agentMessageService;
     private final AiAgentRunService agentRunService;
     @Override
-    public Flux<ServerSentEvent<AgentChatController.AgentStreamResponse>> chatStream(AgentConfigDTO config, String tenantUserId, Long sessionId, String text,Long runId) {
+    public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config, String tenantUserId, Long sessionId, String text,Long runId) {
         // 从上下文获取当前用户信息
         UserInfo userInfo = UserContext.get();
         // 用于累积大模型响应的文本内容
         StringBuilder assistantBuffer = new StringBuilder();
         // 用于记录事件序列号，保证递增
         AtomicInteger eventSeq = new AtomicInteger(0);
-        Flux<ServerSentEvent<AgentChatController.AgentStreamResponse>> serverSentEventFlux = agentRuntimeFactory
+        Flux<ServerSentEvent<AgentStreamResponse>> serverSentEventFlux = agentRuntimeFactory
                 .callStreamEvents(config, tenantUserId, sessionId, text)
                 .doOnNext(runtimeEvent -> {
                     // 如果事件包含增量内容，则追加到缓冲区
-                    if (runtimeEvent.delta() != null) {
-                        assistantBuffer.append(runtimeEvent.delta());
+                    if (runtimeEvent.getEventType().equals(AgentEventType.TEXT_BLOCK_DELTA.getValue()) && runtimeEvent.getDelta() != null) {
+                        assistantBuffer.append(runtimeEvent.getDelta());
                     }
 
                     // 保存运行事件到数据库
@@ -64,15 +66,14 @@ public class AgentChatServiceImpl implements AgentChatService {
                     );
                 })
                 // 将运行时事件映射为SSE事件
-                .map(runtimeEvent -> ServerSentEvent.<AgentChatController.AgentStreamResponse>builder()
+                .map(runtimeEvent -> ServerSentEvent.<AgentStreamResponse>builder()
                         // 设置SSE事件类型
-                        .event(runtimeEvent.sseEvent())
+                        .event(AgentEventType.TEXT_BLOCK_DELTA.getValue())
                         // 设置SSE事件数据
-                        .data(new AgentChatController.AgentStreamResponse(
+                        .data(new AgentStreamResponse(
                                 runId,
-                                runtimeEvent.eventType(),
-                                runtimeEvent.delta(),
-                                runtimeEvent.rawEvent()
+                                runtimeEvent.getEventType(),
+                                runtimeEvent.getDelta()
                         ))
                         // 构建SSE事件对象
                         .build()
@@ -91,12 +92,11 @@ public class AgentChatServiceImpl implements AgentChatService {
                     agentRunService.markSuccess(runId, assistantMessage.getId());
 
                     // 返回完成事件的SSE消息
-                    return Mono.just(ServerSentEvent.<AgentChatController.AgentStreamResponse>builder()
+                    return Mono.just(ServerSentEvent.<AgentStreamResponse>builder()
                             .event("done")
-                            .data(new AgentChatController.AgentStreamResponse(
+                            .data(new AgentStreamResponse(
                                     runId,
                                     "DONE",
-                                    null,
                                     null
                             ))
                             .build());
@@ -111,13 +111,12 @@ public class AgentChatServiceImpl implements AgentChatService {
                     );
 
                     // 返回错误事件的SSE消息
-                    return Flux.just(ServerSentEvent.<AgentChatController.AgentStreamResponse>builder()
+                    return Flux.just(ServerSentEvent.<AgentStreamResponse>builder()
                             .event("error")
-                            .data(new AgentChatController.AgentStreamResponse(
+                            .data(new AgentStreamResponse(
                                     runId,
                                     "ERROR",
-                                    "当前智能体执行失败，请稍后重试",
-                                    Map.of("errorCode", "AGENT_RUN_FAILED")
+                                    "当前智能体执行失败，请稍后重试"
                             ))
                             .build());
                 });

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.zw.agent.controller.AgentChatController;
 import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.agent.event.AgentStreamResponse;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 
@@ -17,10 +18,10 @@ import reactor.core.publisher.Flux;
  */
 public interface AgentChatService{
 
-    Flux<ServerSentEvent<AgentChatController.AgentStreamResponse>> chatStream(AgentConfigDTO config,
-                                                                              String tenantUserId,
-                                                                              Long sessionId,
-                                                                              String text,
-                                                                              Long runId);
+    Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,
+                                                          String tenantUserId,
+                                                          Long sessionId,
+                                                          String text,
+                                                          Long runId);
 
 }

@@ -29,7 +29,7 @@ public class AiAgentRunEventServiceImpl extends ServiceImpl<AiAgentRunEventMappe
         AiAgentRunEventEntity agentRunEventEntity = new AiAgentRunEventEntity();
         agentRunEventEntity.setRunId(runId);
         agentRunEventEntity.setSeq(eventSeq);
-        agentRunEventEntity.setEventType(runtimeEvent.eventType());
+        agentRunEventEntity.setEventType(runtimeEvent.getEventType());
         agentRunEventEntity.setTenantId(tenantId);
         agentRunEventEntity.setSessionId(sessionId);
         agentRunEventEntity.setCreatedAt(LocalDateTime.now());

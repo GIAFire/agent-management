@@ -5,7 +5,9 @@ import com.zw.agent.entity.AiAgentRunEntity;
 import com.zw.agent.entity.AiAgentSessionEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentChatRequest;
+import com.zw.agent.event.AgentChatResponse;
 import com.zw.agent.event.AgentRuntimeEvent;
+import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.runtime.AgentFullConfigService;
 import com.zw.agent.runtime.AgentRuntimeFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
@@ -77,22 +79,14 @@ public class AgentChatController {
     }
 
     @PostMapping("/chatBlock")
-    public Mono<AgentChatResponse> chatBlock(@RequestBody AgentChatRequest request) {
+    public Mono<String> chatBlock(@RequestBody AgentChatRequest request) {
         UserInfo userInfo = UserContext.get();
         // 获取运行时配置
         AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(userInfo.getTenantId(), request.getAgentId());
         String tenantUserId = userInfo.getTenantId().toString()+"-"+userInfo.getUserId().toString();
 
         return agentRuntimeFactory
-                .call(config, tenantUserId, request.getSessionId(), request.getContent())
-                .map(AgentChatResponse::new);
+                .call(config, tenantUserId, request.getSessionId(), request.getContent());
     }
 
-    public record AgentChatResponse(String content) {}
-    public record AgentStreamResponse(
-            Long runId,
-            String eventType,
-            String delta,
-            Object payload
-    ) {}
 }
