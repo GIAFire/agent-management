@@ -44,12 +44,6 @@ public class AiAgentRunEventEntity extends BaseEntity {
     private Long sessionId;
 
     /**
-     * 本次运行内事件序号
-     */
-    @TableField("seq")
-    private Integer seq;
-
-    /**
      * AgentScope 事件类型，例如 TEXT_BLOCK_DELTA、TOOL_CALL_START
      */
     @TableField("event_type")

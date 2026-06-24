@@ -46,9 +46,6 @@ public class AgentChatController {
                 request.getAgentId()
         );
 
-        // 构建租户用户ID，格式为"租户ID-用户ID"
-        String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
-
         // 获取或创建智能体会话
         AiAgentSessionEntity session = agentSessionService.getOrCreateSession(
                 userInfo,
@@ -72,7 +69,6 @@ public class AgentChatController {
                 session.getId(),
                 userMessage.getId()
         );
-
 
         return agentChatService.chatStream(config,userInfo, session.getId(), request.getContent(),run.getId());
     }

@@ -22,6 +22,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -46,25 +48,22 @@ public class AgentChatServiceImpl implements AgentChatService {
         String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
         // 用于累积大模型响应的文本内容
         StringBuilder assistantBuffer = new StringBuilder();
+        Set<String> loggedEventTypes = ConcurrentHashMap.newKeySet();
         // 用于记录事件序列号，保证递增
-        AtomicInteger eventSeq = new AtomicInteger(0);
         Flux<ServerSentEvent<AgentStreamResponse>> serverSentEventFlux = agentRuntimeFactory
                 .callStreamEvents(config, tenantUserId, sessionId, text)
                 .doOnNext(runtimeEvent -> {
                     // 如果事件包含增量内容，则追加到缓冲区
-                    if (runtimeEvent.getEventType().equals(AgentEventType.TEXT_BLOCK_DELTA.getValue()) && runtimeEvent.getDelta() != null) {
+                    String eventType = runtimeEvent.getEventType();
+                    if (eventType.equals(AgentEventType.TEXT_BLOCK_DELTA.getValue()) && runtimeEvent.getDelta() != null) {
                         assistantBuffer.append(runtimeEvent.getDelta());
                     }
 
                     // 保存运行事件到数据库
-                    agentRunEventService.saveEvent(
-                            userInfo.getUserId(),
-                            userInfo.getTenantId(),
-                            runId,
-                            sessionId,
-                            eventSeq.incrementAndGet(),
-                            runtimeEvent
-                    );
+                    // 按事件类型去重记录日志
+                    if (!loggedEventTypes.contains(eventType)) {
+                        loggedEventTypes.add(eventType);
+                    }
                 })
                 // 将运行时事件映射为SSE事件
                 .map(runtimeEvent -> ServerSentEvent.<AgentStreamResponse>builder()
@@ -88,10 +87,8 @@ public class AgentChatServiceImpl implements AgentChatService {
                             runId,
                             assistantBuffer.toString()
                     );
-
                     // 标记运行记录为成功状态
                     agentRunService.markSuccess(runId, assistantMessage.getId());
-
                     // 返回完成事件的SSE消息
                     return Mono.just(ServerSentEvent.<AgentStreamResponse>builder()
                             .event("done")
@@ -120,6 +117,20 @@ public class AgentChatServiceImpl implements AgentChatService {
                                     "当前智能体执行失败，请稍后重试"
                             ))
                             .build());
+                })
+                .doFinally(signalType -> {
+                    for (String eventType : loggedEventTypes) {
+                        System.err.println(eventType);
+                    }
+                    // 保存本次对话执行事件
+                    String runtimeEvent = String.join("-", loggedEventTypes);
+                    agentRunEventService.saveEvent(
+                            userInfo.getUserId(),
+                            userInfo.getTenantId(),
+                            runId,
+                            sessionId,
+                            runtimeEvent
+                    );
                 });
         return serverSentEventFlux;
     }

@@ -25,11 +25,10 @@ public class AiAgentRunEventServiceImpl extends ServiceImpl<AiAgentRunEventMappe
     @Autowired
     private AiAgentRunEventMapper agentRunEventMapper;
     @Override
-    public int saveEvent(Long userId, Long tenantId, Long runId, Long sessionId, int eventSeq, AgentRuntimeEvent runtimeEvent) {
+    public int saveEvent(Long userId, Long tenantId, Long runId, Long sessionId,String runtimeEvent) {
         AiAgentRunEventEntity agentRunEventEntity = new AiAgentRunEventEntity();
         agentRunEventEntity.setRunId(runId);
-        agentRunEventEntity.setSeq(eventSeq);
-        agentRunEventEntity.setEventType(runtimeEvent.getEventType());
+        agentRunEventEntity.setEventType(runtimeEvent);
         agentRunEventEntity.setTenantId(tenantId);
         agentRunEventEntity.setSessionId(sessionId);
         agentRunEventEntity.setCreatedAt(LocalDateTime.now());

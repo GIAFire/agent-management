@@ -14,5 +14,5 @@ import com.zw.agent.event.AgentRuntimeEvent;
  */
 public interface AiAgentRunEventService extends IService<AiAgentRunEventEntity> {
 
-    int saveEvent(Long userId,Long tenantId, Long runId, Long sessionId, int eventSeq, AgentRuntimeEvent runtimeEvent);
+    int saveEvent(Long userId,Long tenantId, Long runId, Long sessionId,String runtimeEvent);
 }

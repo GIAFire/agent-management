@@ -68,7 +68,6 @@ public class AgentRuntimeFactory {
 
     private AgentRuntimeEvent toRuntimeEvent(AgentEvent event){
         if (event instanceof AgentStartEvent startEvent) {
-            System.out.println(event.getType().name());
             return new AgentRuntimeEvent(
                     startEvent.getReplyId(),
                     AgentEventType.AGENT_START.getValue(),
