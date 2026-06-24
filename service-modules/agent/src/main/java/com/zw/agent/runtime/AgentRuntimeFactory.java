@@ -4,9 +4,7 @@ import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.credential.OpenAICredential;
-import io.agentscope.core.event.AgentEvent;
-import io.agentscope.core.event.AgentEventType;
-import io.agentscope.core.event.TextBlockDeltaEvent;
+import io.agentscope.core.event.*;
 import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.OpenAIChatModel;
@@ -65,24 +63,195 @@ public class AgentRuntimeFactory {
         // 获取Agent事件流
         Flux<AgentEvent> agentEventFlux = harnessAgent.streamEvents(userMessage, context);
         return agentEventFlux
-                .map(event -> {
-                    if (event.getType() == AgentEventType.TEXT_BLOCK_DELTA) {
-                        TextBlockDeltaEvent textEvent = (TextBlockDeltaEvent) event;
-                        return new AgentRuntimeEvent(
-                                event.getType().name(),
-                                "message",
-                                textEvent.getDelta(),
-                                event
-                        );
-                    }
+                .map(this::toRuntimeEvent);
+    }
 
-                    return new AgentRuntimeEvent(
-                            event.getType().name(),
-                            "agent_event",
-                            null,
-                            event
-                    );
-                });
+    private AgentRuntimeEvent toRuntimeEvent(AgentEvent event){
+        if (event instanceof AgentStartEvent startEvent) {
+            System.out.println(event.getType().name());
+            return new AgentRuntimeEvent(
+                    startEvent.getReplyId(),
+                    AgentEventType.AGENT_START.getValue(),
+                    null,
+                    startEvent
+            );
+        } else if (event instanceof AgentEndEvent endEvent) {
+            return new AgentRuntimeEvent(
+                    endEvent.getReplyId(),
+                    AgentEventType.AGENT_END.getValue(),
+                    null,
+                    endEvent
+            );
+        } else if (event instanceof ExceedMaxItersEvent exceedMaxItersEvent) {
+            return new AgentRuntimeEvent(
+                    exceedMaxItersEvent.getReplyId(),
+                    AgentEventType.EXCEED_MAX_ITERS.getValue(),
+                    null,
+                    exceedMaxItersEvent
+            );
+        } else if (event instanceof RequestStopEvent requestStopEvent) {
+            return new AgentRuntimeEvent(
+                    null,
+                    AgentEventType.REQUEST_STOP.getValue(),
+                    null,
+                    requestStopEvent
+            );
+
+            // 文本流事件
+        } else if (event instanceof TextBlockStartEvent textBlockStartEvent) {
+            return new AgentRuntimeEvent(
+                    textBlockStartEvent.getReplyId(),
+                    AgentEventType.TEXT_BLOCK_START.getValue(),
+                    null,
+                    textBlockStartEvent
+            );
+        } else if (event instanceof TextBlockDeltaEvent textBlockDeltaEvent) {
+            return new AgentRuntimeEvent(
+                    textBlockDeltaEvent.getReplyId(),
+                    AgentEventType.TEXT_BLOCK_DELTA.getValue(),
+                    textBlockDeltaEvent.getDelta(),
+                    textBlockDeltaEvent
+            );
+        } else if (event instanceof TextBlockEndEvent textBlockEndEvent) {
+            return new AgentRuntimeEvent(
+                    textBlockEndEvent.getReplyId(),
+                    AgentEventType.TEXT_BLOCK_END.getValue(),
+                    null,
+                    textBlockEndEvent
+            );
+            // 思考流事件
+        } else if (event instanceof ThinkingBlockStartEvent thinkingBlockStartEvent) {
+            return new AgentRuntimeEvent(
+                    thinkingBlockStartEvent.getReplyId(),
+                    AgentEventType.THINKING_BLOCK_START.getValue(),
+                    null,
+                    thinkingBlockStartEvent
+            );
+        } else if (event instanceof ThinkingBlockDeltaEvent thinkingBlockDeltaEvent) {
+            return new AgentRuntimeEvent(
+                    thinkingBlockDeltaEvent.getReplyId(),
+                    AgentEventType.THINKING_BLOCK_DELTA.getValue(),
+                    thinkingBlockDeltaEvent.getDelta(),
+                    thinkingBlockDeltaEvent
+            );
+        } else if (event instanceof ThinkingBlockEndEvent thinkingBlockEndEvent) {
+            return new AgentRuntimeEvent(
+                    thinkingBlockEndEvent.getReplyId(),
+                    AgentEventType.THINKING_BLOCK_END.getValue(),
+                    null,
+                    thinkingBlockEndEvent
+            );
+            // 工具调用流事件
+        } else if (event instanceof ToolCallStartEvent  toolCallStartEvent) {
+            return new AgentRuntimeEvent(
+                    toolCallStartEvent.getReplyId(),
+                    AgentEventType.TOOL_CALL_START.getValue(),
+                    toolCallStartEvent.getToolCallName(),
+                    toolCallStartEvent
+            );
+        } else if (event instanceof ToolCallDeltaEvent toolCallDeltaEvent) {
+            return new AgentRuntimeEvent(
+                    toolCallDeltaEvent.getReplyId(),
+                    AgentEventType.TOOL_CALL_DELTA.getValue(),
+                    toolCallDeltaEvent.getDelta(),
+                    toolCallDeltaEvent
+            );
+        } else if (event instanceof ToolCallEndEvent toolCallEndEvent) {
+            return new AgentRuntimeEvent(
+                    toolCallEndEvent.getReplyId(),
+                    AgentEventType.TOOL_CALL_END.getValue(),
+                    null,
+                    toolCallEndEvent
+            );
+            // 工具结果流事件
+        } else if (event instanceof ToolResultStartEvent toolResultStartEvent) {
+            return new AgentRuntimeEvent(
+                    toolResultStartEvent.getReplyId(),
+                    AgentEventType.TOOL_RESULT_START.getValue(),
+                    null,
+                    toolResultStartEvent
+            );
+        } else if (event instanceof ToolResultTextDeltaEvent toolResultTextDeltaEvent) {
+            return new AgentRuntimeEvent(
+                    toolResultTextDeltaEvent.getReplyId(),
+                    AgentEventType.TOOL_RESULT_TEXT_DELTA.getValue(),
+                    toolResultTextDeltaEvent.getDelta(),
+                    toolResultTextDeltaEvent
+            );
+        } else if (event instanceof ToolResultDataDeltaEvent toolResultDataDeltaEvent) {
+            return new AgentRuntimeEvent(
+                    toolResultDataDeltaEvent.getReplyId(),
+                    AgentEventType.TOOL_RESULT_DATA_DELTA.getValue(),
+                    null,
+                    toolResultDataDeltaEvent
+            );
+        } else if (event instanceof ToolResultEndEvent toolResultEndEvent) {
+            return new AgentRuntimeEvent(
+                    toolResultEndEvent.getReplyId(),
+                    AgentEventType.TOOL_RESULT_END.getValue(),
+                    null,
+                    toolResultEndEvent
+            );
+            // 模型调用事件
+        } else if (event instanceof ModelCallStartEvent modelCallStartEvent) {
+            return new AgentRuntimeEvent(
+                    modelCallStartEvent.getReplyId(),
+                    AgentEventType.MODEL_CALL_START.getValue(),
+                    null,
+                    modelCallStartEvent
+            );
+        } else if (event instanceof ModelCallEndEvent modelCallEndEvent) {
+            return new AgentRuntimeEvent(
+                    modelCallEndEvent.getReplyId(),
+                    AgentEventType.MODEL_CALL_END.getValue(),
+                    null,
+                    modelCallEndEvent
+            );
+            // 人工介入事件
+        } else if (event instanceof RequireUserConfirmEvent requireUserConfirmEvent) {
+            return new AgentRuntimeEvent(
+                    requireUserConfirmEvent.getReplyId(),
+                    AgentEventType.REQUIRE_USER_CONFIRM.getValue(),
+                    null,
+                    requireUserConfirmEvent
+            );
+        } else if (event instanceof RequireExternalExecutionEvent requireExternalExecutionEvent) {
+            return new AgentRuntimeEvent(
+                    requireExternalExecutionEvent.getReplyId(),
+                    AgentEventType.REQUIRE_EXTERNAL_EXECUTION.getValue(),
+                    null,
+                    requireExternalExecutionEvent
+            );
+        } else if (event instanceof UserConfirmResultEvent userConfirmResultEvent) {
+            return new AgentRuntimeEvent(
+                    userConfirmResultEvent.getReplyId(),
+                    AgentEventType.USER_CONFIRM_RESULT.getValue(),
+                    null,
+                    userConfirmResultEvent
+            );
+        } else if (event instanceof ExternalExecutionResultEvent externalExecutionResultEvent) {
+            return new AgentRuntimeEvent(
+                    externalExecutionResultEvent.getReplyId(),
+                    AgentEventType.EXTERNAL_EXECUTION_RESULT.getValue(),
+                    null,
+                    externalExecutionResultEvent
+            );
+            // 子Agent事件
+        } else if (event instanceof SubagentExposedEvent  subagentExposedEvent) {
+            return new AgentRuntimeEvent(
+                    null,
+                    AgentEventType.SUBAGENT_EXPOSED.getValue(),
+                    null,
+                    subagentExposedEvent
+            );
+        }
+
+        return new AgentRuntimeEvent(
+                event.getId(),
+                event.getType().name(),
+                null,
+                event
+        );
     }
     public Mono<String> call(AgentConfigDTO config, String TenantUserId, Long sessionId, String text) {
         /**

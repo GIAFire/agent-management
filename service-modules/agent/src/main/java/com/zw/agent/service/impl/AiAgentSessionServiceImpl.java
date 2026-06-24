@@ -29,9 +29,9 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
         AiAgentSessionEntity sessionEntity = agentSessionMapper.selectOne(new LambdaQueryWrapper<AiAgentSessionEntity>()
                 .eq(AiAgentSessionEntity::getTenantId, tenantId)
                 .eq(AiAgentSessionEntity::getUserId, userId)
-                .eq(AiAgentSessionEntity::getAgentId, agentId)
-                .eq(AiAgentSessionEntity::getAgentConfigId, agentConfigId)
-                .eq(AiAgentSessionEntity::getSessionId, sessionId));
+                .eq(AiAgentSessionEntity::getId, sessionId));
+//                .eq(AiAgentSessionEntity::getAgentId, agentId)
+//                .eq(AiAgentSessionEntity::getAgentConfigId, agentConfigId)
 
         if (sessionEntity != null) {
             return sessionEntity;
@@ -41,7 +41,6 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
         sessionEntity.setUserId(userId);
         sessionEntity.setAgentId(agentId);
         sessionEntity.setAgentConfigId(agentConfigId);
-        sessionEntity.setSessionId(sessionId);
         sessionEntity.setTitle("New Session");
         sessionEntity.setLastMessageAt(LocalDateTime.now());
         agentSessionMapper.insert(sessionEntity);

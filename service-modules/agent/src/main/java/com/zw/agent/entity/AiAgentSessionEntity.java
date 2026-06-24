@@ -30,7 +30,7 @@ public class AiAgentSessionEntity extends BaseEntity {
     /**
      * 会话主键ID
      */
-    @TableId(value = "id", type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
     /**
@@ -56,12 +56,6 @@ public class AiAgentSessionEntity extends BaseEntity {
      */
     @TableField("runtime_user_key")
     private String runtimeUserKey;
-
-    /**
-     * 传给 AgentScope RuntimeContext 的 sessionId
-     */
-    @TableField("session_id")
-    private Long sessionId;
 
     /**
      * 会话标题

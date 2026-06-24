@@ -28,7 +28,7 @@ public class AiAgentMessageEntity extends BaseEntity {
     /**
      * 消息主键ID
      */
-    @TableId(value = "id", type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
     /**

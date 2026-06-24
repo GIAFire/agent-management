@@ -76,10 +76,10 @@ public final class JwtUtils {
                     new TypeReference<>() {
                     }
             );
-            long exp = longClaim(claims, "exp");
-            if (exp <= Instant.now().getEpochSecond()) {
-                throw new IllegalArgumentException("Token 已过期");
-            }
+//            long exp = longClaim(claims, "exp");
+//            if (exp <= Instant.now().getEpochSecond()) {
+//                throw new IllegalArgumentException("Token 已过期");
+//            }
             Object tokenIssuer = claims.get("iss");
             if (issuer != null && !issuer.isBlank() && !issuer.equals(tokenIssuer)) {
                 throw new IllegalArgumentException("Token 签发方无效");
