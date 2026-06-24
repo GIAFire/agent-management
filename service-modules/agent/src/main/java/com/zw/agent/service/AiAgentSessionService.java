@@ -2,6 +2,7 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiAgentSessionEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.common.context.UserInfo;
 
 /**
  * <p>
@@ -13,5 +14,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiAgentSessionService extends IService<AiAgentSessionEntity> {
 
-    AiAgentSessionEntity getOrCreateSession(Long tenantId, Long userId, Long agentId, Long agentConfigId, Long sessionId);
+    AiAgentSessionEntity getOrCreateSession(UserInfo userInfo, Long agentId, Long agentConfigId, Long sessionId);
 }

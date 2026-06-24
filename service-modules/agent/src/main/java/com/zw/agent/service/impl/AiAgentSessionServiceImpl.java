@@ -5,6 +5,7 @@ import com.zw.agent.entity.AiAgentSessionEntity;
 import com.zw.agent.mapper.AiAgentSessionMapper;
 import com.zw.agent.service.AiAgentSessionService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zw.common.context.UserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,10 +26,10 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
     @Autowired
     private AiAgentSessionMapper agentSessionMapper;
     @Override
-    public AiAgentSessionEntity getOrCreateSession(Long tenantId, Long userId, Long agentId, Long agentConfigId, Long sessionId) {
+    public AiAgentSessionEntity getOrCreateSession(UserInfo userInfo, Long agentId, Long agentConfigId, Long sessionId) {
         AiAgentSessionEntity sessionEntity = agentSessionMapper.selectOne(new LambdaQueryWrapper<AiAgentSessionEntity>()
-                .eq(AiAgentSessionEntity::getTenantId, tenantId)
-                .eq(AiAgentSessionEntity::getUserId, userId)
+                .eq(AiAgentSessionEntity::getTenantId, userInfo.getTenantId())
+                .eq(AiAgentSessionEntity::getUserId, userInfo.getUserId())
                 .eq(AiAgentSessionEntity::getId, sessionId));
 //                .eq(AiAgentSessionEntity::getAgentId, agentId)
 //                .eq(AiAgentSessionEntity::getAgentConfigId, agentConfigId)
@@ -37,8 +38,8 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
             return sessionEntity;
         }
         sessionEntity = new AiAgentSessionEntity();
-        sessionEntity.setTenantId(tenantId);
-        sessionEntity.setUserId(userId);
+        sessionEntity.setTenantId(userInfo.getTenantId());
+        sessionEntity.setUserId(userInfo.getUserId());
         sessionEntity.setAgentId(agentId);
         sessionEntity.setAgentConfigId(agentConfigId);
         sessionEntity.setTitle("New Session");

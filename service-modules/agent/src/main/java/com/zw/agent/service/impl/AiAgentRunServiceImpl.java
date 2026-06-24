@@ -4,6 +4,7 @@ import com.zw.agent.entity.AiAgentRunEntity;
 import com.zw.agent.mapper.AiAgentRunMapper;
 import com.zw.agent.service.AiAgentRunService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zw.common.context.UserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,14 +22,14 @@ public class AiAgentRunServiceImpl extends ServiceImpl<AiAgentRunMapper, AiAgent
     private AiAgentRunMapper agentRunMapper;
 
     @Override
-    public AiAgentRunEntity createRunningRun(Long tenantId, Long agentId, Long agentConfigId, Long sessionId, Long messageId) {
+    public AiAgentRunEntity createRunningRun(UserInfo userInfo, Long agentId, Long agentConfigId, Long sessionId, Long messageId) {
         AiAgentRunEntity agentRunEntity = new AiAgentRunEntity();
         agentRunEntity.setAgentId(agentId);
         agentRunEntity.setAgentConfigId(agentConfigId);
         agentRunEntity.setSessionId(sessionId);
         agentRunEntity.setInputMessageId(messageId);
         agentRunEntity.setStatus("RUNNING");
-        agentRunEntity.setTenantId(tenantId);
+        agentRunEntity.setTenantId(userInfo.getTenantId());
         agentRunMapper.insert(agentRunEntity);
         return agentRunEntity;
     }

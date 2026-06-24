@@ -41,9 +41,9 @@ public class AgentChatServiceImpl implements AgentChatService {
     private final AiAgentMessageService agentMessageService;
     private final AiAgentRunService agentRunService;
     @Override
-    public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config, String tenantUserId, Long sessionId, String text,Long runId) {
+    public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,UserInfo userInfo, Long sessionId, String text,Long runId) {
         // 从上下文获取当前用户信息
-        UserInfo userInfo = UserContext.get();
+        String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
         // 用于累积大模型响应的文本内容
         StringBuilder assistantBuffer = new StringBuilder();
         // 用于记录事件序列号，保证递增
@@ -58,6 +58,7 @@ public class AgentChatServiceImpl implements AgentChatService {
 
                     // 保存运行事件到数据库
                     agentRunEventService.saveEvent(
+                            userInfo.getUserId(),
                             userInfo.getTenantId(),
                             runId,
                             sessionId,
@@ -82,7 +83,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                 .concatWith(Mono.defer(() -> {
                     // 保存AI的完整回复消息
                     AiAgentMessageEntity assistantMessage = agentMessageService.saveAssistantMessage(
-                            userInfo.getTenantId(),
+                            userInfo,
                             sessionId,
                             runId,
                             assistantBuffer.toString()

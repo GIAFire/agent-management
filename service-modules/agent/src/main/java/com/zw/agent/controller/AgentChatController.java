@@ -51,8 +51,7 @@ public class AgentChatController {
 
         // 获取或创建智能体会话
         AiAgentSessionEntity session = agentSessionService.getOrCreateSession(
-                userInfo.getTenantId(),
-                userInfo.getUserId(),
+                userInfo,
                 request.getAgentId(),
                 config.getAgentConfigId(),
                 request.getSessionId()
@@ -60,14 +59,14 @@ public class AgentChatController {
 
         // 保存用户发送的消息
         AiAgentMessageEntity userMessage = agentMessageService.saveUserMessage(
-                userInfo.getTenantId(),
+                userInfo,
                 session.getId(),
                 request.getContent()
         );
 
         // 创建运行记录，状态为运行中
         AiAgentRunEntity run = agentRunService.createRunningRun(
-                userInfo.getTenantId(),
+                userInfo,
                 request.getAgentId(),
                 config.getAgentConfigId(),
                 session.getId(),
@@ -75,7 +74,7 @@ public class AgentChatController {
         );
 
 
-        return agentChatService.chatStream(config, tenantUserId, request.getSessionId(), request.getContent(),run.getId());
+        return agentChatService.chatStream(config,userInfo, session.getId(), request.getContent(),run.getId());
     }
 
     @PostMapping("/chatBlock")

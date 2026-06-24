@@ -5,6 +5,7 @@ import com.zw.agent.mapper.AiAgentMessageMapper;
 import com.zw.agent.service.AiAgentMessageService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.context.UserContext;
+import com.zw.common.context.UserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,29 +25,29 @@ public class AiAgentMessageServiceImpl extends ServiceImpl<AiAgentMessageMapper,
     @Autowired
     private AiAgentMessageMapper agentMessageMapper;
     @Override
-    public AiAgentMessageEntity saveUserMessage(Long tenantId, Long sessionId, String content) {
+    public AiAgentMessageEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content) {
         AiAgentMessageEntity agentMessageEntity = new AiAgentMessageEntity();
         agentMessageEntity.setRole("USER");
-        agentMessageEntity.setSenderName(UserContext.get().getUserName());
+        agentMessageEntity.setSenderName(userInfo.getUserName());
         agentMessageEntity.setTextContent(content);
-        agentMessageEntity.setTenantId(tenantId);
+        agentMessageEntity.setTenantId(userInfo.getTenantId());
         agentMessageEntity.setSessionId(sessionId);
-        agentMessageEntity.setCreatedBy(UserContext.get().getUserId());
+        agentMessageEntity.setCreatedBy(userInfo.getUserId());
         agentMessageEntity.setCreatedAt(LocalDateTime.now());
         agentMessageMapper.insert(agentMessageEntity);
         return agentMessageEntity;
     }
 
     @Override
-    public AiAgentMessageEntity saveAssistantMessage(Long tenantId, Long sessionId, Long runId, String msg) {
+    public AiAgentMessageEntity saveAssistantMessage(UserInfo userInfo, Long sessionId, Long runId, String msg) {
         AiAgentMessageEntity agentMessageEntity = new AiAgentMessageEntity();
         agentMessageEntity.setRole("ASSISTANT");
         agentMessageEntity.setSenderName("AI");
         agentMessageEntity.setTextContent(msg);
-        agentMessageEntity.setTenantId(tenantId);
+        agentMessageEntity.setTenantId(userInfo.getTenantId());
         agentMessageEntity.setSessionId(sessionId);
         agentMessageEntity.setRunId(runId);
-        agentMessageEntity.setCreatedBy(UserContext.get().getUserId());
+        agentMessageEntity.setCreatedBy(userInfo.getUserId());
         agentMessageMapper.insert(agentMessageEntity);
         return agentMessageEntity;
     }
