@@ -2,6 +2,21 @@ import config from '@/axios/axiosConfig'
 import { getToken, getTokenType } from '@/utils/auth'
 
 const isObject = (value) => typeof value === 'object' && value !== null
+const LONG_NUMBER_TEXT = /^\d{16,19}$/
+const SESSION_ID_PLACEHOLDER = '__CHAT_SESSION_ID_PLACEHOLDER__'
+
+const stringifyChatRequest = (data = {}) => {
+  const sessionId = data.sessionId == null ? '' : String(data.sessionId)
+
+  if (!LONG_NUMBER_TEXT.test(sessionId)) {
+    return JSON.stringify(data)
+  }
+
+  return JSON.stringify({
+    ...data,
+    sessionId: SESSION_ID_PLACEHOLDER
+  }).replace(`"${SESSION_ID_PLACEHOLDER}"`, sessionId)
+}
 
 const normalizeStreamEvent = (eventName, eventId, parsedData, rawData) => {
   const dataObject = isObject(parsedData) ? parsedData : null
@@ -121,7 +136,7 @@ export const chatStream = async (data, handlers = {}, options = {}) => {
   const response = await fetch(`${config.baseURL}/agent/chat/chatStream`, {
     method: 'POST',
     headers,
-    body: JSON.stringify(data),
+    body: stringifyChatRequest(data),
     signal: options.signal
   })
 

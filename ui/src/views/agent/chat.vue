@@ -23,9 +23,26 @@ let typewriterIdleResolve = null
 let saveTimer = null
 let scrollFrame = null
 let pendingScrollForce = false
+let snowflakeLastTimestamp = -1n
+let snowflakeSequence = 0n
+let snowflakeWorkerId = null
+let snowflakeDatacenterId = null
 
 const TYPEWRITER_CHARS_PER_FRAME = 1
 const SCROLL_BOTTOM_THRESHOLD = 64
+const SNOWFLAKE_EPOCH = 1288834974657n
+const SNOWFLAKE_WORKER_ID_BITS = 5n
+const SNOWFLAKE_DATACENTER_ID_BITS = 5n
+const SNOWFLAKE_SEQUENCE_BITS = 12n
+const SNOWFLAKE_MAX_WORKER_ID = (1n << SNOWFLAKE_WORKER_ID_BITS) - 1n
+const SNOWFLAKE_MAX_DATACENTER_ID = (1n << SNOWFLAKE_DATACENTER_ID_BITS) - 1n
+const SNOWFLAKE_SEQUENCE_MASK = (1n << SNOWFLAKE_SEQUENCE_BITS) - 1n
+const SNOWFLAKE_WORKER_ID_SHIFT = SNOWFLAKE_SEQUENCE_BITS
+const SNOWFLAKE_DATACENTER_ID_SHIFT = SNOWFLAKE_SEQUENCE_BITS + SNOWFLAKE_WORKER_ID_BITS
+const SNOWFLAKE_TIMESTAMP_SHIFT = SNOWFLAKE_SEQUENCE_BITS + SNOWFLAKE_WORKER_ID_BITS + SNOWFLAKE_DATACENTER_ID_BITS
+const SNOWFLAKE_LONG_ID_PATTERN = /^\d{16,19}$/
+const SNOWFLAKE_WORKER_STORAGE_KEY = 'agent_chat_snowflake_worker_id'
+const SNOWFLAKE_DATACENTER_STORAGE_KEY = 'agent_chat_snowflake_datacenter_id'
 
 const agentInfo = reactive({
   id: null,
@@ -174,6 +191,7 @@ const toggleAuxiliaryPanel = (message, key) => {
 
   if (typeof key === 'object' && key) {
     key.expanded = !key.expanded
+    key.expandedByUser = true
     saveSessions()
     return
   }
@@ -330,7 +348,8 @@ const createAuxiliaryBlock = (message, kind, extra = {}) => {
     kind,
     sequence,
     title: kind === 'tool' ? `工具调用 ${sequence}` : `推理过程 ${sequence}`,
-    expanded: true,
+    expanded: false,
+    expandedByUser: false,
     status: 'running',
     startedAt: now,
     endedAt: null,
@@ -372,7 +391,8 @@ const normalizeAuxiliaryBlock = (block, index = 0) => {
     kind,
     sequence: block?.sequence || index + 1,
     title: block?.title || (kind === 'tool' ? `工具调用 ${block?.sequence || index + 1}` : `推理过程 ${block?.sequence || index + 1}`),
-    expanded: block?.expanded ?? true,
+    expanded: block?.expandedByUser ? Boolean(block.expanded) : false,
+    expandedByUser: Boolean(block?.expandedByUser),
     status: block?.status || 'done',
     startedAt: block?.startedAt || 0,
     endedAt: block?.endedAt || null,
@@ -514,7 +534,8 @@ const normalizeStoredAuxiliaryBlocks = (message, toolCalls = normalizeStoredTool
       kind: 'reasoning',
       sequence: 1,
       title: '推理过程 1',
-      expanded: message.thinkingExpanded ?? true,
+      expanded: false,
+      expandedByUser: false,
       status: 'done',
       durationMs: stageDurationMs(message, 'reasoning'),
       content: message.thinkingContent
@@ -527,7 +548,8 @@ const normalizeStoredAuxiliaryBlocks = (message, toolCalls = normalizeStoredTool
       kind: 'tool',
       sequence: index + 1,
       title: `工具调用 ${index + 1}`,
-      expanded: message.toolExpanded ?? message.toolResultExpanded ?? true,
+      expanded: false,
+      expandedByUser: false,
       status: toolCall.status || 'done',
       durationMs: stageDurationMs(message, 'tool'),
       toolCall
@@ -896,13 +918,82 @@ const nowText = () => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
+const randomSnowflakePart = () => {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const array = new Uint32Array(1)
+    crypto.getRandomValues(array)
+    return BigInt(array[0] % 32)
+  }
+  return BigInt(Math.floor(Math.random() * 32))
+}
+
+const getStoredSnowflakePart = (key, maxValue) => {
+  const storedValue = localStorage.getItem(key)
+  if (/^\d+$/.test(storedValue || '')) {
+    const parsedValue = BigInt(storedValue)
+    if (parsedValue >= 0n && parsedValue <= maxValue) {
+      return parsedValue
+    }
+  }
+
+  const value = randomSnowflakePart()
+  localStorage.setItem(key, value.toString())
+  return value
+}
+
+const waitNextSnowflakeMillis = (lastTimestamp) => {
+  let timestamp = BigInt(Date.now())
+  while (timestamp <= lastTimestamp) {
+    timestamp = BigInt(Date.now())
+  }
+  return timestamp
+}
+
+const createSnowflakeId = () => {
+  if (snowflakeWorkerId == null) {
+    snowflakeWorkerId = getStoredSnowflakePart(SNOWFLAKE_WORKER_STORAGE_KEY, SNOWFLAKE_MAX_WORKER_ID)
+  }
+  if (snowflakeDatacenterId == null) {
+    snowflakeDatacenterId = getStoredSnowflakePart(SNOWFLAKE_DATACENTER_STORAGE_KEY, SNOWFLAKE_MAX_DATACENTER_ID)
+  }
+
+  let timestamp = BigInt(Date.now())
+  if (timestamp < snowflakeLastTimestamp) {
+    timestamp = snowflakeLastTimestamp
+  }
+
+  if (timestamp === snowflakeLastTimestamp) {
+    snowflakeSequence = (snowflakeSequence + 1n) & SNOWFLAKE_SEQUENCE_MASK
+    if (snowflakeSequence === 0n) {
+      timestamp = waitNextSnowflakeMillis(snowflakeLastTimestamp)
+    }
+  } else {
+    snowflakeSequence = 0n
+  }
+
+  snowflakeLastTimestamp = timestamp
+
+  return (((timestamp - SNOWFLAKE_EPOCH) << SNOWFLAKE_TIMESTAMP_SHIFT) |
+    (snowflakeDatacenterId << SNOWFLAKE_DATACENTER_ID_SHIFT) |
+    (snowflakeWorkerId << SNOWFLAKE_WORKER_ID_SHIFT) |
+    snowflakeSequence).toString()
+}
+
 const createSessionId = () => {
-  return `${route.params.agentId || 'agent'}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+  return createSnowflakeId()
 }
 
 const getBackendSessionId = (session) => {
-  const numericId = Number(session?.backendSessionId ?? session?.id)
-  return Number.isSafeInteger(numericId) ? numericId : null
+  const existingId = String(session?.backendSessionId ?? session?.id ?? '')
+  if (SNOWFLAKE_LONG_ID_PATTERN.test(existingId)) {
+    return existingId
+  }
+
+  const sessionId = createSnowflakeId()
+  if (session) {
+    session.backendSessionId = sessionId
+  }
+  return sessionId
 }
 
 const getDefaultTitle = () => {
@@ -1077,8 +1168,10 @@ const applyRouteAgentInfo = () => {
 }
 
 const createSession = () => {
+  const sessionId = createSessionId()
   const session = {
-    id: createSessionId(),
+    id: sessionId,
+    backendSessionId: sessionId,
     title: getDefaultTitle(),
     updatedAt: nowText(),
     messages: []
@@ -1236,6 +1329,8 @@ const sendMessage = async () => {
     { forceScroll: true }
   )
   const session = activeSession.value
+  const backendSessionId = getBackendSessionId(session)
+  saveSessions()
 
   resetTypewriter()
   streaming.value = true
@@ -1245,7 +1340,7 @@ const sendMessage = async () => {
     await chatStream(
       {
         agentId: agentId.value,
-        sessionId: getBackendSessionId(session),
+        sessionId: backendSessionId,
         content
       },
       {
