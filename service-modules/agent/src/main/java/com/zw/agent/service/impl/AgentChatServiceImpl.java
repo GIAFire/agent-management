@@ -179,6 +179,30 @@ public class AgentChatServiceImpl implements AgentChatService {
             return "thinking_end";
         }
 
+        if (AgentEventType.TOOL_CALL_START.getValue().equals(eventType)) {
+            return "tool_call_start";
+        }
+
+        if (AgentEventType.TOOL_CALL_END.getValue().equals(eventType)) {
+            return "tool_call_end";
+        }
+
+        if (AgentEventType.TOOL_RESULT_START.getValue().equals(eventType)) {
+            return "tool_result_start";
+        }
+
+        if (AgentEventType.TOOL_RESULT_TEXT_DELTA.getValue().equals(eventType)) {
+            return "tool_result_text_delta";
+        }
+
+        if (AgentEventType.TOOL_RESULT_DATA_DELTA.getValue().equals(eventType)) {
+            return "tool_result_data_delta";
+        }
+
+        if (AgentEventType.TOOL_RESULT_END.getValue().equals(eventType)) {
+            return "tool_result_end";
+        }
+
         // 工具调用、模型调用、异常、其他事件都可以先统一归类
         return "agent_event";
     }
