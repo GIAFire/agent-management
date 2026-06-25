@@ -25,6 +25,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * <p>
@@ -49,6 +50,7 @@ public class AgentChatServiceImpl implements AgentChatService {
         // 用于累积大模型响应的文本内容
         StringBuilder assistantBuffer = new StringBuilder();
         Set<String> loggedEventTypes = ConcurrentHashMap.newKeySet();
+        AtomicLong seq = new AtomicLong(0);
         // 用于记录事件序列号，保证递增
         Flux<ServerSentEvent<AgentStreamResponse>> serverSentEventFlux = agentRuntimeFactory
                 .callStreamEvents(config, tenantUserId, sessionId, text)
@@ -68,12 +70,14 @@ public class AgentChatServiceImpl implements AgentChatService {
                 // 将运行时事件映射为SSE事件
                 .map(runtimeEvent -> ServerSentEvent.<AgentStreamResponse>builder()
                         // 设置SSE事件类型
-                        .event(AgentEventType.TEXT_BLOCK_DELTA.getValue())
+                        .event(toSseEventName(runtimeEvent.getRawEvent().getType().getValue()))
+                        .id(String.valueOf(seq.incrementAndGet()))
                         // 设置SSE事件数据
                         .data(new AgentStreamResponse(
                                 runId,
                                 runtimeEvent.getEventType(),
-                                runtimeEvent.getDelta()
+                                runtimeEvent.getDelta(),
+                                seq.incrementAndGet()
                         ))
                         // 构建SSE事件对象
                         .build()
@@ -95,6 +99,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .data(new AgentStreamResponse(
                                     runId,
                                     "DONE",
+                                    null,
                                     null
                             ))
                             .build());
@@ -114,7 +119,8 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .data(new AgentStreamResponse(
                                     runId,
                                     "ERROR",
-                                    "当前智能体执行失败，请稍后重试"
+                                    "当前智能体执行失败，请稍后重试",
+                                    null
                             ))
                             .build());
                 })
@@ -133,5 +139,47 @@ public class AgentChatServiceImpl implements AgentChatService {
                     );
                 });
         return serverSentEventFlux;
+    }
+
+
+    private String toSseEventName(String eventType) {
+        if (eventType == null) {
+            return "agent_event";
+        }
+
+        if (AgentEventType.AGENT_START.getValue().equals(eventType)) {
+            return "agent_start";
+        }
+
+        if (AgentEventType.AGENT_END.getValue().equals(eventType)) {
+            return "agent_end";
+        }
+
+        if (AgentEventType.TEXT_BLOCK_START.getValue().equals(eventType)) {
+            return "message_start";
+        }
+
+        if (AgentEventType.TEXT_BLOCK_DELTA.getValue().equals(eventType)) {
+            return "message_delta";
+        }
+
+        if (AgentEventType.TEXT_BLOCK_END.getValue().equals(eventType)) {
+            return "message_end";
+        }
+
+        if (AgentEventType.THINKING_BLOCK_START.getValue().equals(eventType)) {
+            return "thinking_start";
+        }
+
+        if (AgentEventType.THINKING_BLOCK_DELTA.getValue().equals(eventType)) {
+            return "thinking_delta";
+        }
+
+        if (AgentEventType.THINKING_BLOCK_END.getValue().equals(eventType)) {
+            return "thinking_end";
+        }
+
+        // 工具调用、模型调用、异常、其他事件都可以先统一归类
+        return "agent_event";
     }
 }
