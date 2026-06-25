@@ -48,6 +48,221 @@ const canSend = computed(() => {
   return Boolean(inputMessage.value.trim()) && !streaming.value && Number.isFinite(agentId.value)
 })
 
+const STREAM_STAGE_META = {
+  agent: { label: '智能体执行', order: 10 },
+  model: { label: '模型调用', order: 20 },
+  thinking: { label: '思考生成', order: 30 },
+  message: { label: '文本生成', order: 40 },
+  toolCall: { label: '工具调用', order: 50 },
+  toolResult: { label: '工具结果', order: 60 },
+  human: { label: '人工确认', order: 70 },
+  subagent: { label: '子智能体', order: 80 },
+  done: { label: '完成收尾', order: 90 },
+  error: { label: '异常处理', order: 95 },
+  other: { label: '运行事件', order: 100 }
+}
+
+const STREAM_EVENT_LABELS = {
+  AGENT_START: '智能体开始',
+  AGENT_END: '智能体结束',
+  MODEL_CALL_START: '模型调用开始',
+  MODEL_CALL_END: '模型调用结束',
+  TEXT_BLOCK_START: '文本块开始',
+  TEXT_BLOCK_DELTA: '文本增量',
+  TEXT_BLOCK_END: '文本块结束',
+  THINKING_BLOCK_START: '思考开始',
+  THINKING_BLOCK_DELTA: '思考增量',
+  THINKING_BLOCK_END: '思考结束',
+  TOOL_CALL_START: '工具调用开始',
+  TOOL_CALL_DELTA: '工具参数增量',
+  TOOL_CALL_END: '工具调用结束',
+  TOOL_RESULT_START: '工具执行开始',
+  TOOL_RESULT_TEXT_DELTA: '工具文本结果',
+  TOOL_RESULT_DATA_DELTA: '工具数据结果',
+  TOOL_RESULT_END: '工具执行结束',
+  REQUIRE_USER_CONFIRM: '等待用户确认',
+  REQUIRE_EXTERNAL_EXECUTION: '等待外部执行',
+  USER_CONFIRM_RESULT: '用户确认结果',
+  EXTERNAL_EXECUTION_RESULT: '外部执行结果',
+  REQUEST_STOP: '请求停止',
+  SUBAGENT_EXPOSED: '子智能体暴露',
+  EXCEED_MAX_ITERS: '达到最大迭代',
+  DONE: '流完成',
+  ERROR: '执行异常'
+}
+
+const getStageKey = (eventType = '') => {
+  if (eventType === 'DONE') {
+    return 'done'
+  }
+  if (eventType === 'ERROR') {
+    return 'error'
+  }
+  if (eventType.startsWith('AGENT_') || eventType === 'EXCEED_MAX_ITERS') {
+    return 'agent'
+  }
+  if (eventType.startsWith('MODEL_CALL_')) {
+    return 'model'
+  }
+  if (eventType.startsWith('THINKING_BLOCK_')) {
+    return 'thinking'
+  }
+  if (eventType.startsWith('TEXT_BLOCK_')) {
+    return 'message'
+  }
+  if (eventType.startsWith('TOOL_CALL_')) {
+    return 'toolCall'
+  }
+  if (eventType.startsWith('TOOL_RESULT_')) {
+    return 'toolResult'
+  }
+  if (eventType.includes('CONFIRM') || eventType.includes('EXTERNAL_EXECUTION')) {
+    return 'human'
+  }
+  if (eventType === 'SUBAGENT_EXPOSED') {
+    return 'subagent'
+  }
+  return 'other'
+}
+
+const isStageEndEvent = (eventType = '') => {
+  return eventType === 'DONE' ||
+    eventType === 'ERROR' ||
+    eventType === 'AGENT_END' ||
+    eventType === 'MODEL_CALL_END' ||
+    eventType.endsWith('_END') ||
+    eventType === 'REQUEST_STOP' ||
+    eventType === 'EXCEED_MAX_ITERS'
+}
+
+const eventLabel = (eventType = '') => {
+  return STREAM_EVENT_LABELS[eventType] || eventType || '未知事件'
+}
+
+const formatDuration = (duration = 0) => {
+  const milliseconds = Math.max(0, Math.round(duration || 0))
+  if (milliseconds < 1000) {
+    return `${milliseconds}ms`
+  }
+  if (milliseconds < 10000) {
+    return `${(milliseconds / 1000).toFixed(1)}s`
+  }
+  return `${Math.round(milliseconds / 1000)}s`
+}
+
+const stageStatusText = (stage) => {
+  if (stage.status === 'running') {
+    return '进行中'
+  }
+  if (stage.status === 'error') {
+    return '异常'
+  }
+  return '完成'
+}
+
+const streamTotalText = (message) => {
+  const totalMs = message.streamTiming?.totalMs
+  return typeof totalMs === 'number' ? formatDuration(totalMs) : ''
+}
+
+const getNowMs = () => {
+  return typeof performance !== 'undefined' ? performance.now() : Date.now()
+}
+
+const ensureStreamTiming = (message) => {
+  if (!message.streamTiming) {
+    message.streamTiming = {
+      startedAt: 0,
+      lastAt: 0,
+      totalMs: 0,
+      eventCount: 0
+    }
+  }
+  if (!Array.isArray(message.eventStages)) {
+    message.eventStages = []
+  }
+  return message.streamTiming
+}
+
+const recordStreamEvent = (message, streamEvent) => {
+  if (!message || !streamEvent) {
+    return
+  }
+
+  const timing = ensureStreamTiming(message)
+  const now = getNowMs()
+  const eventType = streamEvent.eventType || streamEvent.sseEvent || 'UNKNOWN'
+  const stageKey = getStageKey(eventType)
+  const stageMeta = STREAM_STAGE_META[stageKey] || STREAM_STAGE_META.other
+
+  if (!timing.startedAt) {
+    timing.startedAt = now
+    timing.lastAt = now
+  }
+
+  let stage = message.eventStages.find((item) => item.key === stageKey)
+  if (!stage) {
+    stage = {
+      key: stageKey,
+      label: stageMeta.label,
+      order: stageMeta.order,
+      startedAt: now,
+      endedAt: null,
+      durationMs: 0,
+      eventCount: 0,
+      lastEventType: '',
+      lastEventLabel: '',
+      gapMs: 0,
+      status: 'running'
+    }
+    message.eventStages.push(stage)
+    message.eventStages.sort((left, right) => left.order - right.order)
+  }
+
+  const gapMs = timing.eventCount > 0 ? now - timing.lastAt : 0
+  stage.eventCount += 1
+  stage.lastEventType = eventType
+  stage.lastEventLabel = eventLabel(eventType)
+  stage.gapMs = gapMs
+  stage.durationMs = now - stage.startedAt
+  stage.status = eventType === 'ERROR' ? 'error' : isStageEndEvent(eventType) ? 'done' : 'running'
+
+  if (stage.status !== 'running') {
+    stage.endedAt = now
+    stage.durationMs = stage.endedAt - stage.startedAt
+  }
+
+  timing.lastAt = now
+  timing.eventCount += 1
+  timing.totalMs = now - timing.startedAt
+  message.streamStatus = eventType === 'ERROR' ? 'error' : 'running'
+
+  scheduleSaveSessions()
+  scheduleScrollToBottom()
+}
+
+const finishStreamEvents = (message, status = 'done') => {
+  if (!message?.streamTiming) {
+    return
+  }
+
+  const now = getNowMs()
+  message.streamTiming.totalMs = now - message.streamTiming.startedAt
+  message.streamStatus = status
+
+  if (Array.isArray(message.eventStages)) {
+    message.eventStages.forEach((stage) => {
+      if (stage.status === 'running') {
+        stage.status = status === 'error' ? 'error' : 'done'
+        stage.endedAt = now
+        stage.durationMs = stage.endedAt - stage.startedAt
+      }
+    })
+  }
+
+  scheduleSaveSessions()
+}
+
 const messageText = (message) => {
   return message.displayContent ?? message.content ?? ''
 }
@@ -60,6 +275,11 @@ const nowText = () => {
 
 const createSessionId = () => {
   return `${route.params.agentId || 'agent'}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
+
+const getBackendSessionId = (session) => {
+  const numericId = Number(session?.backendSessionId ?? session?.id)
+  return Number.isSafeInteger(numericId) ? numericId : null
 }
 
 const getDefaultTitle = () => {
@@ -355,7 +575,12 @@ const sendMessage = async () => {
   inputMessage.value = ''
   autoScrollEnabled.value = true
   appendMessage('user', content, {}, { forceScroll: true })
-  const assistantMessage = appendMessage('assistant', '', { pending: true, typing: true }, { forceScroll: true })
+  const assistantMessage = appendMessage(
+    'assistant',
+    '',
+    { pending: true, typing: true, eventStages: [], streamTiming: null, streamStatus: 'running' },
+    { forceScroll: true }
+  )
   const session = activeSession.value
 
   resetTypewriter()
@@ -366,14 +591,18 @@ const sendMessage = async () => {
     await chatStream(
       {
         agentId: agentId.value,
-        sessionId: session.id,
+        sessionId: getBackendSessionId(session),
         content
       },
       {
+        onEvent: (streamEvent) => {
+          recordStreamEvent(assistantMessage, streamEvent)
+        },
         onMessage: (delta) => {
           pushTypewriterText(assistantMessage, session, delta)
         },
         onError: (message) => {
+          finishStreamEvents(assistantMessage, 'error')
           resetTypewriter()
           assistantMessage.content = message
           assistantMessage.displayContent = message
@@ -385,6 +614,7 @@ const sendMessage = async () => {
           scrollToBottom()
         },
         onDone: () => {
+          finishStreamEvents(assistantMessage, 'done')
           session.updatedAt = nowText()
         }
       },
@@ -400,6 +630,7 @@ const sendMessage = async () => {
     flushScheduledSave()
   } catch (error) {
     flushTypewriter()
+    finishStreamEvents(assistantMessage, error.name === 'AbortError' ? 'done' : 'error')
     if (error.name === 'AbortError') {
       assistantMessage.content = assistantMessage.content || '已停止生成'
       assistantMessage.displayContent = assistantMessage.displayContent || assistantMessage.content
@@ -519,6 +750,28 @@ onBeforeUnmount(() => {
             </div>
             <div class="message-content">
               {{ messageText(message) || (message.pending ? '思考中...' : '') }}
+            </div>
+            <div
+              v-if="message.role === 'assistant' && message.eventStages?.length"
+              class="stream-stages"
+            >
+              <div class="stream-stages-header">
+                <span>执行阶段</span>
+                <span v-if="streamTotalText(message)">总耗时 {{ streamTotalText(message) }}</span>
+              </div>
+              <div
+                v-for="stage in message.eventStages"
+                :key="stage.key"
+                class="stream-stage"
+                :class="`status-${stage.status}`"
+              >
+                <span class="stream-stage-dot" />
+                <span class="stream-stage-label">{{ stage.label }}</span>
+                <span class="stream-stage-event">{{ stage.lastEventLabel }}</span>
+                <span class="stream-stage-time">{{ formatDuration(stage.durationMs) }}</span>
+                <span class="stream-stage-count">{{ stage.eventCount }} 次事件</span>
+                <span class="stream-stage-state">{{ stageStatusText(stage) }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -790,6 +1043,106 @@ onBeforeUnmount(() => {
   line-height: 1.7;
 }
 
+.stream-stages {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.stream-stages-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
+  color: var(--subtle);
+  font-size: 12px;
+}
+
+.stream-stages-header span:first-child {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.stream-stage {
+  display: grid;
+  min-height: 28px;
+  align-items: center;
+  grid-template-columns: 8px minmax(76px, 0.8fr) minmax(110px, 1fr) minmax(54px, auto) minmax(66px, auto) minmax(44px, auto);
+  gap: 8px;
+  color: var(--subtle);
+  font-size: 12px;
+}
+
+.stream-stage + .stream-stage {
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.stream-stage-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.stream-stage.status-running .stream-stage-dot {
+  animation: stage-pulse 1.2s ease-in-out infinite;
+  background: #eab308;
+}
+
+.stream-stage.status-done .stream-stage-dot {
+  background: #16a34a;
+}
+
+.stream-stage.status-error .stream-stage-dot {
+  background: #ef4444;
+}
+
+.stream-stage-label,
+.stream-stage-time {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.stream-stage-event,
+.stream-stage-label,
+.stream-stage-count,
+.stream-stage-state,
+.stream-stage-time {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stream-stage-state {
+  justify-self: end;
+}
+
+.stream-stage.status-running .stream-stage-state {
+  color: #a16207;
+}
+
+.stream-stage.status-done .stream-stage-state {
+  color: #15803d;
+}
+
+.stream-stage.status-error .stream-stage-state {
+  color: #dc2626;
+}
+
+@keyframes stage-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.9);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+
 .message-row.assistant.typing .message-content::after {
   display: inline-block;
   width: 6px;
@@ -860,6 +1213,15 @@ onBeforeUnmount(() => {
 
   .chat-actions {
     justify-content: flex-end;
+  }
+
+  .stream-stage {
+    grid-template-columns: 8px minmax(74px, 0.9fr) minmax(92px, 1fr) minmax(52px, auto);
+  }
+
+  .stream-stage-count,
+  .stream-stage-state {
+    display: none;
   }
 }
 </style>

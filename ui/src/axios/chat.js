@@ -1,13 +1,42 @@
 import config from '@/axios/axiosConfig'
 import { getToken, getTokenType } from '@/utils/auth'
 
-// 解析单个 SSE 事件块，后端返回的数据形态是 data: {"content":"..."}。
+const isObject = (value) => typeof value === 'object' && value !== null
+
+const normalizeStreamEvent = (eventName, eventId, parsedData, rawData) => {
+  const dataObject = isObject(parsedData) ? parsedData : null
+  const delta = dataObject
+    ? dataObject.delta ?? dataObject.content ?? ''
+    : String(parsedData)
+
+  return {
+    id: eventId || dataObject?.seq || null,
+    sseEvent: eventName,
+    eventName,
+    eventType: dataObject?.eventType || eventName,
+    runId: dataObject?.runId ?? null,
+    seq: dataObject?.seq ?? null,
+    delta,
+    data: parsedData,
+    rawData,
+    receivedAt: Date.now()
+  }
+}
+
+const isTextDeltaEvent = (streamEvent) => {
+  return streamEvent.eventType === 'TEXT_BLOCK_DELTA' ||
+    streamEvent.sseEvent === 'message_delta' ||
+    (!isObject(streamEvent.data) && Boolean(streamEvent.delta))
+}
+
+// 解析单个 SSE 事件块，后端返回的数据形态是 data: {"eventType":"TEXT_BLOCK_DELTA","delta":"..."}。
 const dispatchSseBlock = (block, handlers) => {
   if (!block.trim()) {
     return
   }
 
   let eventName = 'message'
+  let eventId = ''
   const dataLines = []
 
   block.split(/\r?\n/).forEach((line) => {
@@ -25,6 +54,9 @@ const dispatchSseBlock = (block, handlers) => {
 
     if (field === 'event') {
       eventName = value
+    }
+    if (field === 'id') {
+      eventId = value
     }
     if (field === 'data') {
       dataLines.push(value)
@@ -44,21 +76,24 @@ const dispatchSseBlock = (block, handlers) => {
     parsedData = rawData
   }
 
-  const content = typeof parsedData === 'object' && parsedData !== null
-    ? parsedData.content
-    : String(parsedData)
+  const streamEvent = normalizeStreamEvent(eventName, eventId, parsedData, rawData)
+  const content = streamEvent.delta
 
-  if (eventName === 'done' || content === '[DONE]') {
-    handlers.onDone?.()
+  handlers.onEvent?.(streamEvent)
+
+  if (eventName === 'done' || streamEvent.eventType === 'DONE' || content === '[DONE]') {
+    handlers.onDone?.(streamEvent)
     return
   }
 
-  if (eventName === 'error') {
-    handlers.onError?.(content || '对话请求失败')
+  if (eventName === 'error' || streamEvent.eventType === 'ERROR') {
+    handlers.onError?.(content || '对话请求失败', streamEvent)
     return
   }
 
-  handlers.onMessage?.(content || '')
+  if (isTextDeltaEvent(streamEvent)) {
+    handlers.onMessage?.(content || '', streamEvent)
+  }
 }
 
 // 网络分片可能把一个 SSE 事件拆开，保留最后一个未完整结束的块等待下次拼接。

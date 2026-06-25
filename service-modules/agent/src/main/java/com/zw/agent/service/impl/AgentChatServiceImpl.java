@@ -61,7 +61,6 @@ public class AgentChatServiceImpl implements AgentChatService {
                         assistantBuffer.append(runtimeEvent.getDelta());
                     }
 
-                    // 保存运行事件到数据库
                     // 按事件类型去重记录日志
                     if (!loggedEventTypes.contains(eventType)) {
                         loggedEventTypes.add(eventType);
@@ -71,7 +70,6 @@ public class AgentChatServiceImpl implements AgentChatService {
                 .map(runtimeEvent -> ServerSentEvent.<AgentStreamResponse>builder()
                         // 设置SSE事件类型
                         .event(toSseEventName(runtimeEvent.getRawEvent().getType().getValue()))
-                        .id(String.valueOf(seq.incrementAndGet()))
                         // 设置SSE事件数据
                         .data(new AgentStreamResponse(
                                 runId,
@@ -125,9 +123,6 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .build());
                 })
                 .doFinally(signalType -> {
-                    for (String eventType : loggedEventTypes) {
-                        System.err.println(eventType);
-                    }
                     // 保存本次对话执行事件
                     String runtimeEvent = String.join("-", loggedEventTypes);
                     agentRunEventService.saveEvent(
