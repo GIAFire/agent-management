@@ -49,17 +49,9 @@ const canSend = computed(() => {
 })
 
 const STREAM_STAGE_META = {
-  agent: { label: '智能体执行', order: 10 },
-  model: { label: '模型调用', order: 20 },
-  thinking: { label: '思考生成', order: 30 },
-  message: { label: '文本生成', order: 40 },
-  toolCall: { label: '工具调用', order: 50 },
-  toolResult: { label: '工具结果', order: 60 },
-  human: { label: '人工确认', order: 70 },
-  subagent: { label: '子智能体', order: 80 },
-  done: { label: '完成收尾', order: 90 },
-  error: { label: '异常处理', order: 95 },
-  other: { label: '运行事件', order: 100 }
+  reasoning: { label: '推理事件', order: 10 },
+  tool: { label: '工具调用事件', order: 20 },
+  message: { label: '正文事件', order: 30 }
 }
 
 const STREAM_EVENT_LABELS = {
@@ -92,47 +84,29 @@ const STREAM_EVENT_LABELS = {
 }
 
 const getStageKey = (eventType = '') => {
-  if (eventType === 'DONE') {
-    return 'done'
+  const normalizedType = String(eventType || '').toUpperCase()
+
+  if (normalizedType.startsWith('THINKING_BLOCK_') || normalizedType.startsWith('THINKING_')) {
+    return 'reasoning'
   }
-  if (eventType === 'ERROR') {
-    return 'error'
+  if (normalizedType.startsWith('TOOL_CALL_') || normalizedType.startsWith('TOOL_RESULT_')) {
+    return 'tool'
   }
-  if (eventType.startsWith('AGENT_') || eventType === 'EXCEED_MAX_ITERS') {
-    return 'agent'
-  }
-  if (eventType.startsWith('MODEL_CALL_')) {
-    return 'model'
-  }
-  if (eventType.startsWith('THINKING_BLOCK_')) {
-    return 'thinking'
-  }
-  if (eventType.startsWith('TEXT_BLOCK_')) {
+  if (normalizedType.startsWith('TEXT_BLOCK_') || normalizedType.startsWith('MESSAGE_')) {
     return 'message'
   }
-  if (eventType.startsWith('TOOL_CALL_')) {
-    return 'toolCall'
-  }
-  if (eventType.startsWith('TOOL_RESULT_')) {
-    return 'toolResult'
-  }
-  if (eventType.includes('CONFIRM') || eventType.includes('EXTERNAL_EXECUTION')) {
-    return 'human'
-  }
-  if (eventType === 'SUBAGENT_EXPOSED') {
-    return 'subagent'
-  }
-  return 'other'
+
+  return null
 }
 
 const isStageEndEvent = (eventType = '') => {
-  return eventType === 'DONE' ||
-    eventType === 'ERROR' ||
-    eventType === 'AGENT_END' ||
-    eventType === 'MODEL_CALL_END' ||
-    eventType.endsWith('_END') ||
-    eventType === 'REQUEST_STOP' ||
-    eventType === 'EXCEED_MAX_ITERS'
+  const normalizedType = String(eventType || '').toUpperCase()
+  return normalizedType === 'DONE' ||
+    normalizedType === 'ERROR' ||
+    normalizedType === 'THINKING_BLOCK_END' ||
+    normalizedType === 'TOOL_RESULT_END' ||
+    normalizedType === 'TEXT_BLOCK_END' ||
+    normalizedType === 'MESSAGE_END'
 }
 
 const eventLabel = (eventType = '') => {
@@ -165,8 +139,598 @@ const streamTotalText = (message) => {
   return typeof totalMs === 'number' ? formatDuration(totalMs) : ''
 }
 
+const stageTimeText = (message, stageKey) => {
+  const stage = message?.eventStages?.find((item) => item.key === stageKey)
+  return stage ? formatDuration(stage.durationMs) : ''
+}
+
+const auxiliaryBlockTimeText = (block) => {
+  return block?.durationMs ? formatDuration(block.durationMs) : ''
+}
+
+const auxiliaryBlockTitle = (block) => {
+  if (block?.title) {
+    return block.title
+  }
+
+  const sequence = block?.sequence ? ` ${block.sequence}` : ''
+  return block?.kind === 'tool' ? `工具调用${sequence}` : `推理过程${sequence}`
+}
+
+const toolStatusText = (toolCall) => {
+  if (toolCall?.status === 'done') {
+    return '完成'
+  }
+  if (toolCall?.status === 'error') {
+    return '异常'
+  }
+  return '调用中'
+}
+
+const toggleAuxiliaryPanel = (message, key) => {
+  if (!message) {
+    return
+  }
+
+  if (typeof key === 'object' && key) {
+    key.expanded = !key.expanded
+    saveSessions()
+    return
+  }
+
+  if (key === 'thinking') {
+    message.thinkingExpanded = !message.thinkingExpanded
+  }
+  if (key === 'tool') {
+    message.toolExpanded = !message.toolExpanded
+  }
+
+  saveSessions()
+}
+
+const normalizedEventType = (streamEvent) => String(streamEvent?.eventType || '').toUpperCase()
+
+const normalizedSseEvent = (streamEvent) => String(streamEvent?.sseEvent || '').toLowerCase()
+
+const isReasoningStartEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'THINKING_BLOCK_START' ||
+    normalizedSseEvent(streamEvent) === 'thinking_start'
+}
+
+const isReasoningDeltaEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'THINKING_BLOCK_DELTA' ||
+    normalizedSseEvent(streamEvent) === 'thinking_delta'
+}
+
+const isReasoningEndEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'THINKING_BLOCK_END' ||
+    normalizedSseEvent(streamEvent) === 'thinking_end'
+}
+
+const isReasoningStreamEvent = (streamEvent) => {
+  return isReasoningStartEvent(streamEvent) ||
+    isReasoningDeltaEvent(streamEvent) ||
+    isReasoningEndEvent(streamEvent)
+}
+
+const isToolStreamEvent = (streamEvent) => {
+  const eventType = normalizedEventType(streamEvent)
+  const sseEvent = normalizedSseEvent(streamEvent)
+  return eventType.startsWith('TOOL_CALL_') ||
+    eventType.startsWith('TOOL_RESULT_') ||
+    sseEvent.startsWith('tool_call_') ||
+    sseEvent.startsWith('tool_result_')
+}
+
+const isToolCallStartEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'TOOL_CALL_START' ||
+    normalizedSseEvent(streamEvent) === 'tool_call_start'
+}
+
+const isToolCallDeltaEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'TOOL_CALL_DELTA' ||
+    normalizedSseEvent(streamEvent) === 'tool_call_delta'
+}
+
+const isToolCallEndEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'TOOL_CALL_END' ||
+    normalizedSseEvent(streamEvent) === 'tool_call_end'
+}
+
+const isToolResultStartEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'TOOL_RESULT_START' ||
+    normalizedSseEvent(streamEvent) === 'tool_result_start'
+}
+
+const isToolResultTextDeltaEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'TOOL_RESULT_TEXT_DELTA' ||
+    normalizedSseEvent(streamEvent) === 'tool_result_text_delta'
+}
+
+const isToolResultDataDeltaEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'TOOL_RESULT_DATA_DELTA' ||
+    normalizedSseEvent(streamEvent) === 'tool_result_data_delta'
+}
+
+const isToolResultEndEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'TOOL_RESULT_END' ||
+    normalizedSseEvent(streamEvent) === 'tool_result_end'
+}
+
+const hasAuxiliaryOutput = (message) => {
+  return Boolean(
+    (Array.isArray(message?.auxiliaryBlocks) && message.auxiliaryBlocks.length) ||
+    message?.thinkingContent ||
+    message?.toolResultContent ||
+    (Array.isArray(message?.toolCalls) && message.toolCalls.length)
+  )
+}
+
 const getNowMs = () => {
   return typeof performance !== 'undefined' ? performance.now() : Date.now()
+}
+
+const createToolCallId = () => {
+  return `tool-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
+
+const createToolCall = (name = '') => {
+  const now = getNowMs()
+  return {
+    id: createToolCallId(),
+    name: name || '工具调用',
+    process: '',
+    result: '',
+    status: 'running',
+    argumentStarted: false,
+    resultStarted: false,
+    startedAt: now,
+    updatedAt: now
+  }
+}
+
+const createAuxiliaryBlockId = (kind) => {
+  return `${kind}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
+
+const ensureAuxiliaryBlocks = (message) => {
+  if (!Array.isArray(message.auxiliaryBlocks)) {
+    message.auxiliaryBlocks = []
+  }
+  return message.auxiliaryBlocks
+}
+
+const findAuxiliaryBlock = (message, blockId) => {
+  if (!blockId) {
+    return null
+  }
+  return ensureAuxiliaryBlocks(message).find((block) => block.id === blockId) || null
+}
+
+const findLastRunningBlock = (message, kind) => {
+  const blocks = ensureAuxiliaryBlocks(message)
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    const block = blocks[index]
+    if (block.kind === kind && block.status === 'running') {
+      return block
+    }
+  }
+  return null
+}
+
+const nextAuxiliaryBlockSequence = (message, kind) => {
+  return ensureAuxiliaryBlocks(message).filter((block) => block.kind === kind).length + 1
+}
+
+const createAuxiliaryBlock = (message, kind, extra = {}) => {
+  const now = getNowMs()
+  const sequence = nextAuxiliaryBlockSequence(message, kind)
+  return {
+    id: createAuxiliaryBlockId(kind),
+    kind,
+    sequence,
+    title: kind === 'tool' ? `工具调用 ${sequence}` : `推理过程 ${sequence}`,
+    expanded: true,
+    status: 'running',
+    startedAt: now,
+    endedAt: null,
+    durationMs: 0,
+    content: '',
+    ...extra
+  }
+}
+
+const touchAuxiliaryBlock = (block, status = 'running') => {
+  const now = getNowMs()
+  block.status = status
+  block.durationMs = block.startedAt ? now - block.startedAt : 0
+  if (status === 'running') {
+    block.endedAt = null
+    return
+  }
+  block.endedAt = now
+}
+
+const normalizeAuxiliaryBlock = (block, index = 0) => {
+  const kind = block?.kind === 'tool' ? 'tool' : 'reasoning'
+  const toolCall = kind === 'tool'
+    ? {
+      id: block.toolCall?.id || block.id || createToolCallId(),
+      name: block.toolCall?.name || '工具调用',
+      process: block.toolCall?.process || '',
+      result: block.toolCall?.result || '',
+      status: block.toolCall?.status || block.status || 'done',
+      argumentStarted: Boolean(block.toolCall?.argumentStarted),
+      resultStarted: Boolean(block.toolCall?.resultStarted),
+      startedAt: block.toolCall?.startedAt || block.startedAt || 0,
+      updatedAt: block.toolCall?.updatedAt || block.endedAt || 0
+    }
+    : null
+
+  return {
+    id: block?.id || `${kind}-stored-${index}`,
+    kind,
+    sequence: block?.sequence || index + 1,
+    title: block?.title || (kind === 'tool' ? `工具调用 ${block?.sequence || index + 1}` : `推理过程 ${block?.sequence || index + 1}`),
+    expanded: block?.expanded ?? true,
+    status: block?.status || 'done',
+    startedAt: block?.startedAt || 0,
+    endedAt: block?.endedAt || null,
+    durationMs: block?.durationMs || 0,
+    content: block?.content || '',
+    toolCall
+  }
+}
+
+const normalizeStoredToolCalls = (message) => {
+  if (Array.isArray(message?.toolCalls)) {
+    return message.toolCalls.map((toolCall, index) => ({
+      id: toolCall.id || `tool-${message.id || 'message'}-${index}`,
+      name: toolCall.name || '工具调用',
+      process: toolCall.process || '',
+      result: toolCall.result || '',
+      status: toolCall.status || 'done',
+      argumentStarted: Boolean(toolCall.argumentStarted),
+      resultStarted: Boolean(toolCall.resultStarted),
+      startedAt: toolCall.startedAt || 0,
+      updatedAt: toolCall.updatedAt || 0
+    }))
+  }
+
+  if (message?.toolResultContent) {
+    return [{
+      id: `tool-${message.id || 'message'}-legacy`,
+      name: '工具调用',
+      process: '',
+      result: message.toolResultContent,
+      status: 'done',
+      argumentStarted: false,
+      resultStarted: true,
+      startedAt: 0,
+      updatedAt: 0
+    }]
+  }
+
+  return []
+}
+
+const isGenericToolName = (name = '') => {
+  return !name || name === '工具调用'
+}
+
+const appendMergedText = (current = '', next = '') => {
+  if (!next) {
+    return current || ''
+  }
+  if (!current) {
+    return next
+  }
+  return `${current}\n${next}`
+}
+
+const isEmptyReasoningBlock = (block) => {
+  return block?.kind === 'reasoning' && !String(block.content || '').trim()
+}
+
+const shouldMergeToolBlock = (previous, current) => {
+  return previous?.kind === 'tool' &&
+    current?.kind === 'tool' &&
+    previous.toolCall &&
+    current.toolCall &&
+    !previous.toolCall.result &&
+    isGenericToolName(current.toolCall.name)
+}
+
+const mergeToolBlocks = (previous, current) => {
+  previous.toolCall.process = appendMergedText(previous.toolCall.process, current.toolCall.process)
+  previous.toolCall.result = appendMergedText(previous.toolCall.result, current.toolCall.result)
+  previous.toolCall.status = current.toolCall.status || previous.toolCall.status
+  previous.toolCall.resultStarted = previous.toolCall.resultStarted || current.toolCall.resultStarted
+  previous.toolCall.argumentStarted = previous.toolCall.argumentStarted || current.toolCall.argumentStarted
+  previous.toolCall.updatedAt = current.toolCall.updatedAt || previous.toolCall.updatedAt
+  previous.status = current.status || previous.status
+  previous.endedAt = current.endedAt || previous.endedAt
+
+  if (previous.startedAt && current.endedAt) {
+    previous.durationMs = current.endedAt - previous.startedAt
+  } else {
+    previous.durationMs = Math.max(previous.durationMs || 0, current.durationMs || 0)
+  }
+}
+
+const renumberAuxiliaryBlocks = (blocks = []) => {
+  const counts = { reasoning: 0, tool: 0 }
+  blocks.forEach((block) => {
+    counts[block.kind] = (counts[block.kind] || 0) + 1
+    block.sequence = counts[block.kind]
+    block.title = block.kind === 'tool' ? `工具调用 ${block.sequence}` : `推理过程 ${block.sequence}`
+  })
+  return blocks
+}
+
+const compactAuxiliaryBlocks = (blocks = []) => {
+  const compactBlocks = blocks.reduce((result, block) => {
+    if (isEmptyReasoningBlock(block)) {
+      return result
+    }
+
+    const previous = result[result.length - 1]
+    if (shouldMergeToolBlock(previous, block)) {
+      mergeToolBlocks(previous, block)
+      return result
+    }
+
+    result.push(block)
+    return result
+  }, [])
+
+  return renumberAuxiliaryBlocks(compactBlocks)
+}
+
+const stageDurationMs = (message, stageKey) => {
+  const stage = message?.eventStages?.find((item) => item.key === stageKey)
+  return stage?.durationMs || 0
+}
+
+const normalizeStoredAuxiliaryBlocks = (message, toolCalls = normalizeStoredToolCalls(message)) => {
+  if (Array.isArray(message?.auxiliaryBlocks) && message.auxiliaryBlocks.length) {
+    const counts = { reasoning: 0, tool: 0 }
+    const blocks = message.auxiliaryBlocks.map((block, index) => {
+      const normalized = normalizeAuxiliaryBlock(block, index)
+      counts[normalized.kind] += 1
+      normalized.sequence = normalized.sequence || counts[normalized.kind]
+      normalized.title = normalized.title || (normalized.kind === 'tool'
+        ? `工具调用 ${normalized.sequence}`
+        : `推理过程 ${normalized.sequence}`)
+      return normalized
+    })
+    return compactAuxiliaryBlocks(blocks)
+  }
+
+  const blocks = []
+  if (message?.thinkingContent) {
+    blocks.push(normalizeAuxiliaryBlock({
+      id: `reasoning-${message.id || 'message'}-legacy`,
+      kind: 'reasoning',
+      sequence: 1,
+      title: '推理过程 1',
+      expanded: message.thinkingExpanded ?? true,
+      status: 'done',
+      durationMs: stageDurationMs(message, 'reasoning'),
+      content: message.thinkingContent
+    }, 0))
+  }
+
+  toolCalls.forEach((toolCall, index) => {
+    blocks.push(normalizeAuxiliaryBlock({
+      id: `tool-block-${toolCall.id || index}`,
+      kind: 'tool',
+      sequence: index + 1,
+      title: `工具调用 ${index + 1}`,
+      expanded: message.toolExpanded ?? message.toolResultExpanded ?? true,
+      status: toolCall.status || 'done',
+      durationMs: stageDurationMs(message, 'tool'),
+      toolCall
+    }, blocks.length))
+  })
+
+  return compactAuxiliaryBlocks(blocks)
+}
+
+const ensureToolCalls = (message) => {
+  if (!Array.isArray(message.toolCalls)) {
+    message.toolCalls = []
+  }
+  return message.toolCalls
+}
+
+const appendToolLine = (toolCall, key, text) => {
+  const value = String(text || '').trim()
+  if (!value) {
+    return
+  }
+  toolCall[key] = toolCall[key] ? `${toolCall[key]}\n${value}` : value
+}
+
+const appendToolText = (toolCall, key, text) => {
+  const value = text == null ? '' : String(text)
+  if (!value) {
+    return
+  }
+  toolCall[key] = `${toolCall[key] || ''}${value}`
+}
+
+const getActiveAuxiliaryBlock = (message, kind, shouldCreate = false, extra = {}) => {
+  const blocks = ensureAuxiliaryBlocks(message)
+  const lastBlock = blocks[blocks.length - 1]
+
+  if (shouldCreate || !lastBlock || lastBlock.kind !== kind || lastBlock.status !== 'running') {
+    const block = createAuxiliaryBlock(message, kind, extra)
+    blocks.push(block)
+    return block
+  }
+
+  return lastBlock
+}
+
+const getReasoningBlock = (message, shouldCreate = false) => {
+  let block = findAuxiliaryBlock(message, message.activeReasoningBlockId)
+
+  if (!block && !shouldCreate) {
+    block = findLastRunningBlock(message, 'reasoning')
+  }
+
+  if (!block && shouldCreate) {
+    block = createAuxiliaryBlock(message, 'reasoning', {
+      startedAt: message.pendingReasoningStartedAt || getNowMs()
+    })
+    ensureAuxiliaryBlocks(message).push(block)
+  }
+
+  if (block) {
+    message.activeReasoningBlockId = block.id
+  }
+
+  return block
+}
+
+const appendReasoningEvent = (message, streamEvent) => {
+  if (!message || !isReasoningStreamEvent(streamEvent)) {
+    return false
+  }
+
+  const delta = streamEvent?.delta == null ? '' : String(streamEvent.delta)
+  if (isReasoningStartEvent(streamEvent)) {
+    const activeBlock = getReasoningBlock(message)
+    if (activeBlock && activeBlock.content) {
+      touchAuxiliaryBlock(activeBlock, 'done')
+    }
+    message.activeReasoningBlockId = null
+    message.pendingReasoningStartedAt = getNowMs()
+    return false
+  }
+
+  const block = getReasoningBlock(message, isReasoningDeltaEvent(streamEvent))
+  if (!block) {
+    message.pendingReasoningStartedAt = null
+    return false
+  }
+
+  if (isReasoningDeltaEvent(streamEvent)) {
+    block.content = `${block.content || ''}${delta}`
+    message.thinkingContent = `${message.thinkingContent || ''}${delta}`
+  }
+
+  if (isReasoningEndEvent(streamEvent)) {
+    touchAuxiliaryBlock(block, 'done')
+    message.activeReasoningBlockId = null
+    message.pendingReasoningStartedAt = null
+  } else {
+    touchAuxiliaryBlock(block, 'running')
+  }
+
+  return true
+}
+
+const getToolBlock = (message, shouldCreate = false, toolName = '') => {
+  let block = shouldCreate ? null : findAuxiliaryBlock(message, message.activeToolBlockId)
+
+  if (!block && !shouldCreate) {
+    block = findLastRunningBlock(message, 'tool')
+  }
+
+  if (!block) {
+    block = createAuxiliaryBlock(message, 'tool', { toolCall: createToolCall(toolName) })
+    ensureAuxiliaryBlocks(message).push(block)
+    ensureToolCalls(message).push(block.toolCall)
+  }
+
+  if (block) {
+    message.activeToolBlockId = block.id
+  }
+
+  return block
+}
+
+const getToolCallFromBlock = (message, block, toolName = '') => {
+  if (!block.toolCall) {
+    block.toolCall = createToolCall(toolName)
+    ensureToolCalls(message).push(block.toolCall)
+  }
+
+  if (toolName && (!block.toolCall.name || block.toolCall.name === '工具调用')) {
+    block.toolCall.name = toolName
+  }
+
+  return block.toolCall
+}
+
+const appendToolEvent = (message, streamEvent) => {
+  if (!message || !isToolStreamEvent(streamEvent)) {
+    return false
+  }
+
+  const delta = streamEvent?.delta == null ? '' : String(streamEvent.delta)
+  const isStartEvent = isToolCallStartEvent(streamEvent)
+  const block = getToolBlock(message, isStartEvent, isStartEvent ? delta : '')
+  const toolCall = getToolCallFromBlock(message, block, isStartEvent ? delta : '')
+  toolCall.updatedAt = getNowMs()
+
+  if (isStartEvent) {
+    if (delta) {
+      toolCall.name = delta
+    }
+    appendToolLine(toolCall, 'process', '开始调用工具')
+    touchAuxiliaryBlock(block, 'running')
+    return true
+  }
+
+  if (isToolCallDeltaEvent(streamEvent)) {
+    if (!toolCall.argumentStarted) {
+      appendToolLine(toolCall, 'process', '调用参数：')
+      toolCall.argumentStarted = true
+    }
+    appendToolText(toolCall, 'process', delta)
+    touchAuxiliaryBlock(block, 'running')
+    return true
+  }
+
+  if (isToolCallEndEvent(streamEvent)) {
+    appendToolLine(toolCall, 'process', '调用参数准备完成')
+    touchAuxiliaryBlock(block, 'running')
+    return true
+  }
+
+  if (isToolResultStartEvent(streamEvent)) {
+    if (!toolCall.resultStarted) {
+      appendToolLine(toolCall, 'process', '工具开始执行')
+      toolCall.resultStarted = true
+    }
+    touchAuxiliaryBlock(block, 'running')
+    return true
+  }
+
+  if (isToolResultTextDeltaEvent(streamEvent)) {
+    appendToolText(toolCall, 'result', delta)
+    touchAuxiliaryBlock(block, 'running')
+    return true
+  }
+
+  if (isToolResultDataDeltaEvent(streamEvent)) {
+    appendToolText(toolCall, 'result', delta)
+    touchAuxiliaryBlock(block, 'running')
+    return true
+  }
+
+  if (isToolResultEndEvent(streamEvent)) {
+    toolCall.status = 'done'
+    touchAuxiliaryBlock(block, 'done')
+    message.activeToolBlockId = null
+    return true
+  }
+
+  touchAuxiliaryBlock(block, 'running')
+  return true
 }
 
 const ensureStreamTiming = (message) => {
@@ -193,7 +757,11 @@ const recordStreamEvent = (message, streamEvent) => {
   const now = getNowMs()
   const eventType = streamEvent.eventType || streamEvent.sseEvent || 'UNKNOWN'
   const stageKey = getStageKey(eventType)
-  const stageMeta = STREAM_STAGE_META[stageKey] || STREAM_STAGE_META.other
+  if (!stageKey) {
+    return
+  }
+
+  const stageMeta = STREAM_STAGE_META[stageKey]
 
   if (!timing.startedAt) {
     timing.startedAt = now
@@ -241,6 +809,33 @@ const recordStreamEvent = (message, streamEvent) => {
   scheduleScrollToBottom()
 }
 
+const appendAuxiliaryDelta = (message, session, streamEvent) => {
+  if (!message || !streamEvent) {
+    return
+  }
+
+  let changed = false
+
+  if (appendReasoningEvent(message, streamEvent)) {
+    changed = true
+  }
+
+  if (appendToolEvent(message, streamEvent)) {
+    changed = true
+  }
+
+  if (!changed) {
+    return
+  }
+
+  if (session) {
+    session.updatedAt = nowText()
+  }
+
+  scheduleSaveSessions()
+  scheduleScrollToBottom()
+}
+
 const finishStreamEvents = (message, status = 'done') => {
   if (!message?.streamTiming) {
     return
@@ -259,6 +854,34 @@ const finishStreamEvents = (message, status = 'done') => {
       }
     })
   }
+
+  if (Array.isArray(message.toolCalls)) {
+    message.toolCalls.forEach((toolCall) => {
+      if (toolCall.status === 'running') {
+        toolCall.status = status === 'error' ? 'error' : 'done'
+        toolCall.updatedAt = now
+      }
+    })
+  }
+
+  if (Array.isArray(message.auxiliaryBlocks)) {
+    message.auxiliaryBlocks = compactAuxiliaryBlocks(message.auxiliaryBlocks)
+    message.auxiliaryBlocks.forEach((block) => {
+      if (block.status === 'running') {
+        block.status = status === 'error' ? 'error' : 'done'
+        block.endedAt = now
+        block.durationMs = block.startedAt ? block.endedAt - block.startedAt : block.durationMs || 0
+      }
+      if (block.toolCall?.status === 'running') {
+        block.toolCall.status = status === 'error' ? 'error' : 'done'
+        block.toolCall.updatedAt = now
+      }
+    })
+  }
+
+  message.activeReasoningBlockId = null
+  message.activeToolBlockId = null
+  message.pendingReasoningStartedAt = null
 
   scheduleSaveSessions()
 }
@@ -483,10 +1106,25 @@ const loadSessions = () => {
     ? storedSessions.map((session) => ({
       ...session,
       messages: Array.isArray(session.messages)
-        ? session.messages.map((message) => ({
-          ...message,
-          displayContent: message.displayContent ?? message.content ?? ''
-        }))
+        ? session.messages.map((message) => {
+          const toolCalls = normalizeStoredToolCalls(message)
+          const auxiliaryBlocks = normalizeStoredAuxiliaryBlocks(message, toolCalls)
+          return {
+            ...message,
+            displayContent: message.displayContent ?? message.content ?? '',
+            thinkingContent: message.thinkingContent ?? '',
+            thinkingExpanded: message.thinkingExpanded ?? Boolean(message.thinkingContent),
+            toolResultContent: message.toolResultContent ?? '',
+            toolResultExpanded: message.toolResultExpanded ?? Boolean(message.toolResultContent),
+            toolCalls,
+            auxiliaryBlocks,
+            activeReasoningBlockId: null,
+            activeToolBlockId: null,
+            pendingReasoningStartedAt: null,
+            toolExpanded: message.toolExpanded ?? message.toolResultExpanded ?? Boolean(toolCalls.length),
+            eventStages: Array.isArray(message.eventStages) ? message.eventStages : []
+          }
+        })
         : []
     }))
     : []
@@ -578,7 +1216,23 @@ const sendMessage = async () => {
   const assistantMessage = appendMessage(
     'assistant',
     '',
-    { pending: true, typing: true, eventStages: [], streamTiming: null, streamStatus: 'running' },
+    {
+      pending: true,
+      typing: true,
+      eventStages: [],
+      streamTiming: null,
+      streamStatus: 'running',
+      thinkingContent: '',
+      thinkingExpanded: true,
+      toolResultContent: '',
+      toolResultExpanded: true,
+      toolCalls: [],
+      auxiliaryBlocks: [],
+      activeReasoningBlockId: null,
+      activeToolBlockId: null,
+      pendingReasoningStartedAt: null,
+      toolExpanded: true
+    },
     { forceScroll: true }
   )
   const session = activeSession.value
@@ -597,6 +1251,7 @@ const sendMessage = async () => {
       {
         onEvent: (streamEvent) => {
           recordStreamEvent(assistantMessage, streamEvent)
+          appendAuxiliaryDelta(assistantMessage, session, streamEvent)
         },
         onMessage: (delta) => {
           pushTypewriterText(assistantMessage, session, delta)
@@ -748,7 +1403,62 @@ onBeforeUnmount(() => {
               <span>{{ message.role === 'user' ? '我' : agentInfo.name }}</span>
               <time>{{ message.createdAt }}</time>
             </div>
-            <div class="message-content">
+            <div
+              v-if="message.role === 'assistant' && hasAuxiliaryOutput(message)"
+              class="auxiliary-output"
+            >
+              <section
+                v-for="block in message.auxiliaryBlocks || []"
+                :key="block.id"
+                class="auxiliary-panel"
+              >
+                <button
+                  class="auxiliary-toggle"
+                  type="button"
+                  @click="toggleAuxiliaryPanel(message, block)"
+                >
+                  <span>{{ auxiliaryBlockTitle(block) }}</span>
+                  <small v-if="auxiliaryBlockTimeText(block)">耗时 {{ auxiliaryBlockTimeText(block) }}</small>
+                  <small>{{ block.expanded ? '收起' : '展开' }}</small>
+                </button>
+                <div
+                  v-show="block.expanded"
+                  class="auxiliary-content"
+                >
+                  <div v-if="block.kind === 'reasoning'">
+                    {{ block.content }}
+                  </div>
+                  <div
+                    v-else
+                    class="tool-call"
+                  >
+                    <div class="tool-call-header">
+                      <span class="tool-call-name">{{ block.toolCall?.name || '工具调用' }}</span>
+                      <small>{{ toolStatusText(block.toolCall || block) }}</small>
+                    </div>
+                    <div
+                      v-if="block.toolCall?.process"
+                      class="tool-call-section"
+                    >
+                      <span class="tool-call-section-title">调用过程</span>
+                      <div class="tool-call-text">{{ block.toolCall.process }}</div>
+                    </div>
+                    <div
+                      v-if="block.toolCall?.result"
+                      class="tool-call-section"
+                    >
+                      <span class="tool-call-section-title">调用结果</span>
+                      <div class="tool-call-text">{{ block.toolCall.result }}</div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            <div
+              v-if="messageText(message) || (message.pending && !hasAuxiliaryOutput(message))"
+              class="message-content"
+            >
               {{ messageText(message) || (message.pending ? '思考中...' : '') }}
             </div>
             <div
@@ -756,7 +1466,7 @@ onBeforeUnmount(() => {
               class="stream-stages"
             >
               <div class="stream-stages-header">
-                <span>执行阶段</span>
+                <span>耗时统计</span>
                 <span v-if="streamTotalText(message)">总耗时 {{ streamTotalText(message) }}</span>
               </div>
               <div
@@ -1041,6 +1751,112 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.7;
+}
+
+.auxiliary-output {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.auxiliary-panel {
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 8px;
+  background: rgba(248, 250, 252, 0.78);
+}
+
+.auxiliary-toggle {
+  display: grid;
+  width: 100%;
+  min-height: 32px;
+  align-items: center;
+  grid-template-columns: minmax(72px, 1fr) auto auto;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  color: #374151;
+  font: inherit;
+  text-align: left;
+}
+
+.auxiliary-toggle:hover {
+  background: rgba(226, 232, 240, 0.48);
+}
+
+.auxiliary-toggle span {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auxiliary-toggle small {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.auxiliary-content {
+  padding: 0 10px 10px;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tool-call {
+  display: grid;
+  gap: 8px;
+  white-space: normal;
+}
+
+.tool-call + .tool-call {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.tool-call-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #374151;
+  white-space: normal;
+}
+
+.tool-call-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 700;
+}
+
+.tool-call-header small {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.tool-call-section {
+  display: grid;
+  gap: 4px;
+}
+
+.tool-call-section-title {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tool-call-text {
+  color: #4b5563;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 .stream-stages {
