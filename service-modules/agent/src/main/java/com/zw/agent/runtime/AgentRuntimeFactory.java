@@ -2,12 +2,15 @@ package com.zw.agent.runtime;
 
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
+import com.zw.agent.tools.SimpleTools;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.credential.OpenAICredential;
 import io.agentscope.core.event.*;
 import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.OpenAIChatModel;
+import io.agentscope.core.tool.ToolGroup;
+import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import org.springframework.stereotype.Component;
@@ -29,7 +32,8 @@ public class AgentRuntimeFactory {
     /**
      * HarnessAgent实例缓存，使用ConcurrentHashMap保证线程安全
      */
-    private final Map<String, HarnessAgent> cache = new ConcurrentHashMap<>();
+    private final Map<String, HarnessAgent> agentCache = new ConcurrentHashMap<>();
+    private final Map<String, HarnessAgent> tenantToolkitCache = new ConcurrentHashMap<>();
 
     /**
      * 调用Agent执行用户消息并获取响应。
@@ -49,6 +53,8 @@ public class AgentRuntimeFactory {
             Long sessionId,
             String text
     ) {
+        Toolkit toolkit = new Toolkit();
+        toolkit.registerTool(new SimpleTools());
         // 通过Agent配置,获取或创建Agent实例
         HarnessAgent harnessAgent = getOrCreateAgent(config);
 
@@ -264,7 +270,7 @@ public class AgentRuntimeFactory {
                 .formatter(new OpenAIChatFormatter())
                 .build();
         String cacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
-        HarnessAgent harnessAgent = cache.computeIfAbsent(cacheKey, key ->
+        HarnessAgent harnessAgent = agentCache.computeIfAbsent(cacheKey, key ->
                 HarnessAgent.builder()
                         .name(config.getAgentName())
                         .sysPrompt(config.getSysPrompt())
@@ -282,8 +288,12 @@ public class AgentRuntimeFactory {
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config) {
         String cacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
+        String tenantId = config.getTenantId().toString();
+        toolGroupCache.computeIfAbsent(tenantId, key -> {
+            return new ToolGroup("testName","test公司专用tools",tenantId, true);
+        });
 
-        return cache.computeIfAbsent(cacheKey, key -> {
+        return agentCache.computeIfAbsent(cacheKey, key -> {
             OpenAIChatModel model = OpenAIChatModel.builder()
                     .apiKey(config.getApiKey())
                     .modelName(config.getModelName())
@@ -303,6 +313,6 @@ public class AgentRuntimeFactory {
 
     public void evictAgent(Long tenantId, Long agentId, Long agentConfigId) {
         String cacheKey = tenantId + ":" + agentId + ":" + agentConfigId;
-        cache.remove(cacheKey);
+        agentCache.remove(cacheKey);
     }
 }
