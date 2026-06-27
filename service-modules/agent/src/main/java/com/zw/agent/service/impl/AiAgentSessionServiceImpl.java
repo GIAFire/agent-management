@@ -38,6 +38,9 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
             return sessionEntity;
         }
         sessionEntity = new AiAgentSessionEntity();
+        if (sessionId != null) {
+            sessionEntity.setId(sessionId);
+        }
         sessionEntity.setTenantId(userInfo.getTenantId());
         sessionEntity.setUserId(userInfo.getUserId());
         sessionEntity.setAgentId(agentId);

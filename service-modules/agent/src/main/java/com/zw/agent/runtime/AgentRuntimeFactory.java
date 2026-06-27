@@ -3,27 +3,20 @@ package com.zw.agent.runtime;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
-import com.zw.agent.tools.SimpleTools;
 import com.zw.agent.tools.toolkitFactory.TenantToolkitFactory;
 import com.zw.common.RedisService;
 import io.agentscope.core.agent.RuntimeContext;
-import io.agentscope.core.credential.OpenAICredential;
 import io.agentscope.core.event.*;
 import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.OpenAIChatModel;
-import io.agentscope.core.tool.ToolGroup;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
-import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.nio.file.Path;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 

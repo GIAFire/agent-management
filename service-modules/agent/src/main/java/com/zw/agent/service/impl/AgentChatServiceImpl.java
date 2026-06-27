@@ -1,8 +1,5 @@
 package com.zw.agent.service.impl;
 
-import com.baomidou.mybatisplus.extension.service.IService;
-import com.zw.agent.controller.AgentChatController;
-import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.AiAgentMessageEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentStreamResponse;
@@ -11,20 +8,16 @@ import com.zw.agent.service.AgentChatService;
 import com.zw.agent.service.AiAgentMessageService;
 import com.zw.agent.service.AiAgentRunEventService;
 import com.zw.agent.service.AiAgentRunService;
-import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.event.AgentEventType;
-import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -132,7 +125,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                             sessionId,
                             runtimeEvent
                     );
-                });
+        });
         return serverSentEventFlux;
     }
 

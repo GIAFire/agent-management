@@ -4,7 +4,6 @@ import com.zw.agent.entity.AiAgentMessageEntity;
 import com.zw.agent.mapper.AiAgentMessageMapper;
 import com.zw.agent.service.AiAgentMessageService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -24,6 +23,7 @@ public class AiAgentMessageServiceImpl extends ServiceImpl<AiAgentMessageMapper,
 
     @Autowired
     private AiAgentMessageMapper agentMessageMapper;
+
     @Override
     public AiAgentMessageEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content) {
         AiAgentMessageEntity agentMessageEntity = new AiAgentMessageEntity();
@@ -48,6 +48,7 @@ public class AiAgentMessageServiceImpl extends ServiceImpl<AiAgentMessageMapper,
         agentMessageEntity.setSessionId(sessionId);
         agentMessageEntity.setRunId(runId);
         agentMessageEntity.setCreatedBy(userInfo.getUserId());
+        agentMessageEntity.setCreatedAt(LocalDateTime.now());
         agentMessageMapper.insert(agentMessageEntity);
         return agentMessageEntity;
     }
