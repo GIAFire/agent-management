@@ -74,10 +74,16 @@ public class AiAgentMessageEntity extends BaseEntity {
     private String contentJson;
 
     /**
-     * token 用量JSON，仅 assistant 消息通常有值
+     * token 用量
      */
-    @TableField("usage_json")
-    private String usageJson;
+    @TableField("usage_token")
+    private Integer usageToken;
+
+    /**
+     * token 用量
+     */
+    @TableField("usage_time")
+    private Double usageTime;
 
     /**
      * 生成结束原因，例如 stop/tool_call/length

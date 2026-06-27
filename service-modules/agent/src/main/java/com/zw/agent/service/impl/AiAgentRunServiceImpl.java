@@ -38,6 +38,7 @@ public class AiAgentRunServiceImpl extends ServiceImpl<AiAgentRunMapper, AiAgent
     public void markSuccess(Long runId, Long messageId) {
         AiAgentRunEntity aiAgentRunEntity = agentRunMapper.selectById(runId);
         aiAgentRunEntity.setOutputMessageId(messageId);
+        aiAgentRunEntity.setStatus("SUCCESS");
         agentRunMapper.updateById(aiAgentRunEntity);
     }
 

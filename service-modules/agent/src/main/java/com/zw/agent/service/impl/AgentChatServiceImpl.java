@@ -10,6 +10,8 @@ import com.zw.agent.service.AiAgentRunEventService;
 import com.zw.agent.service.AiAgentRunService;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.event.AgentEventType;
+import io.agentscope.core.event.ModelCallEndEvent;
+import io.agentscope.core.model.ChatUsage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ import reactor.core.publisher.Mono;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * <p>
@@ -42,6 +45,8 @@ public class AgentChatServiceImpl implements AgentChatService {
         String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
         // 用于累积大模型响应的文本内容
         StringBuilder assistantBuffer = new StringBuilder();
+        AtomicReference<Integer> usageToken = new AtomicReference<>(0);
+        AtomicReference<Double> usageTime = new AtomicReference<>(0.0);
         Set<String> loggedEventTypes = ConcurrentHashMap.newKeySet();
         AtomicLong seq = new AtomicLong(0);
         // 用于记录事件序列号，保证递增
@@ -53,11 +58,14 @@ public class AgentChatServiceImpl implements AgentChatService {
                     if (eventType.equals(AgentEventType.TEXT_BLOCK_DELTA.getValue()) && runtimeEvent.getDelta() != null) {
                         assistantBuffer.append(runtimeEvent.getDelta());
                     }
-
-                    // 按事件类型去重记录日志
-                    if (!loggedEventTypes.contains(eventType)) {
-                        loggedEventTypes.add(eventType);
+                    if (eventType.equals(AgentEventType.MODEL_CALL_END.getValue())){
+                        ModelCallEndEvent modelCallEndEvent = (ModelCallEndEvent) runtimeEvent.getRawEvent();
+                        ChatUsage usage = modelCallEndEvent.getUsage();
+                        usageToken.set(usage.getTotalTokens());
+                        usageTime.set(usage.getTime());
                     }
+                    // 保存事件类型
+                    loggedEventTypes.add(eventType);
                 })
                 // 将运行时事件映射为SSE事件
                 .map(runtimeEvent -> ServerSentEvent.<AgentStreamResponse>builder()
@@ -76,22 +84,23 @@ public class AgentChatServiceImpl implements AgentChatService {
                 // 在流结束后追加完成事件告诉前端流结束了
                 .concatWith(Mono.defer(() -> {
                     // 保存AI的完整回复消息
-                    AiAgentMessageEntity assistantMessage = agentMessageService.saveAssistantMessage(
+                    agentMessageService.saveAssistantMessage(
                             userInfo,
                             sessionId,
                             runId,
-                            assistantBuffer.toString()
+                            assistantBuffer.toString(),
+                            config.getAgentName(),
+                            usageToken.get(),
+                            usageTime.get()
                     );
-                    // 标记运行记录为成功状态
-                    agentRunService.markSuccess(runId, assistantMessage.getId());
                     // 返回完成事件的SSE消息
                     return Mono.just(ServerSentEvent.<AgentStreamResponse>builder()
                             .event("done")
                             .data(new AgentStreamResponse(
                                     runId,
                                     "DONE",
-                                    null,
-                                    null
+                                    usageToken.get(),
+                                    usageTime.get()
                             ))
                             .build());
                 }))

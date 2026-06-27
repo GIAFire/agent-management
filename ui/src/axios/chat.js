@@ -50,6 +50,8 @@ const normalizeStreamEvent = (eventName, eventId, parsedData, rawData) => {
     eventType: dataObject?.eventType || eventName,
     runId: dataObject?.runId ?? null,
     seq: dataObject?.seq ?? null,
+    usageToken: dataObject?.usageToken ?? null,
+    usageTime: dataObject?.usageTime ?? null,
     delta,
     data: parsedData,
     rawData,

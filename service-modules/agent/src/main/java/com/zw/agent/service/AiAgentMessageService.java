@@ -16,5 +16,5 @@ public interface AiAgentMessageService extends IService<AiAgentMessageEntity> {
 
     AiAgentMessageEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content);
 
-    AiAgentMessageEntity saveAssistantMessage(UserInfo userInfo, Long sessionId, Long runId, String msg);
+    void saveAssistantMessage(UserInfo userInfo, Long sessionId, Long runId, String msg,String agentName, Integer usageToken, Double usageTime);
 }

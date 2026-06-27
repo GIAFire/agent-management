@@ -12,5 +12,20 @@ public class AgentStreamResponse {
     private String eventType;
     private String delta;
     private Long seq;
-//    private Object payload;
+    private Integer usageToken;
+    private Double usageTime;
+
+    public AgentStreamResponse(Long runId, String eventType, String delta, Long seq) {
+    	this.runId = runId;
+    	this.eventType = eventType;
+    	this.delta = delta;
+    	this.seq = seq;
+    }
+
+    public AgentStreamResponse(Long runId, String eventType, Integer usageToken, Double usageTime) {
+        this.runId = runId;
+        this.eventType = eventType;
+        this.usageToken = usageToken;
+        this.usageTime = usageTime;
+    }
 }

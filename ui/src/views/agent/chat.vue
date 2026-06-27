@@ -173,6 +173,41 @@ const streamTotalText = (message) => {
   return typeof totalMs === 'number' ? formatDuration(totalMs) : ''
 }
 
+const streamUsageTokenText = (message) => {
+  const usageToken = Number(message?.usageToken)
+  if (!Number.isFinite(usageToken) || usageToken <= 0) {
+    return ''
+  }
+  return Math.round(usageToken).toLocaleString()
+}
+
+const streamUsageTimeText = (message) => {
+  const usageTime = Number(message?.usageTime)
+  if (!Number.isFinite(usageTime) || usageTime <= 0) {
+    return ''
+  }
+
+  if (usageTime > 1000) {
+    return formatDuration(usageTime)
+  }
+  if (usageTime < 1) {
+    return `${Math.round(usageTime * 1000)}ms`
+  }
+  if (usageTime < 10) {
+    return `${usageTime.toFixed(2)}s`
+  }
+  return `${usageTime.toFixed(1)}s`
+}
+
+const hasStreamSummary = (message) => {
+  return Boolean(
+    message?.eventStages?.length ||
+    streamTotalText(message) ||
+    streamUsageTokenText(message) ||
+    streamUsageTimeText(message)
+  )
+}
+
 const stageTimeText = (message, stageKey) => {
   const stage = message?.eventStages?.find((item) => item.key === stageKey)
   return stage ? formatDuration(stage.durationMs) : ''
@@ -848,6 +883,22 @@ const recordStreamEvent = (message, streamEvent) => {
   scheduleScrollToBottom()
 }
 
+const applyDoneUsage = (message, streamEvent) => {
+  if (!message || !streamEvent) {
+    return
+  }
+
+  const usageToken = Number(streamEvent.usageToken ?? streamEvent.data?.usageToken)
+  const usageTime = Number(streamEvent.usageTime ?? streamEvent.data?.usageTime)
+
+  if (Number.isFinite(usageToken) && usageToken > 0) {
+    message.usageToken = usageToken
+  }
+  if (Number.isFinite(usageTime) && usageTime > 0) {
+    message.usageTime = usageTime
+  }
+}
+
 const appendAuxiliaryDelta = (message, session, streamEvent) => {
   if (!message || !streamEvent) {
     return
@@ -1234,6 +1285,8 @@ const loadSessions = () => {
           return {
             ...message,
             displayContent: message.displayContent ?? message.content ?? '',
+            usageToken: Number(message.usageToken) || 0,
+            usageTime: Number(message.usageTime) || 0,
             thinkingContent: message.thinkingContent ?? '',
             thinkingExpanded: message.thinkingExpanded ?? Boolean(message.thinkingContent),
             toolResultContent: message.toolResultContent ?? '',
@@ -1344,6 +1397,8 @@ const sendMessage = async () => {
       eventStages: [],
       streamTiming: null,
       streamStatus: 'running',
+      usageToken: 0,
+      usageTime: 0,
       thinkingContent: '',
       thinkingExpanded: true,
       toolResultContent: '',
@@ -1392,7 +1447,8 @@ const sendMessage = async () => {
           saveSessions()
           scrollToBottom()
         },
-        onDone: () => {
+        onDone: (streamEvent) => {
+          applyDoneUsage(assistantMessage, streamEvent)
           finishStreamEvents(assistantMessage, 'done')
           session.updatedAt = nowText()
         }
@@ -1594,12 +1650,14 @@ onBeforeUnmount(() => {
               </template>
             </div>
             <div
-              v-if="message.role === 'assistant' && message.eventStages?.length"
+              v-if="message.role === 'assistant' && hasStreamSummary(message)"
               class="stream-stages"
             >
               <div class="stream-stages-header">
                 <span>耗时统计</span>
-                <span v-if="streamTotalText(message)">总耗时 {{ streamTotalText(message) }}</span>
+                <span v-if="streamUsageTokenText(message)">消耗Token： {{ streamUsageTokenText(message) }}</span>
+                <span v-if="streamUsageTimeText(message)">模型耗时 {{ streamUsageTimeText(message) }}</span>
+                <span v-if="streamTotalText(message)">渲染耗时 {{ streamTotalText(message) }}</span>
               </div>
             </div>
           </div>
@@ -2102,12 +2160,17 @@ onBeforeUnmount(() => {
 
 .stream-stages-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
   gap: 30px;
   margin-bottom: 7px;
   color: var(--subtle);
   font-size: 12px;
+}
+
+.stream-stages-header span {
+  white-space: nowrap;
 }
 
 .stream-stages-header span:first-child {

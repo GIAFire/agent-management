@@ -28,9 +28,6 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class AgentRuntimeFactory {
 
-    /**
-     * HarnessAgent实例缓存，使用ConcurrentHashMap保证线程安全
-     */
     private final Cache<String, HarnessAgent> agentCache;
     
     private final Cache<String, Toolkit> toolkitCache;
