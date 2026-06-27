@@ -1,10 +1,14 @@
 package com.zw.agent.service.impl;
 
 import com.zw.agent.entity.AiToolInfoConfigEntity;
-import com.zw.agent.mapper.AiToolConfigMapper;
+import com.zw.agent.mapper.AiToolInfoConfigMapper;
 import com.zw.agent.service.AiToolInfoConfigService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * <p>
@@ -15,6 +19,12 @@ import org.springframework.stereotype.Service;
  * @since 2026-06-27
  */
 @Service
-public class AiToolInfoConfigServiceImpl extends ServiceImpl<AiToolConfigMapper, AiToolInfoConfigEntity> implements AiToolInfoConfigService {
+@RequiredArgsConstructor
+public class AiToolInfoConfigServiceImpl extends ServiceImpl<AiToolInfoConfigMapper, AiToolInfoConfigEntity> implements AiToolInfoConfigService {
 
+    private final AiToolInfoConfigMapper aiToolInfoConfigMapper;
+    @Override
+    public int upsertBatch(List<AiToolInfoConfigEntity> list) {
+        return aiToolInfoConfigMapper.upsertBatch(list);
+    }
 }

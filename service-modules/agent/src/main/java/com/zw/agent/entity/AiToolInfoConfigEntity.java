@@ -62,6 +62,18 @@ public class AiToolInfoConfigEntity extends BaseEntity {
     private String description;
 
     /**
+     * 类全限定名 + 方法名 + 参数类型列表
+     */
+    @TableField("tool_key")
+    private String toolKey;
+
+    /**
+     * sha256签名,用于判断tool是否修改
+     */
+    @TableField("signature_hash")
+    private String signatureHash;
+
+    /**
      * 工具类型：JAVA_BEAN、MCP、HTTP、RPC、SQL 等
      */
     @TableField("tool_type")
@@ -145,15 +157,4 @@ public class AiToolInfoConfigEntity extends BaseEntity {
     @TableField("default_group_code")
     private String defaultGroupCode;
 
-    /**
-     * 创建人
-     */
-    @TableField("created_by")
-    private String createdBy;
-
-    /**
-     * 更新人
-     */
-    @TableField("updated_by")
-    private String updatedBy;
 }

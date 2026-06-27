@@ -4,8 +4,11 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.google.genai.types.ToolConfig;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.service.AiToolInfoConfigService;
+import com.zw.agent.tools.applicationRunner.ToolRegistrySyncRunner;
 import io.agentscope.core.tool.Toolkit;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -17,9 +20,9 @@ import static com.baomidou.mybatisplus.extension.spi.SpringCompatibleSet.applica
 @RequiredArgsConstructor
 public class TenantToolkitFactory {
 
-    private final Map<String, Object> allToolBeans;
-    private final AiToolInfoConfigService toolInfoConfigService;
+    private static final Logger log = LoggerFactory.getLogger(TenantToolkitFactory.class);
 
+    private final AiToolInfoConfigService toolInfoConfigService;
 
     public Toolkit buildToolkit(Long tenantId) {
         Toolkit toolkit = new Toolkit();
@@ -31,7 +34,8 @@ public class TenantToolkitFactory {
             Object toolBean = applicationContext.getBean(toolConfig.getBeanName());
 
             if (toolBean == null) {
-                throw new IllegalArgumentException("Unknown tool bean: " + toolConfig.getBeanName());
+                toolkit.registerTool(null);
+                log.error("beanName:{} not found", toolConfig.getId());
             }
             toolkit.registerTool(toolBean);
         }

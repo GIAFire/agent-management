@@ -3,6 +3,9 @@ package com.zw.agent.mapper;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -13,6 +16,7 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-06-27
  */
 @Mapper
-public interface AiToolConfigMapper extends BaseMapper<AiToolInfoConfigEntity> {
+public interface AiToolInfoConfigMapper extends BaseMapper<AiToolInfoConfigEntity> {
 
+    int upsertBatch(@Param("list") List<AiToolInfoConfigEntity> list);
 }

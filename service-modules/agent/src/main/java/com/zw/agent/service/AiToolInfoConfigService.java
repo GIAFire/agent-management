@@ -2,6 +2,9 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -12,5 +15,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * @since 2026-06-27
  */
 public interface AiToolInfoConfigService extends IService<AiToolInfoConfigEntity> {
+
+    int upsertBatch(List<AiToolInfoConfigEntity> list);
 
 }

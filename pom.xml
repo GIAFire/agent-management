@@ -27,6 +27,7 @@
         <spring-boot.version>4.0.6</spring-boot.version>
         <spring-cloud.version>2025.1.0</spring-cloud.version>
         <spring-cloud-alibaba.version>2025.1.0.0</spring-cloud-alibaba.version>
+        <hutool.version>5.8.46</hutool.version>
         <druid.version>1.2.28</druid.version>
         <dynamic-ds.version>4.5.0</dynamic-ds.version>
         <mybatis-plus.version>3.5.15</mybatis-plus.version>
@@ -60,6 +61,14 @@
                 <groupId>com.alibaba.cloud</groupId>
                 <artifactId>spring-cloud-alibaba-dependencies</artifactId>
                 <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-bom</artifactId>
+                <version>${hutool.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

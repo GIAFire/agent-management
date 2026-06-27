@@ -55,15 +55,4 @@ public class AiToolGroupConfigEntity extends BaseEntity {
     @TableField("active_by_default")
     private Boolean activeByDefault;
 
-    /**
-     * 创建人
-     */
-    @TableField("created_by")
-    private String createdBy;
-
-    /**
-     * 更新人
-     */
-    @TableField("updated_by")
-    private String updatedBy;
 }

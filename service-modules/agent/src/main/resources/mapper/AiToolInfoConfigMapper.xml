@@ -1,10 +1,61 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zw.agent.mapper.AiToolConfigMapper">
+<mapper namespace="com.zw.agent.mapper.AiToolInfoConfigMapper">
 
     <select id="getToolByTenantBeans" resultType="String" parameterType="Long">
         SELECT tic.bean_name
         FROM ai_tool_info_config  tic
         WHERE tic.tenant_id = #{tenantId}
     </select>
+
+    <insert id="upsertBatch">
+        INSERT INTO ai_tool_info_config (
+        id,
+        permission_code,
+        read_only,
+        concurrency,
+        state_injected,
+        tool_key,
+        tool_name,
+        class_name,
+        method_name,
+        description,
+        input_schema,
+        output_schema,
+        signature_hash,
+        enabled,
+        updated_at,
+        created_at
+        )
+        VALUES
+        <foreach collection="list" item="item" separator=",">
+            (
+            #{item.id},
+            #{item.permissionCode},
+            #{item.readOnly},
+            #{item.concurrency},
+            #{item.stateInjected},
+            #{item.toolKey},
+            #{item.toolName},
+            #{item.className},
+            #{item.methodName},
+            #{item.description},
+            #{item.inputSchema},
+            #{item.outputSchema},
+            #{item.signatureHash},
+            1,
+            NOW(),
+            NOW()
+            )
+        </foreach>
+        ON DUPLICATE KEY UPDATE
+        tool_name = IF(signature_hash <> VALUES(signature_hash), VALUES(tool_name), tool_name),
+        class_name = IF(signature_hash <> VALUES(signature_hash), VALUES(class_name), class_name),
+        method_name = IF(signature_hash <> VALUES(signature_hash), VALUES(method_name), method_name),
+        description = IF(signature_hash <> VALUES(signature_hash), VALUES(description), description),
+        input_schema = IF(signature_hash <> VALUES(signature_hash), VALUES(input_schema), input_schema),
+        output_schema = IF(signature_hash <> VALUES(signature_hash), VALUES(output_schema), output_schema),
+        updated_at = IF(signature_hash <> VALUES(signature_hash), NOW(), updated_at),
+        signature_hash = VALUES(signature_hash)
+    </insert>
 </mapper>
