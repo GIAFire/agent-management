@@ -1816,8 +1816,8 @@ onBeforeUnmount(() => {
 .message-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 30px;
   margin-bottom: 8px;
   font-size: 12px;
 }
@@ -1858,7 +1858,7 @@ onBeforeUnmount(() => {
   width: 100%;
   min-height: 32px;
   align-items: center;
-  grid-template-columns: minmax(72px, 1fr) auto auto;
+  grid-template-columns: max-content max-content max-content;
   gap: 10px;
   padding: 7px 10px;
   border: 0;
@@ -1885,6 +1885,10 @@ onBeforeUnmount(() => {
   color: #64748b;
   font-size: 12px;
   white-space: nowrap;
+}
+
+.auxiliary-toggle span + small:not(:last-child) {
+  margin-left: 20px;
 }
 
 .auxiliary-content {
@@ -1955,8 +1959,8 @@ onBeforeUnmount(() => {
 .stream-stages-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-start;
+  gap: 30px;
   margin-bottom: 7px;
   color: var(--subtle);
   font-size: 12px;
