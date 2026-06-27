@@ -50,8 +50,11 @@ public class AgentRuntimeFactory {
         String AgentCacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
         String tooKitCacheKey = "tooKit:" + config.getTenantId();
 
-        Toolkit toolkit = toolkitCache.get(tooKitCacheKey, key ->
-                toolkitFactory.buildToolkit(config.getTenantId()));
+        Toolkit toolkit = toolkitCache.get(tooKitCacheKey, key -> {
+            Toolkit toolkitBuild = toolkitFactory.buildToolkit(config.getTenantId());
+            redisService.setIfAbsent(tooKitCacheKey, "1", 30L, TimeUnit.DAYS);
+            return toolkitBuild;
+        });
 
         return agentCache.get(AgentCacheKey, key -> {
 
