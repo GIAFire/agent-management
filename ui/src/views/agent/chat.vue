@@ -1567,19 +1567,6 @@ onBeforeUnmount(() => {
                 <span>耗时统计</span>
                 <span v-if="streamTotalText(message)">总耗时 {{ streamTotalText(message) }}</span>
               </div>
-              <div
-                v-for="stage in message.eventStages"
-                :key="stage.key"
-                class="stream-stage"
-                :class="`status-${stage.status}`"
-              >
-                <span class="stream-stage-dot" />
-                <span class="stream-stage-label">{{ stage.label }}</span>
-                <span class="stream-stage-event">{{ stage.lastEventLabel }}</span>
-                <span class="stream-stage-time">{{ formatDuration(stage.durationMs) }}</span>
-                <span class="stream-stage-count">{{ stage.eventCount }} 次事件</span>
-                <span class="stream-stage-state">{{ stageStatusText(stage) }}</span>
-              </div>
             </div>
           </div>
         </div>
@@ -1803,6 +1790,11 @@ onBeforeUnmount(() => {
 
 .message-row.assistant {
   justify-content: flex-start;
+}
+
+.message-row.user + .message-row.assistant,
+.message-row.assistant + .message-row.user {
+  padding-top: 100px;
 }
 
 .message-bubble {
