@@ -3,9 +3,23 @@ import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bottom, ChatLineRound, Close, Delete, Plus, Promotion } from '@element-plus/icons-vue'
+import MarkdownIt from 'markdown-it'
 import { chatStream } from '@/axios/chat'
 
 const route = useRoute()
+const markdownRenderer = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true
+})
+const defaultLinkOpenRenderer = markdownRenderer.renderer.rules.link_open || ((tokens, index, options, env, self) => self.renderToken(tokens, index, options))
+
+markdownRenderer.renderer.rules.link_open = (tokens, index, options, env, self) => {
+  tokens[index].attrSet('target', '_blank')
+  tokens[index].attrSet('rel', 'noopener noreferrer')
+  return defaultLinkOpenRenderer(tokens, index, options, env, self)
+}
+
 const sessions = ref([])
 const activeSessionId = ref('')
 const inputMessage = ref('')
@@ -915,6 +929,18 @@ const messageText = (message) => {
   return message.displayContent ?? message.content ?? ''
 }
 
+const messageDisplayText = (message) => {
+  return messageText(message) || (message.pending ? '思考中...' : '')
+}
+
+const shouldShowMessageContent = (message) => {
+  return Boolean(messageText(message) || (message.pending && !hasAuxiliaryOutput(message)))
+}
+
+const renderAssistantMarkdown = (message) => {
+  return markdownRenderer.render(messageDisplayText(message))
+}
+
 const nowText = () => {
   const date = new Date()
   const pad = (value) => String(value).padStart(2, '0')
@@ -1554,10 +1580,18 @@ onBeforeUnmount(() => {
             </div>
 
             <div
-              v-if="messageText(message) || (message.pending && !hasAuxiliaryOutput(message))"
+              v-if="shouldShowMessageContent(message)"
               class="message-content"
+              :class="{ 'markdown-content': message.role === 'assistant' }"
             >
-              {{ messageText(message) || (message.pending ? '思考中...' : '') }}
+              <div
+                v-if="message.role === 'assistant'"
+                class="markdown-rendered"
+                v-html="renderAssistantMarkdown(message)"
+              />
+              <template v-else>
+                {{ messageDisplayText(message) }}
+              </template>
             </div>
             <div
               v-if="message.role === 'assistant' && message.eventStages?.length"
@@ -1838,6 +1872,116 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.7;
+}
+
+.message-content.markdown-content {
+  white-space: normal;
+}
+
+.markdown-rendered :deep(> :first-child) {
+  margin-top: 0;
+}
+
+.markdown-rendered :deep(> :last-child) {
+  margin-bottom: 0;
+}
+
+.markdown-rendered :deep(p) {
+  margin: 0 0 10px;
+}
+
+.markdown-rendered :deep(h1),
+.markdown-rendered :deep(h2),
+.markdown-rendered :deep(h3),
+.markdown-rendered :deep(h4),
+.markdown-rendered :deep(h5),
+.markdown-rendered :deep(h6) {
+  margin: 14px 0 8px;
+  color: var(--ink);
+  font-weight: 760;
+  line-height: 1.35;
+}
+
+.markdown-rendered :deep(h1) {
+  font-size: 22px;
+}
+
+.markdown-rendered :deep(h2) {
+  font-size: 19px;
+}
+
+.markdown-rendered :deep(h3) {
+  font-size: 17px;
+}
+
+.markdown-rendered :deep(ul),
+.markdown-rendered :deep(ol) {
+  margin: 8px 0 10px;
+  padding-left: 22px;
+}
+
+.markdown-rendered :deep(li + li) {
+  margin-top: 4px;
+}
+
+.markdown-rendered :deep(blockquote) {
+  margin: 10px 0;
+  padding-left: 12px;
+  border-left: 3px solid var(--border-strong);
+  color: var(--muted);
+}
+
+.markdown-rendered :deep(a) {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.markdown-rendered :deep(code) {
+  border-radius: 4px;
+  padding: 2px 5px;
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.92em;
+}
+
+.markdown-rendered :deep(pre) {
+  overflow-x: auto;
+  margin: 10px 0;
+  padding: 12px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e5e7eb;
+  line-height: 1.6;
+}
+
+.markdown-rendered :deep(pre code) {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 13px;
+}
+
+.markdown-rendered :deep(table) {
+  display: block;
+  width: 100%;
+  overflow-x: auto;
+  margin: 10px 0;
+  border-collapse: collapse;
+}
+
+.markdown-rendered :deep(th),
+.markdown-rendered :deep(td) {
+  padding: 7px 9px;
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.markdown-rendered :deep(th) {
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-weight: 700;
 }
 
 .auxiliary-output {

@@ -30,7 +30,7 @@ public class HttpTool{
      * @return 响应结果
      */
     @Tool(name = "http_get", description = "Send HTTP GET request to specified URL")
-    public String httpGet(
+    public Result httpGet(
             @ToolParam(name = "url", description = "Request URL", required = true) String url,
             @ToolParam(name = "headers", description = "Request headers in JSON format", required = false) String headers
     ) {
@@ -49,10 +49,10 @@ public class HttpTool{
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
             
             log.info("HTTP GET Response: status={}", response.getStatusCode());
-            return Result.ok(response.getBody()).toString();
+            return Result.ok(response.getBody());
         } catch (Exception e) {
             log.error("HTTP GET request failed: {}", url, e);
-            return Result.fail("HTTP请求失败: " + e.getMessage()).toString();
+            return Result.fail("HTTP请求失败: " + e.getMessage());
         }
     }
 
@@ -65,7 +65,7 @@ public class HttpTool{
      * @return 响应结果
      */
     @Tool(name = "http_post", description = "Send HTTP POST request with JSON body")
-    public String httpPost(
+    public Result httpPost(
             @ToolParam(name = "url", description = "Request URL", required = true) String url,
             @ToolParam(name = "body", description = "Request body in JSON format", required = false) String body,
             @ToolParam(name = "headers", description = "Request headers in JSON format", required = false) String headers
@@ -84,10 +84,10 @@ public class HttpTool{
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
             
             log.info("HTTP POST Response: status={}", response.getStatusCode());
-            return Result.ok(response.getBody()).toString();
+            return Result.ok(response.getBody());
         } catch (Exception e) {
             log.error("HTTP POST request failed: {}", url, e);
-            return Result.fail("HTTP请求失败: " + e.getMessage()).toString();
+            return Result.fail("HTTP请求失败: " + e.getMessage());
         }
     }
 
@@ -100,7 +100,7 @@ public class HttpTool{
      * @return 响应结果
      */
     @Tool(name = "http_put", description = "Send HTTP PUT request with JSON body")
-    public String httpPut(
+    public Result httpPut(
             @ToolParam(name = "url", description = "Request URL", required = true) String url,
             @ToolParam(name = "body", description = "Request body in JSON format", required = false) String body,
             @ToolParam(name = "headers", description = "Request headers in JSON format", required = false) String headers
@@ -119,10 +119,10 @@ public class HttpTool{
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, entity, String.class);
             
             log.info("HTTP PUT Response: status={}", response.getStatusCode());
-            return Result.ok(response.getBody()).toString();
+            return Result.ok(response.getBody());
         } catch (Exception e) {
             log.error("HTTP PUT request failed: {}", url, e);
-            return Result.fail("HTTP请求失败: " + e.getMessage()).toString();
+            return Result.fail("HTTP请求失败: " + e.getMessage());
         }
     }
 
@@ -134,7 +134,7 @@ public class HttpTool{
      * @return 响应结果
      */
     @Tool(name = "http_delete", description = "Send HTTP DELETE request")
-    public String httpDelete(
+    public Result httpDelete(
             @ToolParam(name = "url", description = "Request URL", required = true) String url,
             @ToolParam(name = "headers", description = "Request headers in JSON format", required = false) String headers
     ) {
@@ -152,10 +152,10 @@ public class HttpTool{
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.DELETE, entity, String.class);
             
             log.info("HTTP DELETE Response: status={}", response.getStatusCode());
-            return Result.ok(response.getBody()).toString();
+            return Result.ok(response.getBody());
         } catch (Exception e) {
             log.error("HTTP DELETE request failed: {}", url, e);
-            return Result.fail("HTTP请求失败: " + e.getMessage()).toString();
+            return Result.fail("HTTP请求失败: " + e.getMessage());
         }
     }
 
