@@ -1,8 +1,10 @@
 package com.zw.agent.runtime;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.tools.SimpleTools;
+import com.zw.common.RedisService;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.credential.OpenAICredential;
 import io.agentscope.core.event.*;
@@ -13,6 +15,7 @@ import io.agentscope.core.tool.ToolGroup;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -20,6 +23,7 @@ import reactor.core.publisher.Mono;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -27,13 +31,45 @@ import java.util.concurrent.ConcurrentHashMap;
  * 提供基于租户ID、Agent ID和版本号的缓存机制，确保相同配置的Agent实例复用。
  */
 @Component
+@RequiredArgsConstructor
 public class AgentRuntimeFactory {
 
     /**
      * HarnessAgent实例缓存，使用ConcurrentHashMap保证线程安全
      */
-    private final Map<String, HarnessAgent> agentCache = new ConcurrentHashMap<>();
+    private final Cache<String, HarnessAgent> localAgentCache;
+
+    private final RedisService redisService;
     private final Map<String, HarnessAgent> tenantToolkitCache = new ConcurrentHashMap<>();
+
+    public HarnessAgent getOrCreateAgent(AgentConfigDTO config) {
+        String AgentCacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
+
+        String tenantId = config.getTenantId().toString();
+//        toolGroupCache.computeIfAbsent(tenantId, key -> {
+//            return new ToolGroup("testName","test公司专用tools",tenantId, true);
+//        });
+        return localAgentCache.get(AgentCacheKey, key -> {
+
+            OpenAIChatModel model = OpenAIChatModel.builder()
+                    .apiKey(config.getApiKey())
+                    .modelName(config.getModelName())
+                    .baseUrl(config.getBaseUrl())
+                    .stream(config.getIsStream())
+                    .formatter(new OpenAIChatFormatter())
+                    .build();
+
+            HarnessAgent harnessAgent = HarnessAgent.builder()
+                    .name(config.getAgentName())
+                    .sysPrompt(config.getSysPrompt())
+                    .model(model)
+                    .build();
+
+            redisService.setIfAbsent(key, "1", 30L, TimeUnit.DAYS);
+
+            return harnessAgent;
+        });
+    }
 
     /**
      * 调用Agent执行用户消息并获取响应。
@@ -269,8 +305,8 @@ public class AgentRuntimeFactory {
                 .stream(config.getIsStream())
                 .formatter(new OpenAIChatFormatter())
                 .build();
-        String cacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
-        HarnessAgent harnessAgent = agentCache.computeIfAbsent(cacheKey, key ->
+        String AgentCacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
+        HarnessAgent harnessAgent = localAgentCache.get(AgentCacheKey, key ->
                 HarnessAgent.builder()
                         .name(config.getAgentName())
                         .sysPrompt(config.getSysPrompt())
@@ -286,33 +322,8 @@ public class AgentRuntimeFactory {
                 .map(msg -> msg.getTextContent());
     }
 
-    public HarnessAgent getOrCreateAgent(AgentConfigDTO config) {
-        String cacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
-        String tenantId = config.getTenantId().toString();
-        toolGroupCache.computeIfAbsent(tenantId, key -> {
-            return new ToolGroup("testName","test公司专用tools",tenantId, true);
-        });
-
-        return agentCache.computeIfAbsent(cacheKey, key -> {
-            OpenAIChatModel model = OpenAIChatModel.builder()
-                    .apiKey(config.getApiKey())
-                    .modelName(config.getModelName())
-                    .baseUrl(config.getBaseUrl())
-                    .stream(config.getIsStream())
-                    .formatter(new OpenAIChatFormatter())
-                    .build();
-
-            return HarnessAgent.builder()
-                    .name(config.getAgentName())
-                    .sysPrompt(config.getSysPrompt())
-                    .model(model)
-                    .build();
-        });
-    }
-
-
     public void evictAgent(Long tenantId, Long agentId, Long agentConfigId) {
-        String cacheKey = tenantId + ":" + agentId + ":" + agentConfigId;
-        agentCache.remove(cacheKey);
+        String AgentCacheKey = tenantId + ":" + agentId + ":" + agentConfigId;
+        localAgentCache.invalidate(AgentCacheKey);
     }
 }
