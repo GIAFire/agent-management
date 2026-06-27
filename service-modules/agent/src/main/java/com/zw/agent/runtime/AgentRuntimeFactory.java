@@ -10,6 +10,8 @@ import io.agentscope.core.event.*;
 import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.OpenAIChatModel;
+import io.agentscope.core.permission.PermissionContextState;
+import io.agentscope.core.permission.PermissionMode;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +48,12 @@ public class AgentRuntimeFactory {
             return toolkitBuild;
         });
 
+        PermissionContextState permCtx =
+                PermissionContextState.builder()
+                        .mode(PermissionMode.BYPASS)
+                        .build();
+
+
         return agentCache.get(AgentCacheKey, key -> {
 
             OpenAIChatModel model = OpenAIChatModel.builder()
@@ -61,6 +69,8 @@ public class AgentRuntimeFactory {
                     .sysPrompt(config.getSysPrompt())
                     .model(model)
                     .toolkit(toolkit)
+                    .permissionContext(permCtx)
+                    .maxIters(1000)
                     .build();
 
             redisService.setIfAbsent(key, "1", 30L, TimeUnit.DAYS);
