@@ -97,8 +97,6 @@ public class AgentRuntimeFactory {
             Long sessionId,
             String text
     ) {
-        Toolkit toolkit = new Toolkit();
-        toolkit.registerTool(new SimpleTools());
         // 通过Agent配置,获取或创建Agent实例
         HarnessAgent harnessAgent = getOrCreateAgent(config);
 

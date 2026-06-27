@@ -2,20 +2,39 @@ import config from '@/axios/axiosConfig'
 import { getToken, getTokenType } from '@/utils/auth'
 
 const isObject = (value) => typeof value === 'object' && value !== null
-const LONG_NUMBER_TEXT = /^\d{16,19}$/
-const SESSION_ID_PLACEHOLDER = '__CHAT_SESSION_ID_PLACEHOLDER__'
 
-const stringifyChatRequest = (data = {}) => {
-  const sessionId = data.sessionId == null ? '' : String(data.sessionId)
+const isPlainObject = (value) => {
+  return Object.prototype.toString.call(value) === '[object Object]'
+}
 
-  if (!LONG_NUMBER_TEXT.test(sessionId)) {
-    return JSON.stringify(data)
+const isIdKey = (key) => {
+  return key === 'id' || key === 'ids' || key.endsWith('Id') || key.endsWith('Ids') || key.endsWith('ID') || key.endsWith('IDs')
+}
+
+const stringifyRequestIds = (value, key = '') => {
+  if (isIdKey(key)) {
+    if (Array.isArray(value)) {
+      return value.map((item) => stringifyRequestIds(item, key))
+    }
+    return value === '' || value === undefined || value === null ? value : String(value)
   }
 
-  return JSON.stringify({
-    ...data,
-    sessionId: SESSION_ID_PLACEHOLDER
-  }).replace(`"${SESSION_ID_PLACEHOLDER}"`, sessionId)
+  if (Array.isArray(value)) {
+    return value.map((item) => stringifyRequestIds(item))
+  }
+
+  if (!isPlainObject(value)) {
+    return value
+  }
+
+  return Object.entries(value).reduce((result, [entryKey, entryValue]) => {
+    result[entryKey] = stringifyRequestIds(entryValue, entryKey)
+    return result
+  }, {})
+}
+
+const stringifyChatRequest = (data = {}) => {
+  return JSON.stringify(stringifyRequestIds(data))
 }
 
 const normalizeStreamEvent = (eventName, eventId, parsedData, rawData) => {

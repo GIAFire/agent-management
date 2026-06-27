@@ -12,6 +12,53 @@ const service = axios.create({
   timeout: config.timeout
 })
 
+const isPlainObject = (value) => {
+  return Object.prototype.toString.call(value) === '[object Object]'
+}
+
+const isIdKey = (key) => {
+  return key === 'id' || key === 'ids' || key.endsWith('Id') || key.endsWith('Ids') || key.endsWith('ID') || key.endsWith('IDs')
+}
+
+export const stringifyId = (value) => {
+  if (value === '' || value === undefined || value === null) {
+    return ''
+  }
+
+  return String(value)
+}
+
+const stringifyIdFieldValue = (value) => {
+  if (Array.isArray(value)) {
+    return value.map((item) => stringifyIdFieldValue(item))
+  }
+
+  if (value === '' || value === undefined || value === null) {
+    return value === '' ? '' : null
+  }
+
+  return String(value)
+}
+
+const stringifyIdFields = (value, key = '') => {
+  if (isIdKey(key)) {
+    return stringifyIdFieldValue(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => stringifyIdFields(item))
+  }
+
+  if (!isPlainObject(value)) {
+    return value
+  }
+
+  return Object.entries(value).reduce((result, [entryKey, entryValue]) => {
+    result[entryKey] = stringifyIdFields(entryValue, entryKey)
+    return result
+  }, {})
+}
+
 service.interceptors.request.use(
   (requestConfig) => {
     const token = getToken()
@@ -19,6 +66,12 @@ service.interceptors.request.use(
       requestConfig.headers = requestConfig.headers || {}
       requestConfig.headers.Authorization = `${getTokenType()} ${token}`
       const user = JSON.parse(sessionStorage.getItem(USER_KEY))
+    }
+    if (requestConfig.params) {
+      requestConfig.params = stringifyIdFields(requestConfig.params)
+    }
+    if (requestConfig.data) {
+      requestConfig.data = stringifyIdFields(requestConfig.data)
     }
     return requestConfig
   },

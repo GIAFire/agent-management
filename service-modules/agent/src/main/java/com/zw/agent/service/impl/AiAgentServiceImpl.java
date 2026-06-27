@@ -22,7 +22,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
     @Autowired
     private AiAgentMapper aiAgentMapper;
     @Override
-    public AgentConfigDTO getAgentFullInfo(Long agentId, Long tenantId) {
+    public AgentConfigDTO getAgentFullInfo(Long tenantId,Long agentId) {
         return aiAgentMapper.getAgentFullInfo(agentId, tenantId);
     }
 }

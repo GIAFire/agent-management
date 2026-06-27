@@ -104,6 +104,10 @@ const normalizeNumber = (value) => {
     return value === '' || value === undefined ? null : value
 }
 
+const normalizeId = (value) => {
+    return value === '' || value === undefined || value === null ? null : String(value).trim()
+}
+
 const loadModelList = async () => {
     loading.value = true
     try {
@@ -161,8 +165,8 @@ const handleEdit = async (row) => {
 const buildPayload = async  () => {
     const key = await ApiKeyCrypto.encrypt(form.apiKey, ApiKeyCrypto.masterKeyB64key);
     return {
-        id: form.id,
-        credentialId: normalizeNumber(form.credentialId),
+        id: normalizeId(form.id),
+        credentialId: normalizeId(form.credentialId),
         apiKey: key,
         baseURL: form.baseURL,
         provider: form.provider,
@@ -172,7 +176,7 @@ const buildPayload = async  () => {
         maxTokens: normalizeNumber(form.maxTokens),
         timeoutMs: normalizeNumber(form.timeoutMs),
         maxAttempts: normalizeNumber(form.maxAttempts),
-        fallbackModelConfigId: normalizeNumber(form.fallbackModelConfigId),
+        fallbackModelConfigId: normalizeId(form.fallbackModelConfigId),
         status: form.status
     }
 }
@@ -403,11 +407,9 @@ onMounted(() => {
                     </el-col>
                     <el-col :span="12">
                         <el-form-item label="兜底模型配置ID">
-                            <el-input-number
+                            <el-input
                                 v-model="form.fallbackModelConfigId"
                                 class="model-number"
-                                :min="0"
-                                :controls="false"
                                 placeholder="可为空"
                             />
                         </el-form-item>

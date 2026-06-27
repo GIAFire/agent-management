@@ -1,20 +1,21 @@
 package com.zw.agent.tools.toolkitFactory;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.google.genai.types.ToolConfig;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.service.AiToolInfoConfigService;
-import com.zw.agent.tools.applicationRunner.ToolRegistrySyncRunner;
 import io.agentscope.core.tool.Toolkit;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.StringUtils;
 
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-
-import static com.baomidou.mybatisplus.extension.spi.SpringCompatibleSet.applicationContext;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
@@ -23,22 +24,53 @@ public class TenantToolkitFactory {
     private static final Logger log = LoggerFactory.getLogger(TenantToolkitFactory.class);
 
     private final AiToolInfoConfigService toolInfoConfigService;
+    private final ApplicationContext applicationContext;
 
     public Toolkit buildToolkit(Long tenantId) {
         Toolkit toolkit = new Toolkit();
 
         List<AiToolInfoConfigEntity> toolList = toolInfoConfigService.list(new LambdaQueryWrapper<AiToolInfoConfigEntity>()
-                .eq(AiToolInfoConfigEntity::getTenantId, tenantId));
+                .eq(AiToolInfoConfigEntity::getTenantId, tenantId)
+                .eq(AiToolInfoConfigEntity::getEnabled, true)
+                .orderByAsc(AiToolInfoConfigEntity::getClassName)
+                .orderByAsc(AiToolInfoConfigEntity::getMethodName));
 
+        Set<String> registeredClasses = new LinkedHashSet<>();
         for (AiToolInfoConfigEntity toolConfig : toolList) {
-            Object toolBean = applicationContext.getBean(toolConfig.getBeanName());
+            if (!StringUtils.hasText(toolConfig.getClassName())
+                    || !registeredClasses.add(toolConfig.getClassName())) {
+                continue;
+            }
 
+            Object toolBean = resolveToolBean(toolConfig);
             if (toolBean == null) {
-                toolkit.registerTool(null);
-                log.error("beanName:{} not found", toolConfig.getId());
+                log.error("Tool bean not found, toolId={}, beanName={}, className={}",
+                        toolConfig.getId(), toolConfig.getBeanName(), toolConfig.getClassName());
+                continue;
             }
             toolkit.registerTool(toolBean);
         }
         return toolkit;
+    }
+
+    private Object resolveToolBean(AiToolInfoConfigEntity toolConfig) {
+        try {
+            if (StringUtils.hasText(toolConfig.getBeanName())
+                    && applicationContext.containsBean(toolConfig.getBeanName())) {
+                return applicationContext.getBean(toolConfig.getBeanName());
+            }
+
+            Class<?> toolClass = ClassUtils.forName(toolConfig.getClassName(), applicationContext.getClassLoader());
+            String[] beanNames = applicationContext.getBeanNamesForType(toolClass, false, false);
+            if (beanNames.length > 0) {
+                return applicationContext.getBean(beanNames[0]);
+            }
+
+            return applicationContext.getAutowireCapableBeanFactory().createBean(toolClass);
+        } catch (ClassNotFoundException | LinkageError | BeansException ex) {
+            log.error("Failed to resolve tool bean, beanName={}, className={}",
+                    toolConfig.getBeanName(), toolConfig.getClassName(), ex);
+            return null;
+        }
     }
 }

@@ -84,8 +84,8 @@ const formatTime = (row) => {
   return row.updateTime || row.updatedAt || row.createTime || row.createdAt || '-'
 }
 
-const normalizeNumber = (value) => {
-  return value === '' || value === undefined ? null : value
+const normalizeId = (value) => {
+  return value === '' || value === undefined || value === null ? null : String(value).trim()
 }
 
 const resetForm = () => {
@@ -150,12 +150,12 @@ const handleEdit = async (row) => {
 
 const buildPayload = () => {
   return {
-    id: form.id,
+    id: normalizeId(form.id),
     agentKey: form.agentKey,
     agentName: form.agentName,
     description: form.description,
     agentType: form.agentType,
-    currentVersionId: normalizeNumber(form.currentVersionId),
+    currentVersionId: normalizeId(form.currentVersionId),
     status: form.status
   }
 }
@@ -326,11 +326,9 @@ onMounted(() => {
           </el-select>
         </el-form-item>
         <el-form-item label="当前版本ID">
-          <el-input-number
+          <el-input
             v-model="form.currentVersionId"
             class="agent-number"
-            :min="0"
-            :controls="false"
             placeholder="可为空"
           />
         </el-form-item>

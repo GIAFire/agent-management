@@ -62,6 +62,10 @@ const formatTime = (row) => {
   return row.createTime || row.updatedAt || row.createdAt || '-'
 }
 
+const normalizeId = (value) => {
+  return value === '' || value === undefined || value === null ? null : String(value).trim()
+}
+
 const resetForm = () => {
   Object.assign(form, {
     id: null,
@@ -125,7 +129,7 @@ const submitForm = async () => {
   submitting.value = true
   try {
     const payload = {
-      id: form.id,
+      id: normalizeId(form.id),
       tenantCode: form.tenantCode,
       tenantName: form.tenantName,
       status: form.status,

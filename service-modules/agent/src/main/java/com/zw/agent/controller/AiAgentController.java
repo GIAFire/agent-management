@@ -43,12 +43,12 @@ public class AiAgentController {
         return Result.ok(aiAgentService.getById(id));
     }
 
-    @PostMapping
+    @PostMapping("/create")
     public Result<Boolean> create(@RequestBody AiAgentEntity entity) {
         return Result.ok(aiAgentService.save(entity));
     }
 
-    @PutMapping
+    @PutMapping("/update")
     public Result<Boolean> update(@RequestBody AiAgentEntity entity) {
         return Result.ok(aiAgentService.updateById(entity));
     }

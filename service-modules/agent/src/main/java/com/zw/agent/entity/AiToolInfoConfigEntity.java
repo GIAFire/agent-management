@@ -20,7 +20,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("ai_tool_info__config")
+@TableName("ai_tool_info_config")
 public class AiToolInfoConfigEntity extends BaseEntity {
 
     private static final long serialVersionUID = 1L;

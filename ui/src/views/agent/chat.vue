@@ -50,8 +50,11 @@ const agentInfo = reactive({
   key: ''
 })
 
-const agentId = computed(() => Number(route.params.agentId))
-const storageKey = computed(() => `agent_chat_sessions_${route.params.agentId || 'unknown'}`)
+const agentId = computed(() => {
+  const value = route.params.agentId
+  return Array.isArray(value) ? String(value[0] || '') : String(value || '')
+})
+const storageKey = computed(() => `agent_chat_sessions_${agentId.value || 'unknown'}`)
 
 const activeSession = computed(() => {
   return sessions.value.find((item) => item.id === activeSessionId.value) || null
@@ -62,7 +65,7 @@ const activeMessages = computed(() => {
 })
 
 const canSend = computed(() => {
-  return Boolean(inputMessage.value.trim()) && !streaming.value && Number.isFinite(agentId.value)
+  return Boolean(inputMessage.value.trim()) && !streaming.value && Boolean(agentId.value)
 })
 
 const STREAM_STAGE_META = {
@@ -1298,7 +1301,7 @@ const sendMessage = async () => {
   if (!content) {
     return
   }
-  if (!Number.isFinite(agentId.value)) {
+  if (!agentId.value) {
     ElMessage.error('智能体ID无效')
     return
   }

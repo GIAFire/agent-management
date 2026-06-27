@@ -115,6 +115,10 @@ const normalizeNumber = (value) => {
   return value === '' || value === undefined ? null : value
 }
 
+const normalizeId = (value) => {
+  return value === '' || value === undefined || value === null ? null : String(value).trim()
+}
+
 const resetForm = () => {
   Object.assign(form, {
     id: null,
@@ -187,11 +191,11 @@ const handleEdit = async (row) => {
 
 const buildPayload = () => {
   return {
-    id: form.id,
-    agentId: normalizeNumber(form.agentId),
+    id: normalizeId(form.id),
+    agentId: normalizeId(form.agentId),
     versionNo: form.versionNo,
     sysPrompt: form.sysPrompt,
-    modelConfigId: normalizeNumber(form.modelConfigId),
+    modelConfigId: normalizeId(form.modelConfigId),
     maxIters: normalizeNumber(form.maxIters),
     compactionConfigJson: form.compactionConfigJson,
     workspaceConfigJson: form.workspaceConfigJson,
@@ -351,11 +355,9 @@ onMounted(() => {
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="智能体ID" prop="agentId">
-              <el-input-number
+              <el-input
                 v-model="form.agentId"
                 class="agent-config-number"
-                :min="0"
-                :controls="false"
                 placeholder="关联 ai_agent_definition.id"
               />
             </el-form-item>
@@ -367,11 +369,9 @@ onMounted(() => {
           </el-col>
           <el-col :span="12">
             <el-form-item label="模型配置ID" prop="modelConfigId">
-              <el-input-number
+              <el-input
                 v-model="form.modelConfigId"
                 class="agent-config-number"
-                :min="0"
-                :controls="false"
                 placeholder="关联 ai_model_config.id"
               />
             </el-form-item>

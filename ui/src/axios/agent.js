@@ -1,4 +1,4 @@
-import { del, get, post, put } from '@/axios/request'
+import { del, get, post, put, stringifyId } from '@/axios/request'
 
 const baseUrl = '/agent'
 
@@ -11,11 +11,11 @@ export const pageAgent = (params) => {
 }
 
 export const getAgent = (id) => {
-  return get(`${baseUrl}/agent/${id}`)
+  return get(`${baseUrl}/agent/${stringifyId(id)}`)
 }
 
 export const addAgent = (data) => {
-  return post(baseUrl, data)
+  return post(`${baseUrl}/agent/create`, data)
 }
 
 export const updateAgent = (data) => {
@@ -23,5 +23,5 @@ export const updateAgent = (data) => {
 }
 
 export const deleteAgent = (id) => {
-  return del(`${baseUrl}/agent/${id}`)
+  return del(`${baseUrl}/agent/${stringifyId(id)}`)
 }
