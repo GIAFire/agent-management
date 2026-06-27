@@ -1654,10 +1654,9 @@ onBeforeUnmount(() => {
               class="stream-stages"
             >
               <div class="stream-stages-header">
-                <span>耗时统计</span>
+                <span v-if="streamUsageTokenText(message)">耗时统计</span>
                 <span v-if="streamUsageTokenText(message)">消耗Token： {{ streamUsageTokenText(message) }}</span>
                 <span v-if="streamUsageTimeText(message)">模型耗时 {{ streamUsageTimeText(message) }}</span>
-                <span v-if="streamTotalText(message)">渲染耗时 {{ streamTotalText(message) }}</span>
               </div>
             </div>
           </div>
@@ -2062,11 +2061,10 @@ onBeforeUnmount(() => {
   align-items: center;
   grid-template-columns: max-content max-content max-content;
   gap: 10px;
-  padding: 7px 10px;
   border: 0;
   cursor: pointer;
   background: transparent;
-  color: #374151;
+  color: #64748b;
   font: inherit;
   text-align: left;
 }
@@ -2164,7 +2162,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: flex-start;
   gap: 30px;
-  margin-bottom: 7px;
+  margin-top: 10px;
   color: var(--subtle);
   font-size: 12px;
 }
@@ -2174,7 +2172,7 @@ onBeforeUnmount(() => {
 }
 
 .stream-stages-header span:first-child {
-  color: var(--ink);
+    color: var(--subtle);
   font-weight: 700;
 }
 
