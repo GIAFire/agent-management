@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zw.agent.mapper.AiToolConfigMapper">
+
+    <select id="getToolByTenantBeans" resultType="String" parameterType="Long">
+        SELECT tic.bean_name
+        FROM ai_tool_info_config  tic
+        WHERE tic.tenant_id = #{tenantId}
+    </select>
+</mapper>

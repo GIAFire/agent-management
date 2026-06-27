@@ -1,5 +1,9 @@
 package com.zw.agent.tools.toolkitFactory;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.google.genai.types.ToolConfig;
+import com.zw.agent.entity.AiToolInfoConfigEntity;
+import com.zw.agent.service.AiToolInfoConfigService;
 import io.agentscope.core.tool.Toolkit;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -7,31 +11,30 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 import java.util.Map;
 
+import static com.baomidou.mybatisplus.extension.spi.SpringCompatibleSet.applicationContext;
+
 @Component
 @RequiredArgsConstructor
 public class TenantToolkitFactory {
 
     private final Map<String, Object> allToolBeans;
-    private final TenantToolConfigService tenantToolConfigService;
+    private final AiToolInfoConfigService toolInfoConfigService;
 
 
-    public Toolkit buildToolkit(String tenantId) {
+    public Toolkit buildToolkit(Long tenantId) {
         Toolkit toolkit = new Toolkit();
 
-        List<String> allowedToolBeanNames =
-                tenantToolConfigService.getAllowedToolBeans(tenantId);
+        List<AiToolInfoConfigEntity> toolList = toolInfoConfigService.list(new LambdaQueryWrapper<AiToolInfoConfigEntity>()
+                .eq(AiToolInfoConfigEntity::getTenantId, tenantId));
 
-        for (String beanName : allowedToolBeanNames) {
-            Object toolBean = allToolBeans.get(beanName);
+        for (AiToolInfoConfigEntity toolConfig : toolList) {
+            Object toolBean = applicationContext.getBean(toolConfig.getBeanName());
 
             if (toolBean == null) {
-                throw new IllegalArgumentException("Unknown tool bean: " + beanName);
+                throw new IllegalArgumentException("Unknown tool bean: " + toolConfig.getBeanName());
             }
-
-            // 只注册当前租户允许的 tool
             toolkit.registerTool(toolBean);
         }
-
         return toolkit;
     }
 }
