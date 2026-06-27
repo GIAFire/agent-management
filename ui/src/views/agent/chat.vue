@@ -1655,7 +1655,7 @@ onBeforeUnmount(() => {
             >
               <div class="stream-stages-header">
                 <span v-if="streamUsageTokenText(message)">耗时统计</span>
-                <span v-if="streamUsageTokenText(message)">消耗Token： {{ streamUsageTokenText(message) }}</span>
+                <span v-if="streamUsageTokenText(message)">Token消耗： {{ streamUsageTokenText(message) }}</span>
                 <span v-if="streamUsageTimeText(message)">模型耗时 {{ streamUsageTimeText(message) }}</span>
               </div>
             </div>

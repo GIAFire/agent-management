@@ -109,7 +109,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                     // 标记运行记录为失败状态
                     agentRunService.markFailed(
                             runId,
-                            "AGENT_RUN_FAILED",
+                            "FAILED",
                             e.getMessage()
                     );
 
