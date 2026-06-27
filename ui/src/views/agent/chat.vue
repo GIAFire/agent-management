@@ -1807,21 +1807,18 @@ onBeforeUnmount(() => {
 
 .message-bubble {
   max-width: min(720px, 78%);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 14px;
-  background: var(--surface);
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  border: 0;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .message-row.user .message-bubble {
-  border-color: var(--primary);
-  color: #ffffff;
-  background: var(--primary);
+  color: var(--ink);
 }
 
 .message-row.error .message-bubble {
-  border-color: #f56c6c;
+  color: var(--danger);
 }
 
 .message-meta {
@@ -1842,7 +1839,7 @@ onBeforeUnmount(() => {
 }
 
 .message-row.user .message-meta time {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--subtle);
 }
 
 .message-content {
