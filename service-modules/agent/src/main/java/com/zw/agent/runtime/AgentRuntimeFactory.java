@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 
@@ -47,11 +48,15 @@ public class AgentRuntimeFactory {
             redisService.setIfAbsent(tooKitCacheKey, "1", 30L, TimeUnit.DAYS);
             return toolkitBuild;
         });
-
-        PermissionContextState permCtx =
-                PermissionContextState.builder()
-                        .mode(PermissionMode.BYPASS)
-                        .build();
+//        Set<String> toolNames = toolkit.getToolNames();
+//        PermissionContextState.Builder builder = PermissionContextState.builder().mode(PermissionMode.ACCEPT_EDITS);
+//        for (int i = 0; i < toolNames.size(); i++) {
+//            builder.addAllowRule(toolNames.toArray()[i], toolkit.getAllowRule());
+//        }
+//                        .addAllowRule("toolkit", toolkit.getAllowRule())
+//                        .addAllowRule("model", toolkit.getAllowRule())
+//                        .mode(PermissionMode.ACCEPT_EDITS)
+//                        .build();
 
 
         return agentCache.get(AgentCacheKey, key -> {
@@ -69,7 +74,6 @@ public class AgentRuntimeFactory {
                     .sysPrompt(config.getSysPrompt())
                     .model(model)
                     .toolkit(toolkit)
-                    .permissionContext(permCtx)
                     .maxIters(1000)
                     .build();
 
