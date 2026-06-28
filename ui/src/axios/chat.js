@@ -37,6 +37,15 @@ const stringifyChatRequest = (data = {}) => {
   return JSON.stringify(stringifyRequestIds(data))
 }
 
+const readRawId = (rawData, key) => {
+  const match = String(rawData || '').match(new RegExp(`"${key}"\\s*:\\s*"?([0-9]+)"?`))
+  return match ? match[1] : null
+}
+
+const normalizeId = (value, rawData, key) => {
+  return readRawId(rawData, key) ?? (value === undefined || value === null ? null : String(value))
+}
+
 const normalizeStreamEvent = (eventName, eventId, parsedData, rawData) => {
   const dataObject = isObject(parsedData) ? parsedData : null
   const delta = dataObject
@@ -44,14 +53,15 @@ const normalizeStreamEvent = (eventName, eventId, parsedData, rawData) => {
     : String(parsedData)
 
   return {
-    id: eventId || dataObject?.seq || null,
+    id: eventId || normalizeId(dataObject?.seq, rawData, 'seq'),
     sseEvent: eventName,
     eventName,
     eventType: dataObject?.eventType || eventName,
-    runId: dataObject?.runId ?? null,
+    runId: normalizeId(dataObject?.runId, rawData, 'runId'),
     seq: dataObject?.seq ?? null,
     usageToken: dataObject?.usageToken ?? null,
     usageTime: dataObject?.usageTime ?? null,
+    payload: dataObject?.payload ?? null,
     delta,
     data: parsedData,
     rawData,
@@ -142,7 +152,7 @@ const consumeSseBuffer = (buffer, handlers) => {
   return rest
 }
 
-export const chatStream = async (data, handlers = {}, options = {}) => {
+const postStream = async (url, data, handlers = {}, options = {}) => {
   const token = getToken()
   const headers = {
     Accept: 'text/event-stream',
@@ -154,7 +164,7 @@ export const chatStream = async (data, handlers = {}, options = {}) => {
   }
 
   // 使用 fetch 读取 ReadableStream，避免 axios 把流式响应合并成一次性结果。
-  const response = await fetch(`${config.baseURL}/agent/chat/chatStream`, {
+  const response = await fetch(`${config.baseURL}${url}`, {
     method: 'POST',
     headers,
     body: stringifyChatRequest(data),
@@ -192,4 +202,16 @@ export const chatStream = async (data, handlers = {}, options = {}) => {
   if (buffer.trim()) {
     dispatchSseBlock(buffer, handlers)
   }
+}
+
+export const chatStream = async (data, handlers = {}, options = {}) => {
+  return postStream('/agent/chat/chatStream', data, handlers, options)
+}
+
+export const userConfirmStream = async (data, handlers = {}, options = {}) => {
+  return postStream('/agent/chat/userConfirm', data, handlers, options)
+}
+
+export const externalExecutionStream = async (data, handlers = {}, options = {}) => {
+  return postStream('/agent/chat/externalExecution', data, handlers, options)
 }

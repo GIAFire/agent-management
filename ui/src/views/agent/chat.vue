@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bottom, ChatLineRound, Close, Delete, Plus, Promotion } from '@element-plus/icons-vue'
 import MarkdownIt from 'markdown-it'
-import { chatStream } from '@/axios/chat'
+import { chatStream, userConfirmStream } from '@/axios/chat'
 
 const route = useRoute()
 const markdownRenderer = new MarkdownIt({
@@ -126,6 +126,12 @@ const getStageKey = (eventType = '') => {
   if (normalizedType.startsWith('TOOL_CALL_') || normalizedType.startsWith('TOOL_RESULT_')) {
     return 'tool'
   }
+  if (normalizedType === 'REQUIRE_USER_CONFIRM' ||
+    normalizedType === 'REQUIRE_EXTERNAL_EXECUTION' ||
+    normalizedType === 'USER_CONFIRM_RESULT' ||
+    normalizedType === 'EXTERNAL_EXECUTION_RESULT') {
+    return 'tool'
+  }
   if (normalizedType.startsWith('TEXT_BLOCK_') || normalizedType.startsWith('MESSAGE_')) {
     return 'message'
   }
@@ -161,6 +167,9 @@ const formatDuration = (duration = 0) => {
 const stageStatusText = (stage) => {
   if (stage.status === 'running') {
     return '进行中'
+  }
+  if (stage.status === 'waiting') {
+    return '等待中'
   }
   if (stage.status === 'error') {
     return '异常'
@@ -229,6 +238,12 @@ const auxiliaryBlockTitle = (block) => {
 const toolStatusText = (toolCall) => {
   if (toolCall?.status === 'done') {
     return '完成'
+  }
+  if (toolCall?.status === 'waiting') {
+    return '等待确认'
+  }
+  if (toolCall?.status === 'waiting_external') {
+    return '等待外部执行'
   }
   if (toolCall?.status === 'error') {
     return '异常'
@@ -325,6 +340,20 @@ const isToolResultDataDeltaEvent = (streamEvent) => {
 const isToolResultEndEvent = (streamEvent) => {
   return normalizedEventType(streamEvent) === 'TOOL_RESULT_END' ||
     normalizedSseEvent(streamEvent) === 'tool_result_end'
+}
+
+const isRequireUserConfirmEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'REQUIRE_USER_CONFIRM' ||
+    normalizedSseEvent(streamEvent) === 'require_user_confirm'
+}
+
+const isRequireExternalExecutionEvent = (streamEvent) => {
+  return normalizedEventType(streamEvent) === 'REQUIRE_EXTERNAL_EXECUTION' ||
+    normalizedSseEvent(streamEvent) === 'require_external_execution'
+}
+
+const isInterventionEvent = (streamEvent) => {
+  return isRequireUserConfirmEvent(streamEvent) || isRequireExternalExecutionEvent(streamEvent)
 }
 
 const hasAuxiliaryOutput = (message) => {
@@ -807,6 +836,80 @@ const appendToolEvent = (message, streamEvent) => {
   return true
 }
 
+const formatToolInput = (input) => {
+  if (input == null || input === '') {
+    return ''
+  }
+  if (typeof input === 'string') {
+    return input
+  }
+  try {
+    return JSON.stringify(input, null, 2)
+  } catch {
+    return String(input)
+  }
+}
+
+const normalizeToolCallPayload = (toolCall = {}) => {
+  return {
+    id: toolCall.id || '',
+    name: toolCall.name || '工具调用',
+    input: toolCall.input || {},
+    content: toolCall.content || '',
+    metadata: toolCall.metadata || {},
+    state: toolCall.state || ''
+  }
+}
+
+const buildInterventionFromEvent = (message, streamEvent) => {
+  if (!isInterventionEvent(streamEvent)) {
+    return null
+  }
+
+  const payload = streamEvent.payload && typeof streamEvent.payload === 'object' ? streamEvent.payload : {}
+  const toolCalls = Array.isArray(payload.toolCalls)
+    ? payload.toolCalls.map(normalizeToolCallPayload)
+    : []
+
+  return {
+    type: isRequireUserConfirmEvent(streamEvent) ? 'userConfirm' : 'externalExecution',
+    replyId: payload.replyId || '',
+    runId: streamEvent.runId || message?.runId || '',
+    toolCalls
+  }
+}
+
+const appendInterventionEvent = (message, streamEvent) => {
+  const intervention = buildInterventionFromEvent(message, streamEvent)
+  if (!message || !intervention) {
+    return false
+  }
+
+  const isUserConfirm = intervention.type === 'userConfirm'
+  const toolCalls = intervention.toolCalls.length ? intervention.toolCalls : [normalizeToolCallPayload()]
+
+  toolCalls.forEach((pendingToolCall, index) => {
+    const block = getToolBlock(message, index > 0, pendingToolCall.name)
+    const toolCall = getToolCallFromBlock(message, block, pendingToolCall.name)
+    toolCall.id = pendingToolCall.id || toolCall.id
+    toolCall.name = pendingToolCall.name || toolCall.name
+    toolCall.pendingToolCall = pendingToolCall
+    toolCall.status = isUserConfirm ? 'waiting' : 'waiting_external'
+    appendToolLine(toolCall, 'process', isUserConfirm ? '等待用户确认' : '等待外部系统执行')
+
+    const inputText = formatToolInput(pendingToolCall.input)
+    if (inputText) {
+      appendToolLine(toolCall, 'process', `调用参数：${inputText}`)
+    }
+
+    touchAuxiliaryBlock(block, isUserConfirm ? 'waiting' : 'waiting_external')
+  })
+
+  message.pendingIntervention = intervention
+  message.streamStatus = 'waiting'
+  return true
+}
+
 const ensureStreamTiming = (message) => {
   if (!message.streamTiming) {
     message.streamTiming = {
@@ -914,6 +1017,10 @@ const appendAuxiliaryDelta = (message, session, streamEvent) => {
     changed = true
   }
 
+  if (appendInterventionEvent(message, streamEvent)) {
+    changed = true
+  }
+
   if (!changed) {
     return
   }
@@ -932,13 +1039,14 @@ const finishStreamEvents = (message, status = 'done') => {
   }
 
   const now = getNowMs()
+  const isWaiting = status === 'waiting'
   message.streamTiming.totalMs = now - message.streamTiming.startedAt
   message.streamStatus = status
 
   if (Array.isArray(message.eventStages)) {
     message.eventStages.forEach((stage) => {
       if (stage.status === 'running') {
-        stage.status = status === 'error' ? 'error' : 'done'
+        stage.status = status === 'error' ? 'error' : isWaiting ? 'waiting' : 'done'
         stage.endedAt = now
         stage.durationMs = stage.endedAt - stage.startedAt
       }
@@ -948,7 +1056,7 @@ const finishStreamEvents = (message, status = 'done') => {
   if (Array.isArray(message.toolCalls)) {
     message.toolCalls.forEach((toolCall) => {
       if (toolCall.status === 'running') {
-        toolCall.status = status === 'error' ? 'error' : 'done'
+        toolCall.status = status === 'error' ? 'error' : isWaiting ? 'waiting' : 'done'
         toolCall.updatedAt = now
       }
     })
@@ -958,12 +1066,12 @@ const finishStreamEvents = (message, status = 'done') => {
     message.auxiliaryBlocks = compactAuxiliaryBlocks(message.auxiliaryBlocks)
     message.auxiliaryBlocks.forEach((block) => {
       if (block.status === 'running') {
-        block.status = status === 'error' ? 'error' : 'done'
+        block.status = status === 'error' ? 'error' : isWaiting ? 'waiting' : 'done'
         block.endedAt = now
         block.durationMs = block.startedAt ? block.endedAt - block.startedAt : block.durationMs || 0
       }
       if (block.toolCall?.status === 'running') {
-        block.toolCall.status = status === 'error' ? 'error' : 'done'
+        block.toolCall.status = status === 'error' ? 'error' : isWaiting ? 'waiting' : 'done'
         block.toolCall.updatedAt = now
       }
     })
@@ -1296,6 +1404,7 @@ const loadSessions = () => {
             activeReasoningBlockId: null,
             activeToolBlockId: null,
             pendingReasoningStartedAt: null,
+            pendingIntervention: null,
             toolExpanded: message.toolExpanded ?? message.toolResultExpanded ?? Boolean(toolCalls.length),
             eventStages: Array.isArray(message.eventStages) ? message.eventStages : []
           }
@@ -1375,6 +1484,162 @@ const stopStream = () => {
   streaming.value = false
 }
 
+const formatInterventionToolCalls = (toolCalls = []) => {
+  return toolCalls.map((toolCall, index) => {
+    const inputText = formatToolInput(toolCall.input)
+    return `${index + 1}. ${toolCall.name || '工具调用'}${inputText ? `\n参数：${inputText}` : ''}`
+  }).join('\n\n')
+}
+
+const markInterventionDecision = (message, intervention, confirmed) => {
+  const pendingIds = new Set((intervention?.toolCalls || []).map((toolCall) => toolCall.id).filter(Boolean))
+  const decisionText = confirmed ? '用户已确认，继续执行工具' : '用户已拒绝，停止执行工具'
+
+  ;(message.toolCalls || []).forEach((toolCall) => {
+    if (!pendingIds.size || pendingIds.has(toolCall.id)) {
+      appendToolLine(toolCall, 'process', decisionText)
+      toolCall.status = 'running'
+      toolCall.updatedAt = getNowMs()
+    }
+  })
+
+  ;(message.auxiliaryBlocks || []).forEach((block) => {
+    if (block.toolCall && (!pendingIds.size || pendingIds.has(block.toolCall.id))) {
+      block.status = 'running'
+      block.toolCall.status = 'running'
+      touchAuxiliaryBlock(block, 'running')
+    }
+  })
+
+  message.pendingIntervention = null
+  message.streamStatus = 'running'
+  saveSessions()
+}
+
+const runAssistantStream = async (streamer, data, assistantMessage, session) => {
+  let pendingIntervention = null
+  abortController.value = new AbortController()
+
+  await streamer(
+    data,
+    {
+      onEvent: (streamEvent) => {
+        if (streamEvent.runId) {
+          assistantMessage.runId = streamEvent.runId
+        }
+        recordStreamEvent(assistantMessage, streamEvent)
+        appendAuxiliaryDelta(assistantMessage, session, streamEvent)
+        if (assistantMessage.pendingIntervention) {
+          pendingIntervention = assistantMessage.pendingIntervention
+        }
+      },
+      onMessage: (delta) => {
+        pushTypewriterText(assistantMessage, session, delta)
+      },
+      onError: (message) => {
+        finishStreamEvents(assistantMessage, 'error')
+        resetTypewriter()
+        assistantMessage.content = message
+        assistantMessage.displayContent = message
+        assistantMessage.pending = false
+        assistantMessage.typing = false
+        assistantMessage.error = true
+        assistantMessage.pendingIntervention = null
+        session.updatedAt = nowText()
+        saveSessions()
+        scrollToBottom()
+      },
+      onDone: (streamEvent) => {
+        applyDoneUsage(assistantMessage, streamEvent)
+        finishStreamEvents(assistantMessage, assistantMessage.pendingIntervention ? 'waiting' : 'done')
+        session.updatedAt = nowText()
+      }
+    },
+    {
+      signal: abortController.value.signal
+    }
+  )
+
+  await waitTypewriterIdle()
+  assistantMessage.pending = false
+  assistantMessage.typing = false
+  assistantMessage.displayContent = assistantMessage.content
+  session.updatedAt = nowText()
+  flushScheduledSave()
+
+  return pendingIntervention
+}
+
+const handleUserConfirmIntervention = async (assistantMessage, session, backendSessionId, intervention) => {
+  const detail = formatInterventionToolCalls(intervention.toolCalls)
+  let confirmed = false
+
+  try {
+    await ElMessageBox.confirm(
+      detail || '智能体请求执行工具，是否允许？',
+      '工具调用确认',
+      {
+        type: 'warning',
+        confirmButtonText: '允许执行',
+        cancelButtonText: '拒绝执行',
+        distinguishCancelAndClose: false
+      }
+    )
+    confirmed = true
+  } catch {
+    confirmed = false
+  }
+
+  markInterventionDecision(assistantMessage, intervention, confirmed)
+
+  return runAssistantStream(
+    userConfirmStream,
+    {
+      agentId: agentId.value,
+      sessionId: backendSessionId,
+      runId: intervention.runId || assistantMessage.runId,
+      replyId: intervention.replyId,
+      confirmResults: intervention.toolCalls.map((toolCall) => ({
+        confirmed,
+        toolCall
+      }))
+    },
+    assistantMessage,
+    session
+  )
+}
+
+const handleExternalExecutionIntervention = async (assistantMessage, intervention) => {
+  assistantMessage.pendingIntervention = intervention
+  assistantMessage.streamStatus = 'waiting'
+  ElMessage.warning('智能体正在等待外部系统回传工具执行结果')
+  saveSessions()
+  return null
+}
+
+const handlePendingInterventions = async (assistantMessage, session, backendSessionId, intervention) => {
+  let currentIntervention = intervention
+
+  while (currentIntervention) {
+    if (currentIntervention.type === 'userConfirm') {
+      currentIntervention = await handleUserConfirmIntervention(
+        assistantMessage,
+        session,
+        backendSessionId,
+        currentIntervention
+      )
+      continue
+    }
+
+    if (currentIntervention.type === 'externalExecution') {
+      currentIntervention = await handleExternalExecutionIntervention(assistantMessage, currentIntervention)
+      continue
+    }
+
+    currentIntervention = null
+  }
+}
+
 const sendMessage = async () => {
   const content = inputMessage.value.trim()
   if (!content) {
@@ -1408,7 +1673,9 @@ const sendMessage = async () => {
       activeReasoningBlockId: null,
       activeToolBlockId: null,
       pendingReasoningStartedAt: null,
-      toolExpanded: true
+      toolExpanded: true,
+      pendingIntervention: null,
+      runId: null
     },
     { forceScroll: true }
   )
@@ -1421,48 +1688,17 @@ const sendMessage = async () => {
   abortController.value = new AbortController()
 
   try {
-    await chatStream(
+    const pendingIntervention = await runAssistantStream(
+      chatStream,
       {
         agentId: agentId.value,
         sessionId: backendSessionId,
         content
       },
-      {
-        onEvent: (streamEvent) => {
-          recordStreamEvent(assistantMessage, streamEvent)
-          appendAuxiliaryDelta(assistantMessage, session, streamEvent)
-        },
-        onMessage: (delta) => {
-          pushTypewriterText(assistantMessage, session, delta)
-        },
-        onError: (message) => {
-          finishStreamEvents(assistantMessage, 'error')
-          resetTypewriter()
-          assistantMessage.content = message
-          assistantMessage.displayContent = message
-          assistantMessage.pending = false
-          assistantMessage.typing = false
-          assistantMessage.error = true
-          session.updatedAt = nowText()
-          saveSessions()
-          scrollToBottom()
-        },
-        onDone: (streamEvent) => {
-          applyDoneUsage(assistantMessage, streamEvent)
-          finishStreamEvents(assistantMessage, 'done')
-          session.updatedAt = nowText()
-        }
-      },
-      {
-        signal: abortController.value.signal
-      }
+      assistantMessage,
+      session
     )
-    await waitTypewriterIdle()
-    assistantMessage.pending = false
-    assistantMessage.typing = false
-    assistantMessage.displayContent = assistantMessage.content
-    session.updatedAt = nowText()
-    flushScheduledSave()
+    await handlePendingInterventions(assistantMessage, session, backendSessionId, pendingIntervention)
   } catch (error) {
     flushTypewriter()
     finishStreamEvents(assistantMessage, error.name === 'AbortError' ? 'done' : 'error')
@@ -2202,6 +2438,10 @@ onBeforeUnmount(() => {
   background: #eab308;
 }
 
+.stream-stage.status-waiting .stream-stage-dot {
+  background: #f59e0b;
+}
+
 .stream-stage.status-done .stream-stage-dot {
   background: #16a34a;
 }
@@ -2232,6 +2472,10 @@ onBeforeUnmount(() => {
 
 .stream-stage.status-running .stream-stage-state {
   color: #a16207;
+}
+
+.stream-stage.status-waiting .stream-stage-state {
+  color: #b45309;
 }
 
 .stream-stage.status-done .stream-stage-state {

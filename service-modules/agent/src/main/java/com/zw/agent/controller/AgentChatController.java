@@ -5,14 +5,11 @@ import com.zw.agent.entity.AiAgentRunEntity;
 import com.zw.agent.entity.AiAgentSessionEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentChatRequest;
-import com.zw.agent.event.AgentChatResponse;
-import com.zw.agent.event.AgentRuntimeEvent;
+import com.zw.agent.entity.message.AgentInterventionRequest;
 import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.runtime.AgentFullConfigService;
 import com.zw.agent.runtime.AgentRuntimeFactory;
-import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.*;
-import com.zw.agent.service.impl.AgentChatServiceImpl;
 import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
 import lombok.AllArgsConstructor;
@@ -71,6 +68,26 @@ public class AgentChatController {
         );
 
         return agentChatService.chatStream(config,userInfo, session.getId(), request.getContent(),run.getId());
+    }
+
+    @PostMapping(value = "/userConfirm", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<AgentStreamResponse>> userConfirm(@RequestBody AgentInterventionRequest request) {
+        UserInfo userInfo = UserContext.get();
+        AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(
+                userInfo.getTenantId(),
+                request.getAgentId()
+        );
+        return agentChatService.userConfirmStream(config, userInfo, request.getSessionId(), request);
+    }
+
+    @PostMapping(value = "/externalExecution", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<AgentStreamResponse>> externalExecution(@RequestBody AgentInterventionRequest request) {
+        UserInfo userInfo = UserContext.get();
+        AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(
+                userInfo.getTenantId(),
+                request.getAgentId()
+        );
+        return agentChatService.externalExecutionStream(config, userInfo, request.getSessionId(), request);
     }
 
     @PostMapping("/chatBlock")

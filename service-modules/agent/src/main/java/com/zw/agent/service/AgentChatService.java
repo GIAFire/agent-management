@@ -1,9 +1,7 @@
 package com.zw.agent.service;
 
-import com.baomidou.mybatisplus.extension.service.IService;
-import com.zw.agent.controller.AgentChatController;
-import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.agent.entity.message.AgentInterventionRequest;
 import com.zw.agent.event.AgentStreamResponse;
 import com.zw.common.context.UserInfo;
 import org.springframework.http.codec.ServerSentEvent;
@@ -24,5 +22,15 @@ public interface AgentChatService {
                                                           Long sessionId,
                                                           String text,
                                                           Long runId);
+
+    Flux<ServerSentEvent<AgentStreamResponse>> userConfirmStream(AgentConfigDTO config,
+                                                                 UserInfo userInfo,
+                                                                 Long sessionId,
+                                                                 AgentInterventionRequest request);
+
+    Flux<ServerSentEvent<AgentStreamResponse>> externalExecutionStream(AgentConfigDTO config,
+                                                                       UserInfo userInfo,
+                                                                       Long sessionId,
+                                                                       AgentInterventionRequest request);
 
 }

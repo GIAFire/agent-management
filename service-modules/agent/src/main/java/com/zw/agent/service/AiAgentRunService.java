@@ -18,5 +18,7 @@ public interface AiAgentRunService extends IService<AiAgentRunEntity> {
 
     void markSuccess(Long runId, Long messageId);
 
+    void markWaiting(Long runId, String status);
+
     void markFailed(Long runId, String agentRunFailed, String message);
 }

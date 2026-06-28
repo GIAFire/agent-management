@@ -43,6 +43,13 @@ public class AiAgentRunServiceImpl extends ServiceImpl<AiAgentRunMapper, AiAgent
     }
 
     @Override
+    public void markWaiting(Long runId, String status) {
+        AiAgentRunEntity aiAgentRunEntity = agentRunMapper.selectById(runId);
+        aiAgentRunEntity.setStatus(status);
+        agentRunMapper.updateById(aiAgentRunEntity);
+    }
+
+    @Override
     public void markFailed(Long runId, String agentRunFailed, String message) {
         AiAgentRunEntity aiAgentRunEntity = agentRunMapper.selectById(runId);
         aiAgentRunEntity.setStatus("FAILED");

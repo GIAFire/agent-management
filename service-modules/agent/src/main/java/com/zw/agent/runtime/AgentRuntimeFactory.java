@@ -10,14 +10,16 @@ import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
 import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
+import io.agentscope.core.message.ContentBlock;
+import io.agentscope.core.message.Msg;
+import io.agentscope.core.message.MsgRole;
+import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.OpenAIChatModel;
-import io.agentscope.core.model.ToolSchema;
 import io.agentscope.core.permission.PermissionBehavior;
 import io.agentscope.core.permission.PermissionContextState;
 import io.agentscope.core.permission.PermissionMode;
 import io.agentscope.core.permission.PermissionRule;
-import io.agentscope.core.tool.AgentTool;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +27,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -40,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class AgentRuntimeFactory {
 
     private final Cache<String, HarnessAgent> agentCache;
-    
+
     private final Cache<String, Toolkit> toolkitCache;
 
     private final Cache<String, PermissionContextState> userToolPermissionCache;
@@ -51,7 +54,7 @@ public class AgentRuntimeFactory {
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config) {
         UserInfo userInfo = UserContext.get();
-        String AgentCacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
+        String AgentCacheKey = "agent:" + userInfo.getUserId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
         String tooKitCacheKey = "tooKit:" + config.getTenantId();
         String permissionCacheKey = "permission:" + userInfo.getRoleCode() + ":";
 
@@ -62,10 +65,9 @@ public class AgentRuntimeFactory {
         });
 
         PermissionContextState.Builder permBuilder = PermissionContextState.builder()
-                        .mode(PermissionMode.DEFAULT);
+                .mode(PermissionMode.DEFAULT);
 
         Set<String> toolNames = toolkit.getToolNames();
-
         toolNames.forEach(toolName -> {
             permBuilder.addDenyRule(
                     toolName,
@@ -138,6 +140,51 @@ public class AgentRuntimeFactory {
         Flux<AgentEvent> agentEventFlux = harnessAgent.streamEvents(userMessage, context);
         return agentEventFlux
                 .map(this::toRuntimeEvent);
+    }
+
+    public Flux<AgentRuntimeEvent> continueWithConfirmResults(
+            AgentConfigDTO config,
+            String tenantUserId,
+            Long sessionId,
+            List<ConfirmResult> confirmResults
+    ) {
+        HarnessAgent harnessAgent = getOrCreateAgent(config);
+        RuntimeContext context = buildRuntimeContext(tenantUserId, sessionId);
+        Msg confirmMsg = Msg.builder()
+                .name("user")
+                .role(MsgRole.USER)
+                .metadata(Map.of(Msg.METADATA_CONFIRM_RESULTS, confirmResults == null ? List.of() : confirmResults))
+                .textContent("")
+                .build();
+
+        return harnessAgent.streamEvents(List.of(confirmMsg), context)
+                .map(this::toRuntimeEvent);
+    }
+
+    public Flux<AgentRuntimeEvent> continueWithExternalExecutionResults(
+            AgentConfigDTO config,
+            String tenantUserId,
+            Long sessionId,
+            List<ToolResultBlock> toolResults
+    ) {
+        HarnessAgent harnessAgent = getOrCreateAgent(config);
+        RuntimeContext context = buildRuntimeContext(tenantUserId, sessionId);
+        List<ContentBlock> content = new ArrayList<>(toolResults == null ? List.of() : toolResults);
+        Msg toolMsg = Msg.builder()
+                .name("external")
+                .role(MsgRole.TOOL)
+                .content(content)
+                .build();
+
+        return harnessAgent.streamEvents(List.of(toolMsg), context)
+                .map(this::toRuntimeEvent);
+    }
+
+    private RuntimeContext buildRuntimeContext(String tenantUserId, Long sessionId) {
+        return RuntimeContext.builder()
+                .userId(tenantUserId)
+                .sessionId(AgentRuntimeKeys.sessionKey(String.valueOf(sessionId)))
+                .build();
     }
 
     private AgentRuntimeEvent toRuntimeEvent(AgentEvent event){
