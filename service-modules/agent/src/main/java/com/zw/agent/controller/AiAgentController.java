@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.service.AiAgentService;
+import com.zw.agent.support.EntityDefaults;
 import com.zw.common.entity.Result;
 
 import java.util.List;
@@ -45,12 +46,12 @@ public class AiAgentController {
 
     @PostMapping("/create")
     public Result<Boolean> create(@RequestBody AiAgentEntity entity) {
-        return Result.ok(aiAgentService.save(entity));
+        return Result.ok(aiAgentService.save(EntityDefaults.create(entity)));
     }
 
     @PutMapping("/update")
     public Result<Boolean> update(@RequestBody AiAgentEntity entity) {
-        return Result.ok(aiAgentService.updateById(entity));
+        return Result.ok(aiAgentService.updateById(EntityDefaults.update(entity)));
     }
 
     @DeleteMapping("/{id}")

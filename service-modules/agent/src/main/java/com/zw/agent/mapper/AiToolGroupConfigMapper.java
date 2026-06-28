@@ -3,6 +3,9 @@ package com.zw.agent.mapper;
 import com.zw.agent.entity.AiToolGroupConfigEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
 
 /**
  * <p>
@@ -15,4 +18,11 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiToolGroupConfigMapper extends BaseMapper<AiToolGroupConfigEntity> {
 
+    List<AiToolGroupConfigEntity> selectGroups();
+
+    AiToolGroupConfigEntity selectGroupById(@Param("id") Long id);
+
+    int insertGroup(AiToolGroupConfigEntity entity);
+
+    int updateGroupById(AiToolGroupConfigEntity entity);
 }

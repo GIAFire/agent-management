@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.service.AiToolInfoConfigService;
+import com.zw.agent.support.EntityDefaults;
 import com.zw.common.entity.Result;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -57,7 +58,7 @@ public class AiToolInfoConfigController {
      */
     @PostMapping("/create")
     public Result<Boolean> create(@RequestBody AiToolInfoConfigEntity entity) {
-        return Result.ok(aiToolInfoConfigService.save(entity));
+        return Result.ok(aiToolInfoConfigService.save(EntityDefaults.create(entity)));
     }
 
     /**
@@ -65,7 +66,7 @@ public class AiToolInfoConfigController {
      */
     @PutMapping("/update")
     public Result<Boolean> update(@RequestBody AiToolInfoConfigEntity entity) {
-        return Result.ok(aiToolInfoConfigService.updateById(entity));
+        return Result.ok(aiToolInfoConfigService.updateById(EntityDefaults.update(entity)));
     }
 
     /**

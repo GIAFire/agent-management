@@ -31,6 +31,43 @@ export const saveLoginSession = (loginData) => {
   }
 }
 
+const decodeJwtPayload = (token) => {
+  try {
+    const payload = token.split('.')[1]
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const json = decodeURIComponent(
+      atob(normalized)
+        .split('')
+        .map((char) => `%${(`00${char.charCodeAt(0).toString(16)}`).slice(-2)}`)
+        .join('')
+    )
+    return JSON.parse(json)
+  } catch {
+    return {}
+  }
+}
+
+export const saveAccessToken = (token, tokenType = 'Bearer') => {
+  if (!token) {
+    return
+  }
+
+  const payload = decodeJwtPayload(token)
+  sessionStorage.setItem(TOKEN_KEY, token)
+  sessionStorage.setItem(TOKEN_TYPE_KEY, tokenType || 'Bearer')
+  if (payload.exp) {
+    sessionStorage.setItem(TOKEN_EXPIRES_AT_KEY, String(payload.exp * 1000))
+  }
+  sessionStorage.setItem(
+    USER_KEY,
+    JSON.stringify({
+      id: payload.userId || payload.sub || '',
+      userName: payload.userName || payload.sub || 'admin',
+      tenantId: payload.tenantId || ''
+    })
+  )
+}
+
 export const clearAuth = () => {
   sessionStorage.removeItem(TOKEN_KEY)
   sessionStorage.removeItem(TOKEN_TYPE_KEY)

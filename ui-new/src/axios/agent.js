@@ -19,7 +19,7 @@ export const addAgent = (data) => {
 }
 
 export const updateAgent = (data) => {
-  return put(baseUrl, data)
+  return put(`${baseUrl}/agent/update`, data)
 }
 
 export const deleteAgent = (id) => {

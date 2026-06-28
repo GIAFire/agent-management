@@ -15,11 +15,11 @@ export const getAgentConfig = (id) => {
 }
 
 export const addAgentConfig = (data) => {
-  return post(baseUrl, data)
+  return post(`${baseUrl}/agentConfig`, data)
 }
 
 export const updateAgentConfig = (data) => {
-  return put(baseUrl, data)
+  return put(`${baseUrl}/agentConfig`, data)
 }
 
 export const deleteAgentConfig = (id) => {

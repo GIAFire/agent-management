@@ -88,10 +88,17 @@
             model.max_attempts AS maxAttempts,
             model.fallback_model_config_id AS fallbackModelConfigId,
             model.STATUS AS modelStatus
-        FROM ai_agent  agent
+        FROM ai_agent agent
                  LEFT JOIN sys_tenant tenant ON agent.tenant_id = tenant.id
                  LEFT JOIN ai_agent_config ac ON ac.agent_id = agent.id
-                 LEFT JOIN ai_model_config model ON model.agent_id = agent.id
-        WHERE agent.id = #{agentId} and agent.tenant_id = #{tenantId} and agent.deleted = 0
+                    AND ac.deleted = 0
+                    AND ac.publish_status = 1
+                 LEFT JOIN ai_model_config model ON model.id = ac.model_config_id
+                    AND model.deleted = 0
+        WHERE agent.id = #{agentId}
+          AND agent.tenant_id = #{tenantId}
+          AND agent.deleted = 0
+        ORDER BY ac.published_at DESC, ac.id DESC
+        LIMIT 1
     </select>
 </mapper>

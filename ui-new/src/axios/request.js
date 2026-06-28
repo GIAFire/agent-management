@@ -95,7 +95,9 @@ service.interceptors.response.use(
           clearAuth()
           redirectToLogin()
         }
-        ElMessage.error(body.msg || '接口请求失败')
+        if (!response.config?.silentError) {
+          ElMessage.error(body.msg || '接口请求失败')
+        }
         return Promise.reject(new Error(body.msg || '接口请求失败'))
       }
 
@@ -114,42 +116,48 @@ service.interceptors.response.use(
       clearAuth()
       redirectToLogin()
     }
-    ElMessage.error(message)
+    if (!error.config?.silentError) {
+      ElMessage.error(message)
+    }
     return Promise.reject(error)
   }
 )
 
 export const request = (options) => service(options)
 
-export const get = (url, params = {}) => {
+export const get = (url, params = {}, options = {}) => {
   return service({
     url,
     method: 'get',
-    params
+    params,
+    ...options
   })
 }
 
-export const post = (url, data = {}) => {
+export const post = (url, data = {}, options = {}) => {
   return service({
     url,
     method: 'post',
-    data
+    data,
+    ...options
   })
 }
 
-export const put = (url, data = {}) => {
+export const put = (url, data = {}, options = {}) => {
   return service({
     url,
     method: 'put',
-    data
+    data,
+    ...options
   })
 }
 
-export const del = (url, params = {}) => {
+export const del = (url, params = {}, options = {}) => {
   return service({
     url,
     method: 'delete',
-    params
+    params,
+    ...options
   })
 }
 

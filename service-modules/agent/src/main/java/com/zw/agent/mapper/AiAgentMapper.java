@@ -4,6 +4,7 @@ import com.zw.agent.entity.AiAgentEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * <p>
@@ -16,5 +17,5 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiAgentMapper extends BaseMapper<AiAgentEntity> {
 
-    AgentConfigDTO getAgentFullInfo(Long agentId, Long tenantId);
+    AgentConfigDTO getAgentFullInfo(@Param("agentId") Long agentId, @Param("tenantId") Long tenantId);
 }

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiModelConfigEntity;
 import com.zw.agent.entity.vo.AiModelConfigVO;
 import com.zw.agent.service.AiModelConfigService;
+import com.zw.agent.support.EntityDefaults;
 import com.zw.common.entity.Result;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -47,12 +48,12 @@ public class AiModelConfigController {
     @PostMapping("/save")
     public Result<Boolean> save(@RequestBody AiModelConfigEntity entity) {
 //        BeanUtils.copyProperties(entity, modelConfigEntity);
-        return Result.ok(aiModelConfigService.save(entity));
+        return Result.ok(aiModelConfigService.save(EntityDefaults.create(entity)));
     }
 
     @PutMapping
     public Result<Boolean> update(@RequestBody AiModelConfigEntity entity) {
-        return Result.ok(aiModelConfigService.updateById(entity));
+        return Result.ok(aiModelConfigService.updateById(EntityDefaults.update(entity)));
     }
 
     @DeleteMapping("/{id}")

@@ -3,11 +3,14 @@ package com.zw.agent.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiToolGroupConfigEntity;
+import com.zw.agent.mapper.AiToolGroupConfigMapper;
 import com.zw.agent.service.AiToolGroupConfigService;
+import com.zw.agent.support.EntityDefaults;
 import com.zw.common.entity.Result;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -24,13 +27,14 @@ import java.util.List;
 public class AiToolGroupConfigController {
 
     private final AiToolGroupConfigService aiToolGroupConfigService;
+    private final AiToolGroupConfigMapper aiToolGroupConfigMapper;
 
     /**
      * 查询所有工具组配置列表
      */
     @GetMapping("/list")
     public Result<List<AiToolGroupConfigEntity>> list() {
-        return Result.ok(aiToolGroupConfigService.list());
+        return Result.ok(aiToolGroupConfigMapper.selectGroups());
     }
 
     /**
@@ -41,7 +45,14 @@ public class AiToolGroupConfigController {
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size
     ) {
-        return Result.ok(aiToolGroupConfigService.page(new Page<>(current, size)));
+        List<AiToolGroupConfigEntity> groups = aiToolGroupConfigMapper.selectGroups();
+        Page<AiToolGroupConfigEntity> page = new Page<>(current, size);
+        int total = groups.size();
+        int fromIndex = (int) Math.min(Math.max((current - 1) * size, 0), total);
+        int toIndex = (int) Math.min(fromIndex + size, total);
+        page.setTotal(total);
+        page.setRecords(fromIndex >= toIndex ? Collections.emptyList() : groups.subList(fromIndex, toIndex));
+        return Result.ok(page);
     }
 
     /**
@@ -49,7 +60,7 @@ public class AiToolGroupConfigController {
      */
     @GetMapping("/{id}")
     public Result<AiToolGroupConfigEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiToolGroupConfigService.getById(id));
+        return Result.ok(aiToolGroupConfigMapper.selectGroupById(id));
     }
 
     /**
@@ -57,7 +68,7 @@ public class AiToolGroupConfigController {
      */
     @PostMapping("/create")
     public Result<Boolean> create(@RequestBody AiToolGroupConfigEntity entity) {
-        return Result.ok(aiToolGroupConfigService.save(entity));
+        return Result.ok(aiToolGroupConfigMapper.insertGroup(EntityDefaults.create(entity)) > 0);
     }
 
     /**
@@ -65,7 +76,7 @@ public class AiToolGroupConfigController {
      */
     @PutMapping("/update")
     public Result<Boolean> update(@RequestBody AiToolGroupConfigEntity entity) {
-        return Result.ok(aiToolGroupConfigService.updateById(entity));
+        return Result.ok(aiToolGroupConfigMapper.updateGroupById(EntityDefaults.update(entity)) > 0);
     }
 
     /**

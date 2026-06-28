@@ -19,7 +19,7 @@ export const addModelConfig = (data) => {
 }
 
 export const updateModelConfig = (data) => {
-  return put(baseUrl, data)
+  return put(`${baseUrl}/modelConfig`, data)
 }
 
 export const deleteModelConfig = (id) => {

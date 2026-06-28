@@ -1,5 +1,98 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiToolGroupConfigMapper">
+
+    <resultMap id="AiToolGroupConfigResult" type="com.zw.agent.entity.AiToolGroupConfigEntity">
+        <id property="id" column="id"/>
+        <result property="groupName" column="group_name"/>
+        <result property="description" column="description"/>
+        <result property="enabled" column="enabled"/>
+        <result property="activeByDefault" column="active_by_default"/>
+        <result property="createdBy" column="created_by"/>
+        <result property="updateBy" column="updated_by"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+        <result property="deleted" column="deleted"/>
+        <result property="tenantId" column="tenant_id"/>
+        <result property="version" column="version"/>
+    </resultMap>
+
+    <sql id="GroupColumns">
+        id,
+        group_name,
+        description,
+        enabled,
+        active_by_default,
+        created_by,
+        updated_by,
+        created_at,
+        updated_at,
+        deleted,
+        tenant_id,
+        version
+    </sql>
+
+    <select id="selectGroups" resultMap="AiToolGroupConfigResult">
+        SELECT
+        <include refid="GroupColumns"/>
+        FROM ai_tool_group_config
+        WHERE deleted = 0
+        ORDER BY updated_at DESC, id DESC
+    </select>
+
+    <select id="selectGroupById" resultMap="AiToolGroupConfigResult">
+        SELECT
+        <include refid="GroupColumns"/>
+        FROM ai_tool_group_config
+        WHERE id = #{id}
+          AND deleted = 0
+        LIMIT 1
+    </select>
+
+    <insert id="insertGroup" parameterType="com.zw.agent.entity.AiToolGroupConfigEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO ai_tool_group_config (
+            group_name,
+            description,
+            enabled,
+            active_by_default,
+            created_by,
+            updated_by,
+            created_at,
+            updated_at,
+            deleted,
+            tenant_id,
+            version
+        ) VALUES (
+            #{groupName},
+            #{description},
+            #{enabled},
+            #{activeByDefault},
+            #{createdBy},
+            #{updateBy},
+            #{createdAt},
+            #{updatedAt},
+            COALESCE(#{deleted}, 0),
+            #{tenantId},
+            COALESCE(#{version}, 0)
+        )
+    </insert>
+
+    <update id="updateGroupById" parameterType="com.zw.agent.entity.AiToolGroupConfigEntity">
+        UPDATE ai_tool_group_config
+        <set>
+            <if test="groupName != null">group_name = #{groupName},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="enabled != null">enabled = #{enabled},</if>
+            <if test="activeByDefault != null">active_by_default = #{activeByDefault},</if>
+            <if test="createdBy != null">created_by = #{createdBy},</if>
+            <if test="updateBy != null">updated_by = #{updateBy},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt},</if>
+            <if test="deleted != null">deleted = #{deleted},</if>
+            <if test="tenantId != null">tenant_id = #{tenantId},</if>
+            version = COALESCE(version, 0) + 1
+        </set>
+        WHERE id = #{id}
+    </update>
 
 </mapper>
