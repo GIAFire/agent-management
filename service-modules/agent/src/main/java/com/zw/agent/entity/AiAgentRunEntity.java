@@ -40,7 +40,7 @@ public class AiAgentRunEntity extends BaseEntity {
     private Long sessionId;
 
     /**
-     * 关联 ai_agent_definition.id
+     * 关联 ai_agent.id
      */
     @TableField("agent_id")
     private Long agentId;

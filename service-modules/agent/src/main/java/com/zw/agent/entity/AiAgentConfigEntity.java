@@ -76,7 +76,7 @@ public class AiAgentConfigEntity extends BaseEntity {
     private String workspaceConfigJson;
 
     /**
-     * 默认权限模式：ALLOW/ASK/DENY/EXPLORE 等平台自定义映射
+     * 全局默认权限模式：ALLOW(全部放行)/ASK(询问用户)/DENY(全部拒绝)
      */
     @TableField("permission_mode")
     private String permissionMode;

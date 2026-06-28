@@ -28,8 +28,14 @@ public class AiToolInfoConfigEntity extends BaseEntity {
     /**
      * 主键ID
      */
-    @TableId(value = "id", type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
+
+    /**
+     * 关联 ai_agent.id
+     */
+    @TableField("agent_id")
+    private Long agentId;
 
     /**
      * 工具显示名称
@@ -150,6 +156,12 @@ public class AiToolInfoConfigEntity extends BaseEntity {
      */
     @TableField("max_retries")
     private Integer maxRetries;
+
+    /**
+     * 默认工具组编码
+     */
+    @TableField("match_rule")
+    private String matchRule;
 
     /**
      * 默认工具组编码

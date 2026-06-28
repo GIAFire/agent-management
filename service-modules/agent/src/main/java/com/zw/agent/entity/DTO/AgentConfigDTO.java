@@ -1,5 +1,6 @@
 package com.zw.agent.entity.DTO;
 
+import io.agentscope.core.permission.PermissionMode;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class AgentConfigDTO {
     // ========== AgentConfig 字段 ==========
     private Long agentConfigId;
     private String sysPrompt;
+    private PermissionMode permissionMode;
     private Long modelConfigId;
     private Integer maxIters;
     private String compactionConfigJson;
@@ -34,7 +36,6 @@ public class AgentConfigDTO {
     private Integer compactionTriggerMessages;
     private Integer compactionKeepMessages;
 
-    private String permissionMode;
     private String visualSchemaJson;
     private Integer publishStatus;
     private LocalDateTime publishedAt;
