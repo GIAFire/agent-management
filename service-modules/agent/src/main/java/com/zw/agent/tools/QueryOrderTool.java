@@ -42,7 +42,7 @@ public class QueryOrderTool extends ToolBase {
 
     @Override
     public boolean matchRule(String ruleContent, Map<String, Object> toolInput) {
-        List<Long> roleList = List.of(10000L);
-        return !roleList.contains(Long.valueOf(ruleContent));
+
+        return true;
     }
 }

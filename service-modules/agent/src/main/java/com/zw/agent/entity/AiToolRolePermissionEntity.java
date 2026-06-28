@@ -44,6 +44,12 @@ public class AiToolRolePermissionEntity extends BaseEntity {
     private Long roleId;
 
     /**
+     * 角色id
+     */
+    @TableField("role_code")
+    private String roleCode;
+
+    /**
      * 工具名称，必须和AgentScope Tool名称一致
      */
     @TableField("tool_name")
@@ -78,10 +84,4 @@ public class AiToolRolePermissionEntity extends BaseEntity {
      */
     @TableField("status")
     private Byte status;
-
-    /**
-     * 创建人用户ID
-     */
-    @TableField("created_by")
-    private Long createdBy;
 }

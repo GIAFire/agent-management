@@ -33,10 +33,4 @@ public class SysUserRoleEntity extends BaseEntity {
 
     @TableField("role_id")
     private Long roleId;
-
-    /**
-     * 创建人用户ID
-     */
-    @TableField("created_by")
-    private Long createdBy;
 }

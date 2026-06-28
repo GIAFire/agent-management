@@ -1,8 +1,11 @@
 package com.zw.agent.runtime;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.benmanes.caffeine.cache.Cache;
+import com.zw.agent.entity.AiToolRolePermissionEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
+import com.zw.agent.service.AiToolRolePermissionService;
 import com.zw.agent.tools.toolkitFactory.TenantToolkitFactory;
 import com.zw.common.RedisService;
 import com.zw.common.context.UserContext;
@@ -46,43 +49,33 @@ public class AgentRuntimeFactory {
 
     private final Cache<String, Toolkit> toolkitCache;
 
-    private final Cache<String, PermissionContextState> userToolPermissionCache;
+    private final Cache<String, PermissionContextState> permissionContextStateCache;
 
     private final TenantToolkitFactory toolkitFactory;
 
     private final RedisService redisService;
+    private final AiToolRolePermissionService toolRolePermissionService;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config) {
         UserInfo userInfo = UserContext.get();
-        String AgentCacheKey = "agent:" + userInfo.getUserId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
-        String tooKitCacheKey = "tooKit:" + config.getTenantId();
-        String permissionCacheKey = "permission:" + userInfo.getRoleCode() + ":";
+        String agentCacheKey = "agent:" + userInfo.getUserId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
+        String toolkitCacheKey = "toolkit:" + config.getTenantId();
+        String toolPermissionCacheKey = "toolPermission:" + config.getTenantId() + ":" + userInfo.getRoleCode();
 
-        Toolkit toolkit = toolkitCache.get(tooKitCacheKey, key -> {
+        Toolkit toolkit = toolkitCache.get(toolkitCacheKey, key -> {
             Toolkit toolkitBuild = toolkitFactory.buildToolkit(config.getTenantId());
-            redisService.setIfAbsent(tooKitCacheKey, "1", 30L, TimeUnit.DAYS);
+            redisService.setIfAbsent(toolkitCacheKey, "1", 30L, TimeUnit.DAYS);
             return toolkitBuild;
         });
 
-        PermissionContextState.Builder permBuilder = PermissionContextState.builder()
-                .mode(PermissionMode.DEFAULT);
-
-        Set<String> toolNames = toolkit.getToolNames();
-        toolNames.forEach(toolName -> {
-            permBuilder.addDenyRule(
-                    toolName,
-                    new PermissionRule(
-                            toolName,
-                            String.valueOf(userInfo.getRoleCode()),
-                            PermissionBehavior.DENY,
-                            "userSettings"
-                    )
-            );
+        PermissionContextState permissionContextState = permissionContextStateCache.get(toolPermissionCacheKey, key -> {
+            PermissionContextState build = buildPermissionContext(userInfo, toolkit);
+            redisService.setIfAbsent(toolPermissionCacheKey, "1", 30L, TimeUnit.DAYS);
+            return build;
         });
 
-        PermissionContextState permissionContextState = permBuilder.build();
 
-        return agentCache.get(AgentCacheKey, key -> {
+        return agentCache.get(agentCacheKey, key -> {
 
             OpenAIChatModel model = OpenAIChatModel.builder()
                     .apiKey(config.getApiKey())
@@ -105,6 +98,47 @@ public class AgentRuntimeFactory {
 
             return harnessAgent;
         });
+    }
+
+    private PermissionContextState buildPermissionContext(
+            UserInfo userInfo,
+            Toolkit toolkit
+    ) {
+        String roleCode = String.valueOf(userInfo.getRoleCode());
+
+        PermissionContextState.Builder builder = PermissionContextState.builder()
+                        .mode(PermissionMode.DEFAULT);
+
+        Set<String> toolNames = toolkit.getToolNames();
+
+        for (String toolName : toolNames) {
+            AiToolRolePermissionEntity toolRolePermission = toolRolePermissionService.getOne(new LambdaQueryWrapper<AiToolRolePermissionEntity>()
+                    .eq(AiToolRolePermissionEntity::getToolName, toolName)
+                    .eq(AiToolRolePermissionEntity::getRoleCode, roleCode)
+                    .eq(AiToolRolePermissionEntity::getTenantId, userInfo.getTenantId()));
+
+            if (toolRolePermission == null) {
+                continue;
+            }
+            PermissionRule rule =
+                    new PermissionRule(
+                            toolName,
+                            toolRolePermission.getRuleContent(),
+                            PermissionBehavior.fromString(toolRolePermission.getBehavior()),
+                            "userSettings"
+                    );
+
+            switch (toolRolePermission.getBehavior()) {
+                case "ALLOW" -> builder.addAllowRule(toolName, rule);
+                case "DENY" -> builder.addDenyRule(toolName, rule);
+                case "ASK" -> builder.addAskRule(toolName, rule);
+                default -> {
+                    // PASSTHROUGH 一般不建议作为显式配置规则使用
+                }
+            }
+        }
+
+        return builder.build();
     }
 
     /**
