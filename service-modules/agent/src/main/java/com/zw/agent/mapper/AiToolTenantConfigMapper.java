@@ -17,5 +17,4 @@ import java.util.List;
 @Mapper
 public interface AiToolTenantConfigMapper extends BaseMapper<AiToolInfoConfigEntity> {
 
-    List<String> getToolByTenantBeans(Long tenantId);
 }

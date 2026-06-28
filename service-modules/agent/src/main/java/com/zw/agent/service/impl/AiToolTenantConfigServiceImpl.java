@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
  * @author 智纬
  * @since 2026-06-27
  */
-@Service
-public class AiToolTenantConfigServiceImpl extends ServiceImpl<AiToolTenantConfigMapper, AiToolTenantConfigEntity> implements AiToolTenantConfigService {
-
-}
+//@Service
+//public class AiToolTenantConfigServiceImpl extends ServiceImpl<AiToolTenantConfigMapper, AiToolTenantConfigEntity> implements AiToolTenantConfigService {
+//
+//}
