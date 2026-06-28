@@ -40,9 +40,9 @@ public class QueryOrderTool extends ToolBase {
         return ToolSchemaUtils.objectSchema(properties, List.of("orderNo"));
     }
 
-    @Override
-    public boolean matchRule(String ruleContent, Map<String, Object> toolInput) {
-
-        return true;
-    }
+//    @Override
+//    public boolean matchRule(String ruleContent, Map<String, Object> toolInput) {
+//
+//        return false;
+//    }
 }

@@ -69,7 +69,7 @@ public class AgentRuntimeFactory {
         });
 
         PermissionContextState permissionContextState = permissionContextStateCache.get(toolPermissionCacheKey, key -> {
-            PermissionContextState build = buildPermissionContext(userInfo, toolkit);
+            PermissionContextState build = buildPermissionContext(config, userInfo, toolkit);
             redisService.setIfAbsent(toolPermissionCacheKey, "1", 30L, TimeUnit.DAYS);
             return build;
         });
@@ -101,13 +101,14 @@ public class AgentRuntimeFactory {
     }
 
     private PermissionContextState buildPermissionContext(
+            AgentConfigDTO config,
             UserInfo userInfo,
             Toolkit toolkit
     ) {
         String roleCode = String.valueOf(userInfo.getRoleCode());
 
         PermissionContextState.Builder builder = PermissionContextState.builder()
-                        .mode(PermissionMode.DEFAULT);
+                .mode(PermissionMode.DEFAULT);
 
         Set<String> toolNames = toolkit.getToolNames();
 
@@ -115,28 +116,42 @@ public class AgentRuntimeFactory {
             AiToolRolePermissionEntity toolRolePermission = toolRolePermissionService.getOne(new LambdaQueryWrapper<AiToolRolePermissionEntity>()
                     .eq(AiToolRolePermissionEntity::getToolName, toolName)
                     .eq(AiToolRolePermissionEntity::getRoleCode, roleCode)
-                    .eq(AiToolRolePermissionEntity::getTenantId, userInfo.getTenantId()));
+                    .eq(AiToolRolePermissionEntity::getTenantId, userInfo.getTenantId())
+                    .eq(AiToolRolePermissionEntity::getStatus, (byte) 1));
 
             if (toolRolePermission == null) {
-                continue;
-            }
-            PermissionRule rule =
-                    new PermissionRule(
-                            toolName,
-                            toolRolePermission.getRuleContent(),
-                            PermissionBehavior.fromString(toolRolePermission.getBehavior()),
-                            "userSettings"
-                    );
+                PermissionRule rule =
+                        new PermissionRule(
+                                toolName,
+                                null,
+                                PermissionBehavior.DENY,
+                                "userSettings"
+                        );
+                builder.addDenyRule(toolName, rule);
+            } else {
+                String behavior = toolRolePermission.getBehavior() == null
+                        ? ""
+                        : toolRolePermission.getBehavior().trim().toUpperCase();
+                PermissionRule rule =
+                        new PermissionRule(
+                                toolName,
+                                toolRolePermission.getRuleContent(),
+                                PermissionBehavior.fromString(behavior),
+                                "userSettings"
+                        );
 
-            switch (toolRolePermission.getBehavior()) {
-                case "ALLOW" -> builder.addAllowRule(toolName, rule);
-                case "DENY" -> builder.addDenyRule(toolName, rule);
-                case "ASK" -> builder.addAskRule(toolName, rule);
-                default -> {
-                    // PASSTHROUGH 一般不建议作为显式配置规则使用
+                switch (behavior) {
+                    case "ALLOW" -> builder.addAllowRule(toolName, rule);
+                    case "DENY" -> builder.addDenyRule(toolName, rule);
+                    case "ASK" -> builder.addAskRule(toolName, rule);
+                    default -> {
+                        // PASSTHROUGH 一般不建议作为显式配置规则使用
+                    }
                 }
             }
         }
+
+        builder.mode(PermissionMode.valueOf(config.getPermissionMode()));
 
         return builder.build();
     }
@@ -146,10 +161,10 @@ public class AgentRuntimeFactory {
      * 该方法会先通过配置获取或创建Agent实例，然后构建运行时上下文，
      * 最后异步执行Agent调用并返回文本格式的响应内容。
      *
-     * @param config Agent运行时配置，用于获取或创建Agent实例
+     * @param config       Agent运行时配置，用于获取或创建Agent实例
      * @param tenantUserId 运行时用户标识键，用于构建运行时上下文
-     * @param sessionId 会话标识键，用于跟踪会话状态
-     * @param text 用户输入的文本消息内容
+     * @param sessionId    会话标识键，用于跟踪会话状态
+     * @param text         用户输入的文本消息内容
      * @return Mono封装的字符串响应，包含Agent处理后的文本内容
      */
 
@@ -221,7 +236,7 @@ public class AgentRuntimeFactory {
                 .build();
     }
 
-    private AgentRuntimeEvent toRuntimeEvent(AgentEvent event){
+    private AgentRuntimeEvent toRuntimeEvent(AgentEvent event) {
         if (event instanceof AgentStartEvent startEvent) {
             return new AgentRuntimeEvent(
                     startEvent.getReplyId(),
@@ -296,7 +311,7 @@ public class AgentRuntimeFactory {
                     thinkingBlockEndEvent
             );
             // 工具调用流事件
-        } else if (event instanceof ToolCallStartEvent  toolCallStartEvent) {
+        } else if (event instanceof ToolCallStartEvent toolCallStartEvent) {
             return new AgentRuntimeEvent(
                     toolCallStartEvent.getReplyId(),
                     AgentEventType.TOOL_CALL_START.getValue(),
@@ -391,7 +406,7 @@ public class AgentRuntimeFactory {
                     externalExecutionResultEvent
             );
             // 子Agent事件
-        } else if (event instanceof SubagentExposedEvent  subagentExposedEvent) {
+        } else if (event instanceof SubagentExposedEvent subagentExposedEvent) {
             return new AgentRuntimeEvent(
                     null,
                     AgentEventType.SUBAGENT_EXPOSED.getValue(),
@@ -407,6 +422,7 @@ public class AgentRuntimeFactory {
                 event
         );
     }
+
     public Mono<String> call(AgentConfigDTO config, String TenantUserId, Long sessionId, String text) {
         /**
          * 构造模型实例
