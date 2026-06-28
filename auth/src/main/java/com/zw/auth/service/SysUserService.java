@@ -1,5 +1,6 @@
 package com.zw.auth.service;
 
+import com.zw.auth.entity.DTO.UserInfoDTO;
 import com.zw.auth.entity.SysUserEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -13,5 +14,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface SysUserService extends IService<SysUserEntity> {
 
-    SysUserEntity authenticate(String userName, String password);
+    UserInfoDTO authenticate(String userName, String password);
 }

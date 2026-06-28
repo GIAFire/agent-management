@@ -14,5 +14,7 @@ public class UserInfo  implements Serializable {
 
     private Long tenantId;
 
+    private Long roleId;
+
     private Byte status;
 }

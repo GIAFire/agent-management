@@ -2,15 +2,14 @@ package com.zw.auth.controller;
 
 import com.zw.auth.config.JwtProperties;
 import com.zw.auth.entity.DTO.UserInfoDTO;
-import com.zw.auth.entity.SysUserEntity;
 import com.zw.auth.entity.VO.LoginRequest;
 import com.zw.auth.entity.VO.LoginResponse;
+import com.zw.auth.entity.VO.UserInfoVO;
 import com.zw.auth.service.SysUserService;
 import com.zw.common.RedisService;
 import com.zw.common.constant.RedisConstants;
 import com.zw.common.entity.Result;
 import com.zw.common.utils.JwtUtils;
-import com.zw.common.context.UserInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,14 +35,14 @@ public class AuthController {
         if (request == null) {
             throw new IllegalArgumentException("登录参数不能为空");
         }
-        SysUserEntity user = sysUserService.authenticate(request.getUserName(), request.getPassword());
+        UserInfoDTO user = sysUserService.authenticate(request.getUserName(), request.getPassword());
         long expiresAt = Instant.now().plusSeconds(jwtProperties.getExpireSeconds()).toEpochMilli();
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("userName", user.getUserName());
         claims.put("tenantId", user.getTenantId());
 
-        UserInfo userInfo = new UserInfo();
+        UserInfoVO userInfo = new UserInfoVO();
         BeanUtils.copyProperties(user, userInfo);
         userInfo.setUserId(user.getId());
         redisService.setCacheObject(RedisConstants.USER_INFO + userInfo.getUserId(), userInfo,7L, TimeUnit.DAYS);
@@ -58,7 +57,7 @@ public class AuthController {
                  "Bearer",
                 jwtProperties.getExpireSeconds(),
                 expiresAt,
-                new UserInfoDTO());
+                userInfo);
         return Result.ok(loginResponse);
     }
 }

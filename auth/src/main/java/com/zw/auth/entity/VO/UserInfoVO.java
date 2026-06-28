@@ -1,17 +1,14 @@
-package com.zw.auth.entity.DTO;
+package com.zw.auth.entity.VO;
 
 import lombok.Data;
 
 @Data
-public class UserInfoDTO {
-
-    private Long id;
+public class UserInfoVO {
+    private Long userId;
 
     private Long tenantId;
 
     private String userName;
-
-    private String password;
 
     private String roleCode;
 
