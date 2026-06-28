@@ -26,7 +26,7 @@ public class AgentConfigDTO {
     // ========== AgentConfig 字段 ==========
     private Long agentConfigId;
     private String sysPrompt;
-    private PermissionMode permissionMode;
+    private String permissionMode;
     private Long modelConfigId;
     private Integer maxIters;
     private String compactionConfigJson;

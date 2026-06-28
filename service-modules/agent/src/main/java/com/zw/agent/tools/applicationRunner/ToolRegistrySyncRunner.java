@@ -5,33 +5,33 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.service.AiToolInfoConfigService;
-import io.agentscope.core.tool.Tool;
-import io.agentscope.core.tool.ToolParam;
+import io.agentscope.core.tool.ToolBase;
+import io.agentscope.core.tool.ToolCallParam;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.config.BeanDefinition;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.core.type.filter.RegexPatternTypeFilter;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
 import org.springframework.util.StringUtils;
 
 import java.beans.Introspector;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.lang.reflect.Parameter;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -44,20 +44,20 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
     private final ApplicationContext applicationContext;
     private final AiToolInfoConfigService toolInfoConfigService;
 
-
     @Override
     public void run(ApplicationArguments args) {
-        // 扫描所有com.zw.agent.tools包下的类
+        // 扫描所有com.zw.agent.tools包下继承ToolBase的类
         List<AiToolInfoConfigEntity> toolConfigs = scanToolConfigs();
 
         if (toolConfigs.isEmpty()) {
-            log.info("No @Tool methods found under package {}", TOOL_BASE_PACKAGE);
+            log.info("No ToolBase tools found under package {}", TOOL_BASE_PACKAGE);
             return;
         }
-        // 使数用批量upsert语句: 将这些信息存入据库
-        int count = toolInfoConfigService.upsertBatch(toolConfigs);
-        log.info("Synced {} tool definitions into ai_tool_info_config, affected rows={}", toolConfigs.size(), count);
 
+        // 使用批量upsert语句: 将工具元信息存入数据库
+        int count = toolInfoConfigService.upsertBatch(toolConfigs);
+        log.info("Synced {} tool definitions into ai_tool_info_config, affected rows={}",
+                toolConfigs.size(), count);
     }
 
     private List<AiToolInfoConfigEntity> scanToolConfigs() {
@@ -73,17 +73,13 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
             }
 
             Class<?> toolClass = loadClass(className);
-            if (toolClass == null || !isConcreteClass(toolClass)) {
+            if (toolClass == null
+                    || !isConcreteClass(toolClass)
+                    || !ToolBase.class.isAssignableFrom(toolClass)) {
                 continue;
             }
 
-            for (Method method : toolClass.getDeclaredMethods()) {
-                Tool tool = method.getAnnotation(Tool.class);
-                if (tool == null || method.isBridge() || method.isSynthetic()) {
-                    continue;
-                }
-                toolConfigs.add(toToolConfig(toolClass, method, tool));
-            }
+            toolConfigs.add(toToolConfig(toolClass.asSubclass(ToolBase.class)));
         }
 
         toolConfigs.sort(Comparator.comparing(AiToolInfoConfigEntity::getToolKey));
@@ -106,28 +102,42 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
                 && !Modifier.isAbstract(modifiers);
     }
 
-    private AiToolInfoConfigEntity toToolConfig(Class<?> toolClass, Method method, Tool tool) {
-        permission permission = method.getAnnotation(permission.class);
+    private AiToolInfoConfigEntity toToolConfig(Class<? extends ToolBase> toolClass) {
+        ToolBase tool = resolveToolBean(toolClass);
+        Method method = resolveCallMethod(toolClass);
+        permission permission = resolvePermission(toolClass, method);
         String signatureHash = buildSignatureHash(tool);
 
         return new AiToolInfoConfigEntity()
                 .setPermissionCode(permission == null ? null : permission.value())
-                .setReadOnly(tool.readOnly())
-                .setConcurrency(tool.concurrencySafe())
-                .setStateInjected(tool.stateInjected())
+                .setReadOnly(tool.isReadOnly())
+                .setConcurrency(tool.isConcurrencySafe())
+                .setStateInjected(tool.isStateInjected())
                 .setToolKey(buildToolKey(toolClass, method))
-                .setToolName(tool.name())
-                .setToolNameExplain(tool.name())
-                .setDescription(tool.description())
+                .setToolName(tool.getName())
+                .setToolNameExplain(tool.getName())
+                .setDescription(tool.getDescription())
                 .setToolType("JAVA_BEAN")
                 .setBeanName(resolveBeanName(toolClass))
                 .setClassName(toolClass.getName())
                 .setMethodName(method.getName())
-                .setInputSchema(toJson(buildInputMetadata(toolClass, method, tool)))
-                .setOutputSchema(toJson(buildOutputMetadata(method)))
+                .setInputSchema(toJson(tool.getParameters()))
+                .setOutputSchema(tool.getOutputSchema() == null ? null : toJson(tool.getOutputSchema()))
                 .setSignatureHash(signatureHash)
                 .setRiskLevel(resolveRiskLevel(tool))
                 .setEnabled(true);
+    }
+
+    private ToolBase resolveToolBean(Class<? extends ToolBase> toolClass) {
+        String[] beanNames = applicationContext.getBeanNamesForType(toolClass, false, false);
+        try {
+            if (beanNames.length > 0) {
+                return applicationContext.getBean(beanNames[0], toolClass);
+            }
+            return applicationContext.getAutowireCapableBeanFactory().createBean(toolClass);
+        } catch (BeansException ex) {
+            throw new IllegalStateException("Failed to create tool bean: " + toolClass.getName(), ex);
+        }
     }
 
     private String resolveBeanName(Class<?> toolClass) {
@@ -138,78 +148,65 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
         return Introspector.decapitalize(toolClass.getSimpleName());
     }
 
-    private String buildToolKey(Class<?> toolClass, Method method) {
-        String parameterTypes = Arrays.stream(method.getParameterTypes())
-                .map(Class::getName)
-                .collect(Collectors.joining(","));
-        return toolClass.getName() + "#" + method.getName() + "(" + parameterTypes + ")";
+    private Method resolveCallMethod(Class<? extends ToolBase> toolClass) {
+        try {
+            return toolClass.getMethod("callAsync", ToolCallParam.class);
+        } catch (NoSuchMethodException ex) {
+            throw new IllegalStateException("ToolBase subclass must expose callAsync(ToolCallParam): "
+                    + toolClass.getName(), ex);
+        }
     }
 
-    private String buildSignatureHash(Tool tool) {
+    private String buildToolKey(Class<?> toolClass, Method method) {
+        return toolClass.getName() + "#" + method.getName() + "(" + ToolCallParam.class.getName() + ")";
+    }
+
+    private permission resolvePermission(Class<?> toolClass, Method method) {
+        permission methodPermission = method.getAnnotation(permission.class);
+        if (methodPermission != null) {
+            return methodPermission;
+        }
+        return toolClass.getAnnotation(permission.class);
+    }
+
+    private String buildSignatureHash(ToolBase tool) {
         Map<String, Object> signatureFields = new LinkedHashMap<>();
-        signatureFields.put("name", tool.name());
-        signatureFields.put("description", tool.description());
-        signatureFields.put("readOnly", tool.readOnly());
-        signatureFields.put("concurrencySafe", tool.concurrencySafe());
-        signatureFields.put("stateInjected", tool.stateInjected());
-        signatureFields.put("dangerousFiles", Arrays.asList(tool.dangerousFiles()));
-        signatureFields.put("dangerousDirectories", Arrays.asList(tool.dangerousDirectories()));
-        signatureFields.put("converter", tool.converter().getName());
+        signatureFields.put("name", tool.getName());
+        signatureFields.put("description", tool.getDescription());
+        signatureFields.put("readOnly", tool.isReadOnly());
+        signatureFields.put("concurrencySafe", tool.isConcurrencySafe());
+        signatureFields.put("stateInjected", tool.isStateInjected());
+        signatureFields.put("dangerousFiles", dangerousPaths(tool, "dangerousFiles"));
+        signatureFields.put("dangerousDirectories", dangerousPaths(tool, "dangerousDirectories"));
+        signatureFields.put("converter", "");
         return DigestUtil.sha256Hex(toJson(signatureFields));
     }
 
-    private Map<String, Object> buildInputMetadata(Class<?> toolClass, Method method, Tool tool) {
-        Map<String, Object> schema = new LinkedHashMap<>();
-        schema.put("toolName", tool.name());
-        schema.put("className", toolClass.getName());
-        schema.put("methodName", method.getName());
-        schema.put("parameterTypes", Arrays.stream(method.getParameterTypes())
-                .map(Class::getName)
-                .collect(Collectors.toList()));
-
-        List<Map<String, Object>> parameters = new ArrayList<>();
-        Parameter[] methodParameters = method.getParameters();
-        for (int i = 0; i < methodParameters.length; i++) {
-            Parameter parameter = methodParameters[i];
-            ToolParam toolParam = parameter.getAnnotation(ToolParam.class);
-
-            Map<String, Object> parameterMetadata = new LinkedHashMap<>();
-            parameterMetadata.put("index", i);
-            parameterMetadata.put("name", resolveParameterName(parameter, toolParam));
-            parameterMetadata.put("javaName", parameter.getName());
-            parameterMetadata.put("type", parameter.getType().getName());
-            parameterMetadata.put("genericType", parameter.getParameterizedType().getTypeName());
-            parameterMetadata.put("required", toolParam != null && toolParam.required());
-            parameterMetadata.put("description", toolParam == null ? "" : toolParam.description());
-            parameterMetadata.put("modelVisible", toolParam != null);
-            parameters.add(parameterMetadata);
-        }
-        schema.put("parameters", parameters);
-        return schema;
-    }
-
-    private String resolveParameterName(Parameter parameter, ToolParam toolParam) {
-        if (toolParam != null && StringUtils.hasText(toolParam.name())) {
-            return toolParam.name();
-        }
-        return parameter.getName();
-    }
-
-    private Map<String, Object> buildOutputMetadata(Method method) {
-        Map<String, Object> schema = new LinkedHashMap<>();
-        schema.put("type", method.getReturnType().getName());
-        schema.put("genericType", method.getGenericReturnType().getTypeName());
-        return schema;
-    }
-
-    private String resolveRiskLevel(Tool tool) {
-        if (tool.readOnly() && tool.dangerousFiles().length == 0 && tool.dangerousDirectories().length == 0) {
+    private String resolveRiskLevel(ToolBase tool) {
+        List<String> dangerousFiles = dangerousPaths(tool, "dangerousFiles");
+        List<String> dangerousDirectories = dangerousPaths(tool, "dangerousDirectories");
+        if (tool.isReadOnly() && dangerousFiles.isEmpty() && dangerousDirectories.isEmpty()) {
             return "LOW";
         }
-        if (tool.dangerousFiles().length > 0 || tool.dangerousDirectories().length > 0) {
+        if (!dangerousFiles.isEmpty() || !dangerousDirectories.isEmpty()) {
             return "HIGH";
         }
         return "MEDIUM";
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<String> dangerousPaths(ToolBase tool, String fieldName) {
+        try {
+            Field field = ToolBase.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            Object value = field.get(tool);
+            if (value instanceof List<?> list) {
+                return (List<String>) list;
+            }
+        } catch (NoSuchFieldException | IllegalAccessException ex) {
+            log.warn("Failed to read ToolBase field {}", fieldName, ex);
+        }
+        return Collections.emptyList();
     }
 
     private String toJson(Object value) {

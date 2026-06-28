@@ -104,7 +104,7 @@ public class AiToolInfoConfigEntity extends BaseEntity {
     private String methodName;
 
     /**
-     * 工具入参 JSON Schema，可选，通常可由 @Tool/@ToolParam 生成
+     * 工具入参 JSON Schema，可选，通常可由 ToolBase 生成
      */
     @TableField("input_schema")
     private String inputSchema;

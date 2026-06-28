@@ -6,20 +6,17 @@ import io.agentscope.core.tool.ToolCallParam;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 @Component
-public class SimpleTools extends ToolBase {
+public class QueryOrderTool extends ToolBase {
 
-    public SimpleTools() {
+    public QueryOrderTool() {
         super(ToolBase.builder()
-                .name("get_current_time")
-                .description("Returns the current time in a given IANA timezone.")
+                .name("query_order")
+                .description("查询当前租户下的订单信息")
                 .inputSchema(inputSchema())
                 .readOnly(true)
                 .concurrencySafe(true));
@@ -28,10 +25,9 @@ public class SimpleTools extends ToolBase {
     @Override
     public Mono<ToolResultBlock> callAsync(ToolCallParam param) {
         try {
-            String timezone = ToolSchemaUtils.requiredString(param, "timezone");
-            String currentTime = LocalDateTime.now(ZoneId.of(timezone))
-                    .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-            return Mono.just(ToolResultBlock.text(currentTime));
+            String orderNo = ToolSchemaUtils.requiredString(param, "orderNo");
+            String tenantId = ToolSchemaUtils.runtimeUserId(param);
+            return Mono.just(ToolResultBlock.text("tenant=" + tenantId + ", orderNo=" + orderNo));
         } catch (Exception ex) {
             return Mono.just(ToolResultBlock.error(ex.getMessage()));
         }
@@ -39,7 +35,7 @@ public class SimpleTools extends ToolBase {
 
     private static Map<String, Object> inputSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("timezone", ToolSchemaUtils.stringProperty("IANA timezone, e.g. Asia/Shanghai"));
-        return ToolSchemaUtils.objectSchema(properties, List.of("timezone"));
+        properties.put("orderNo", ToolSchemaUtils.stringProperty("订单号"));
+        return ToolSchemaUtils.objectSchema(properties, List.of("orderNo"));
     }
 }

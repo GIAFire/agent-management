@@ -50,7 +50,7 @@ public class AgentRuntimeFactory {
         });
 
         // 全局权限策略,优先级较低
-        PermissionContextState globalPermission = PermissionContextState.builder().mode(config.getPermissionMode().ACCEPT_EDITS).build();
+        PermissionContextState globalPermission = PermissionContextState.builder().mode(PermissionMode.ACCEPT_EDITS).build();
 
 
         return agentCache.get(AgentCacheKey, key -> {
