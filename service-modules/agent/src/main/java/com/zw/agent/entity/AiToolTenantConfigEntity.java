@@ -50,16 +50,4 @@ public class AiToolTenantConfigEntity extends BaseEntity {
      */
     @TableField("permission_code")
     private String permissionCode;
-
-    /**
-     * 创建人
-     */
-    @TableField("created_by")
-    private String createdBy;
-
-    /**
-     * 更新人
-     */
-    @TableField("updated_by")
-    private String updatedBy;
 }

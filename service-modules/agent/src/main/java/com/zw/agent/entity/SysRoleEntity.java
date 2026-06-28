@@ -56,10 +56,4 @@ public class SysRoleEntity extends BaseEntity {
      */
     @TableField("status")
     private Byte status;
-
-    /**
-     * 创建人用户ID
-     */
-    @TableField("created_by")
-    private Long createdBy;
 }
