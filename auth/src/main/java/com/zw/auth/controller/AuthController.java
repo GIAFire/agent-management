@@ -1,9 +1,10 @@
 package com.zw.auth.controller;
 
 import com.zw.auth.config.JwtProperties;
-import com.zw.auth.dto.LoginRequest;
-import com.zw.auth.dto.LoginResponse;
+import com.zw.auth.entity.DTO.UserInfoDTO;
 import com.zw.auth.entity.SysUserEntity;
+import com.zw.auth.entity.VO.LoginRequest;
+import com.zw.auth.entity.VO.LoginResponse;
 import com.zw.auth.service.SysUserService;
 import com.zw.common.RedisService;
 import com.zw.common.constant.RedisConstants;
@@ -35,7 +36,7 @@ public class AuthController {
         if (request == null) {
             throw new IllegalArgumentException("登录参数不能为空");
         }
-        SysUserEntity user = sysUserService.authenticate(request.userName(), request.password());
+        SysUserEntity user = sysUserService.authenticate(request.getUserName(), request.getPassword());
         long expiresAt = Instant.now().plusSeconds(jwtProperties.getExpireSeconds()).toEpochMilli();
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
@@ -53,13 +54,11 @@ public class AuthController {
                 jwtProperties.getExpireSeconds(),
                 claims
         );
-        LoginResponse response = new LoginResponse(
-                token,
-                "Bearer",
+        LoginResponse loginResponse = new LoginResponse(token,
+                 "Bearer",
                 jwtProperties.getExpireSeconds(),
                 expiresAt,
-                new LoginResponse.UserInfo(user.getId(), user.getUserName(), user.getTenantId())
-        );
-        return Result.ok(response);
+                new UserInfoDTO());
+        return Result.ok(loginResponse);
     }
 }
