@@ -36,16 +36,16 @@ public class TenantToolkitFactory {
                 .orderByAsc(AiToolInfoConfigEntity::getMethodName));
 
         Set<String> registeredClasses = new LinkedHashSet<>();
-        for (AiToolInfoConfigEntity toolConfig : toolList) {
-            if (!StringUtils.hasText(toolConfig.getClassName())
-                    || !registeredClasses.add(toolConfig.getClassName())) {
+        for (AiToolInfoConfigEntity toolInfo : toolList) {
+            if (!StringUtils.hasText(toolInfo.getClassName())
+                    || !registeredClasses.add(toolInfo.getClassName())) {
                 continue;
             }
 
-            Object toolBean = resolveToolBean(toolConfig);
+            Object toolBean = resolveToolBean(toolInfo);
             if (toolBean == null) {
                 log.error("Tool bean not found, toolId={}, beanName={}, className={}",
-                        toolConfig.getId(), toolConfig.getBeanName(), toolConfig.getClassName());
+                        toolInfo.getId(), toolInfo.getBeanName(), toolInfo.getClassName());
                 continue;
             }
             toolkit.registerTool(toolBean);

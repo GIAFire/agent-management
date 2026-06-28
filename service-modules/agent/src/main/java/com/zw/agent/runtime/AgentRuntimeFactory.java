@@ -5,13 +5,19 @@ import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.tools.toolkitFactory.TenantToolkitFactory;
 import com.zw.common.RedisService;
+import com.zw.common.context.UserContext;
+import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
 import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.OpenAIChatModel;
+import io.agentscope.core.model.ToolSchema;
+import io.agentscope.core.permission.PermissionBehavior;
 import io.agentscope.core.permission.PermissionContextState;
 import io.agentscope.core.permission.PermissionMode;
+import io.agentscope.core.permission.PermissionRule;
+import io.agentscope.core.tool.AgentTool;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +25,8 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -35,13 +43,17 @@ public class AgentRuntimeFactory {
     
     private final Cache<String, Toolkit> toolkitCache;
 
+    private final Cache<String, PermissionContextState> userToolPermissionCache;
+
     private final TenantToolkitFactory toolkitFactory;
 
     private final RedisService redisService;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config) {
+        UserInfo userInfo = UserContext.get();
         String AgentCacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
         String tooKitCacheKey = "tooKit:" + config.getTenantId();
+        String permissionCacheKey = "permission:" + userInfo.getRoleCode() + ":";
 
         Toolkit toolkit = toolkitCache.get(tooKitCacheKey, key -> {
             Toolkit toolkitBuild = toolkitFactory.buildToolkit(config.getTenantId());
@@ -49,9 +61,24 @@ public class AgentRuntimeFactory {
             return toolkitBuild;
         });
 
-        // 全局权限策略,优先级较低
-        PermissionContextState globalPermission = PermissionContextState.builder().mode(PermissionMode.ACCEPT_EDITS).build();
+        PermissionContextState.Builder permBuilder = PermissionContextState.builder()
+                        .mode(PermissionMode.DEFAULT);
 
+        Set<String> toolNames = toolkit.getToolNames();
+
+        toolNames.forEach(toolName -> {
+            permBuilder.addDenyRule(
+                    toolName,
+                    new PermissionRule(
+                            toolName,
+                            String.valueOf(userInfo.getRoleCode()),
+                            PermissionBehavior.DENY,
+                            "userSettings"
+                    )
+            );
+        });
+
+        PermissionContextState permissionContextState = permBuilder.build();
 
         return agentCache.get(AgentCacheKey, key -> {
 
@@ -68,7 +95,7 @@ public class AgentRuntimeFactory {
                     .sysPrompt(config.getSysPrompt())
                     .model(model)
                     .toolkit(toolkit)
-                    .permissionContext(globalPermission)
+                    .permissionContext(permissionContextState)
                     .maxIters(1000)
                     .build();
 

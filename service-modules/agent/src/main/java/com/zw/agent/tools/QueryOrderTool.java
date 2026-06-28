@@ -38,4 +38,10 @@ public class QueryOrderTool extends ToolBase {
         properties.put("orderNo", ToolSchemaUtils.stringProperty("订单号"));
         return ToolSchemaUtils.objectSchema(properties, List.of("orderNo"));
     }
+
+    @Override
+    public boolean matchRule(String ruleContent, Map<String, Object> toolInput) {
+        List<Long> roleList = List.of(10000L);
+        return !roleList.contains(Long.valueOf(ruleContent));
+    }
 }
