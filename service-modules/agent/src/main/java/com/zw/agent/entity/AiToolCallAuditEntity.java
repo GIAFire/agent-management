@@ -49,7 +49,7 @@ public class AiToolCallAuditEntity extends BaseEntity {
      * 回复消息ID
      */
     @TableField("reply_id")
-    private Long replyId;
+    private String replyId;
 
     /**
      * Agent ID
@@ -134,4 +134,28 @@ public class AiToolCallAuditEntity extends BaseEntity {
      */
     @TableField("duration_ms")
     private Long durationMs;
+
+    @Override
+    public String toString() {
+        return "AiToolCallAuditEntity{" +
+                "id=" + id +
+                ", runId=" + runId +
+                ", sessionId=" + sessionId +
+                ", replyId='" + replyId + '\'' +
+                ", agentId=" + agentId +
+                ", agentConfigId=" + agentConfigId +
+                ", userId=" + userId +
+                ", toolId=" + toolId +
+                ", toolName='" + toolName + '\'' +
+                ", toolCallId='" + toolCallId + '\'' +
+                ", permissionBehavior='" + permissionBehavior + '\'' +
+                ", permissionRuleId=" + permissionRuleId +
+                ", toolInputJson='" + toolInputJson + '\'' +
+                ", toolOutputJson='" + toolOutputJson + '\'' +
+                ", successStatus='" + successStatus + '\'' +
+                ", startedAt=" + startedAt +
+                ", endedAt=" + endedAt +
+                ", durationMs=" + durationMs +
+                '}';
+    }
 }

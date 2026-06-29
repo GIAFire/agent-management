@@ -18,17 +18,16 @@ import io.agentscope.core.message.ToolUseBlock;
 import io.agentscope.core.model.ChatUsage;
 import io.agentscope.core.permission.PermissionRule;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -38,9 +37,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * Agent 定义表：保存一个可视化 Agent 的基础身份信息 服务类
  * </p>
  *
- * @author 
+ * @author
  * @since 2026-06-20
  */
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class AgentChatServiceImpl implements AgentChatService {
@@ -122,8 +122,7 @@ public class AgentChatServiceImpl implements AgentChatService {
         AtomicReference<Integer> usageToken = new AtomicReference<>(0);
         AtomicReference<Double> usageTime = new AtomicReference<>(0.0);
         AtomicReference<String> waitingEventType = new AtomicReference<>();
-        AiToolCallAuditEntity toolCallAuditEntity = new AiToolCallAuditEntity();
-        AiToolCallAuditEntity toolCallAuditEntitycopy = new AiToolCallAuditEntity();
+        Map<String, AiToolCallAuditEntity> toolAuditMap = new ConcurrentHashMap<>();
         // 获取当前时间
         Long now = System.currentTimeMillis();
 
@@ -137,7 +136,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                     if (eventType.equals(AgentEventType.TEXT_BLOCK_DELTA.getValue()) && runtimeEvent.getDelta() != null) {
                         assistantBuffer.append(runtimeEvent.getDelta());
                     }
-                    if (eventType.equals(AgentEventType.MODEL_CALL_END.getValue())){
+                    if (eventType.equals(AgentEventType.MODEL_CALL_END.getValue())) {
                         ModelCallEndEvent modelCallEndEvent = (ModelCallEndEvent) runtimeEvent.getRawEvent();
                         ChatUsage usage = modelCallEndEvent.getUsage();
                         if (usage != null) {
@@ -147,29 +146,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                     }
 
                     // 记录工具调用事件
-                    if (eventType.equals(AgentEventType.TOOL_CALL_START.getValue())) {
-                        ToolCallStartEvent rawEvent = (ToolCallStartEvent) runtimeEvent.getRawEvent();
-                        toolCallAuditEntity.setStartedAt(new DateTime().toLocalDateTime());
-                        toolCallAuditEntity.setToolName(rawEvent.getToolCallName());
-                        toolCallAuditEntity.setToolCallId(rawEvent.getToolCallId());
-                        toolCallAuditEntity.setReplyId(Long.valueOf(rawEvent.getReplyId()));
-                        toolCallAuditEntity.setTenantId(userInfo.getTenantId());
-                        toolCallAuditEntity.setSessionId(sessionId);
-                        toolCallAuditEntity.setRunId(runId);
-                        toolCallAuditEntity.setAgentId(config.getAgentId());
-                        toolCallAuditEntity.setAgentConfigId(config.getAgentConfigId());
-                        toolCallAuditEntity.setUserId(userInfo.getUserId());
-                    }
-                    if (eventType.equals(AgentEventType.TOOL_RESULT_END.getValue())){
-                        ToolResultEndEvent  rawEvent = (ToolResultEndEvent) runtimeEvent.getRawEvent();
-                        toolCallAuditEntity.setEndedAt(new DateTime().toLocalDateTime());
-                        toolCallAuditEntity.setSuccessStatus(rawEvent.getState().getValue());
-                        toolCallAuditService.save(toolCallAuditEntity);
-                    }
-
-
-
-
+                    toolCallAuditService.handleToolCallAuditEvent(eventType, runtimeEvent, config, userInfo, sessionId, runId, toolAuditMap);
 
                     if (isWaitingEvent(eventType)) {
                         waitingEventType.set(eventType);
@@ -194,40 +171,65 @@ public class AgentChatServiceImpl implements AgentChatService {
                 )
                 // 在流结束后追加完成事件告诉前端流结束了
                 .concatWith(Mono.defer(() -> {
-                    // 保存AI的完整回复消息
-                    agentMessageService.saveAssistantMessage(
-                            userInfo,
-                            sessionId,
-                            runId,
-                            assistantBuffer.toString(),
-                            config.getAgentName(),
-                            usageToken.get(),
-                            usageTime.get()
-                    );
-                    if (waitingEventType.get() != null) {
-                        agentRunService.markWaiting(runId, waitingRunStatus(waitingEventType.get()));
-                    }
-                    // 返回完成事件的SSE消息
+                    String assistantText = assistantBuffer.toString();
+                    Integer totalTokens = usageToken.get();
+                    Double totalTime = usageTime.get();
+                    String waitingType = waitingEventType.get();
+                    List<AiToolCallAuditEntity> audits = new ArrayList<>(toolAuditMap.values());
+                    toolAuditMap.clear();
+
+                    Mono.fromRunnable(() -> {
+                                agentMessageService.saveAssistantMessage(
+                                        userInfo,
+                                        sessionId,
+                                        runId,
+                                        assistantText,
+                                        config.getAgentName(),
+                                        totalTokens,
+                                        totalTime
+                                );
+
+                                if (waitingType != null) {
+                                    agentRunService.markWaiting(runId, waitingRunStatus(waitingType));
+                                }
+
+                                if (!audits.isEmpty()) {
+                                    toolCallAuditService.saveBatch(audits);
+                                }
+                            })
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .subscribe(
+                                    null,
+                                    ex -> log.warn("Save stream final data failed, runId={}", runId, ex)
+                            );
+
                     return Mono.just(ServerSentEvent.<AgentStreamResponse>builder()
                             .event("done")
                             .data(new AgentStreamResponse(
                                     runId,
                                     "DONE",
-                                    usageToken.get(),
-                                    usageTime.get()
+                                    totalTokens,
+                                    totalTime
                             ))
                             .build());
                 }))
                 // 异常处理：当流式调用失败时
                 .onErrorResume(e -> {
-                    // 标记运行记录为失败状态
-                    agentRunService.markFailed(
-                            runId,
-                            "FAILED",
-                            e.getMessage()
-                    );
+                    log.error("Agent stream failed, runId={}", runId, e);
 
-                    // 返回错误事件的SSE消息
+                    Mono.fromRunnable(() ->
+                                    agentRunService.markFailed(
+                                            runId,
+                                            "FAILED",
+                                            e.getMessage()
+                                    )
+                            )
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .subscribe(
+                                    null,
+                                    ex -> log.warn("Mark agent run failed failed, runId={}", runId, ex)
+                            );
+
                     return Flux.just(ServerSentEvent.<AgentStreamResponse>builder()
                             .event("error")
                             .data(new AgentStreamResponse(
@@ -239,16 +241,23 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .build());
                 })
                 .doFinally(signalType -> {
-                    // 保存本次对话执行事件
-                    String runtimeEvent = String.join("-", loggedEventTypes);
-                    agentRunEventService.saveEvent(
-                            userInfo.getUserId(),
-                            userInfo.getTenantId(),
-                            runId,
-                            sessionId,
-                            runtimeEvent
-                    );
-        });
+                    String runtimeEventTypes = String.join("-", loggedEventTypes);
+
+                    Mono.fromRunnable(() ->
+                                    agentRunEventService.saveEvent(
+                                            userInfo.getUserId(),
+                                            userInfo.getTenantId(),
+                                            runId,
+                                            sessionId,
+                                            runtimeEventTypes
+                                    )
+                            )
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .subscribe(
+                                    null,
+                                    ex -> log.warn("Save agent run event failed, runId={}", runId, ex)
+                            );
+                });
         return serverSentEventFlux;
     }
 
