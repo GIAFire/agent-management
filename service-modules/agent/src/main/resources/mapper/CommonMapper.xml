@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zw.agent.mapper.CommonMapper">
+
+
+    <select id="testQueryEquipmentInfo" resultType="java.util.HashMap" parameterType="map">
+        SELECT
+            eq.NAME 设备名称,
+            eq.LEVEL 设备等级,
+            eq.factory 生产厂家,
+            org.NAME 所属游乐园,
+            org.contact_name 设备联系人,
+            org.contact_job 联系人职位
+        FROM
+            enuo_equipment eq
+                LEFT JOIN enuo_org org ON eq.org_id = org.id
+        <where>
+            <if test="equipmentName != null and equipmentName != ''">
+                AND eq.NAME = #{equipmentName}
+            </if>
+            <if test="level != null and level != ''">
+                AND eq.level = #{level}
+            </if>
+            <if test="factory != null and factory != ''">
+                AND eq.factory = #{factory}
+            </if>
+            <if test="orgName != null and orgName != ''">
+                AND org.NAME = #{orgName}
+            </if>
+            <if test="contactName != null and contactName != ''">
+                AND org.contactName = #{contactName}
+            </if>
+            <if test="contactJob != null and contactJob != ''">
+                AND org.contactJob = #{contactJob}
+            </if>
+        </where>
+    </select>
+
+
+    <select id="count" resultType="Long">
+        SELECT
+            count(1)
+        FROM
+        enuo_equipment eq
+        LEFT JOIN enuo_org org ON eq.org_id = org.id
+    </select>
+</mapper>
