@@ -29,6 +29,7 @@ import reactor.core.scheduler.Schedulers;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -52,7 +53,7 @@ public class AgentChatServiceImpl implements AgentChatService {
     private final AiToolCallAuditService toolCallAuditService;
 
     @Override
-    public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,UserInfo userInfo, Long sessionId, String text,Long runId) {
+    public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,UserInfo userInfo, Long sessionId, String text,Long runId,Long requestStartNs, Long requestStartMs) {
         // 从上下文获取当前用户信息
         String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
         return streamRuntimeEvents(
@@ -60,7 +61,9 @@ public class AgentChatServiceImpl implements AgentChatService {
                 config,
                 userInfo,
                 sessionId,
-                runId
+                runId,
+                requestStartNs,
+                requestStartMs
         );
     }
 
@@ -69,7 +72,9 @@ public class AgentChatServiceImpl implements AgentChatService {
             AgentConfigDTO config,
             UserInfo userInfo,
             Long sessionId,
-            AgentInterventionRequest request
+            AgentInterventionRequest request,
+            Long requestStartNs,
+            Long requestStartMs
     ) {
         Long runId = requireRunId(request);
         String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
@@ -83,7 +88,9 @@ public class AgentChatServiceImpl implements AgentChatService {
                 config,
                 userInfo,
                 sessionId,
-                runId
+                runId,
+                requestStartNs,
+                requestStartMs
         );
     }
 
@@ -92,7 +99,9 @@ public class AgentChatServiceImpl implements AgentChatService {
             AgentConfigDTO config,
             UserInfo userInfo,
             Long sessionId,
-            AgentInterventionRequest request
+            AgentInterventionRequest request,
+            Long requestStartNs,
+            Long requestStartMs
     ) {
         Long runId = requireRunId(request);
         String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
@@ -106,7 +115,9 @@ public class AgentChatServiceImpl implements AgentChatService {
                 config,
                 userInfo,
                 sessionId,
-                runId
+                runId,
+                requestStartNs,
+                requestStartMs
         );
     }
 
@@ -115,7 +126,9 @@ public class AgentChatServiceImpl implements AgentChatService {
             AgentConfigDTO config,
             UserInfo userInfo,
             Long sessionId,
-            Long runId
+            Long runId,
+            Long requestStartNs,
+            Long requestStartMs
     ) {
         // 用于累积大模型响应的文本内容
         StringBuilder assistantBuffer = new StringBuilder();
@@ -123,6 +136,9 @@ public class AgentChatServiceImpl implements AgentChatService {
         AtomicReference<Double> usageTime = new AtomicReference<>(0.0);
         AtomicReference<String> waitingEventType = new AtomicReference<>();
         Map<String, AiToolCallAuditEntity> toolAuditMap = new ConcurrentHashMap<>();
+        // 统计耗时
+        AtomicLong streamSubscribeNs = new AtomicLong();
+        AtomicBoolean firstEventLogged = new AtomicBoolean(false);
         // 获取当前时间
         Long now = System.currentTimeMillis();
 
@@ -130,7 +146,23 @@ public class AgentChatServiceImpl implements AgentChatService {
         // 用于记录事件序列号，保证递增
         AtomicLong seq = new AtomicLong(0);
         Flux<ServerSentEvent<AgentStreamResponse>> serverSentEventFlux = runtimeEvents
+                .doOnSubscribe(subscription -> {
+                    long nowNs = System.nanoTime();
+                    streamSubscribeNs.set(nowNs);
+
+                    log.info("从接口入口到doOnSubscribe当前点总耗时, runId={}, costFromRequestStartMs={}",
+                            runId,
+                            (nowNs - requestStartNs) / 1_000_000
+                    );
+                })
                 .doOnNext(runtimeEvent -> {
+                    if (firstEventLogged.compareAndSet(false, true)) {
+                        log.info("从接口入口到doOnNext当前点总耗时, runId={}, costFromRequestStartMs={}, costFromSubscribeMs={}",
+                                runId,
+                                (System.nanoTime() - requestStartNs) / 1_000_000,
+                                (System.nanoTime() - streamSubscribeNs.get()) / 1_000_000
+                        );
+                    }
                     // 如果事件包含增量内容，则追加到缓冲区
                     String eventType = runtimeEvent.getEventType();
                     if (eventType.equals(AgentEventType.TEXT_BLOCK_DELTA.getValue()) && runtimeEvent.getDelta() != null) {
@@ -171,6 +203,13 @@ public class AgentChatServiceImpl implements AgentChatService {
                 )
                 // 在流结束后追加完成事件告诉前端流结束了
                 .concatWith(Mono.defer(() -> {
+                    long doneNs = System.nanoTime();
+                    log.info("服务端准备返回最终done事件的时间, runId={}, totalCostMs={}, streamCostMs={}",
+                            runId,
+                            (doneNs - requestStartNs) / 1_000_000,
+                            (doneNs - streamSubscribeNs.get()) / 1_000_000
+                    );
+
                     String assistantText = assistantBuffer.toString();
                     Integer totalTokens = usageToken.get();
                     Double totalTime = usageTime.get();
@@ -215,6 +254,15 @@ public class AgentChatServiceImpl implements AgentChatService {
                 }))
                 // 异常处理：当流式调用失败时
                 .onErrorResume(e -> {
+                    long errorNs = System.nanoTime();
+
+                    log.error("Agent stream before send error, runId={}, totalCostMs={}, streamCostMs={}",
+                            runId,
+                            (errorNs - requestStartNs) / 1_000_000,
+                            (errorNs - streamSubscribeNs.get()) / 1_000_000,
+                            e
+                    );
+
                     log.error("Agent stream failed, runId={}", runId, e);
 
                     Mono.fromRunnable(() ->
@@ -241,6 +289,17 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .build());
                 })
                 .doFinally(signalType -> {
+                    long finishNs = System.nanoTime();
+
+                    log.info("Agent stream finally, runId={}, signalType={}, totalCostMs={}, streamCostMs={}",
+                            runId,
+                            signalType,
+                            (finishNs - requestStartNs) / 1_000_000,
+                            streamSubscribeNs.get() > 0
+                                    ? (finishNs - streamSubscribeNs.get()) / 1_000_000
+                                    : -1
+                    );
+
                     String runtimeEventTypes = String.join("-", loggedEventTypes);
 
                     Mono.fromRunnable(() ->

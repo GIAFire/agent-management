@@ -13,12 +13,14 @@ import com.zw.agent.service.*;
 import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+@Slf4j
 @AllArgsConstructor
 @RestController
 @RequestMapping("/chat")
@@ -34,6 +36,9 @@ public class AgentChatController {
 
     @PostMapping(value = "/chatStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(@RequestBody AgentChatRequest request) {
+        // 统计耗时
+        Long requestStartNs = System.nanoTime();
+        Long requestStartMs = System.currentTimeMillis();
         // 从上下文获取当前用户信息
         UserInfo userInfo = UserContext.get();
 
@@ -67,27 +72,40 @@ public class AgentChatController {
                 userMessage.getId()
         );
 
-        return agentChatService.chatStream(config,userInfo, session.getId(), request.getContent(),run.getId());
+        log.info("Controller 里同步 DB 初始化耗时, runId={}, initCostMs={}",
+                run.getId(),
+                (System.nanoTime() - requestStartNs) / 1_000_000
+        );
+
+        return agentChatService.chatStream(config,userInfo, session.getId(), request.getContent(),run.getId(),requestStartNs,
+                requestStartMs);
     }
 
     @PostMapping(value = "/userConfirm", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> userConfirm(@RequestBody AgentInterventionRequest request) {
+        // 统计耗时
+        Long requestStartNs = System.nanoTime();
+        Long requestStartMs = System.currentTimeMillis();
         UserInfo userInfo = UserContext.get();
         AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(
                 userInfo.getTenantId(),
                 request.getAgentId()
         );
-        return agentChatService.userConfirmStream(config, userInfo, request.getSessionId(), request);
+        return agentChatService.userConfirmStream(config, userInfo, request.getSessionId(), request,requestStartNs,requestStartMs);
     }
 
     @PostMapping(value = "/externalExecution", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> externalExecution(@RequestBody AgentInterventionRequest request) {
+        // 统计耗时
+        Long requestStartNs = System.nanoTime();
+        Long requestStartMs = System.currentTimeMillis();
         UserInfo userInfo = UserContext.get();
         AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(
                 userInfo.getTenantId(),
                 request.getAgentId()
         );
-        return agentChatService.externalExecutionStream(config, userInfo, request.getSessionId(), request);
+        return agentChatService.externalExecutionStream(config, userInfo, request.getSessionId(), request,requestStartNs,
+                requestStartMs);
     }
 
     @PostMapping("/chatBlock")
