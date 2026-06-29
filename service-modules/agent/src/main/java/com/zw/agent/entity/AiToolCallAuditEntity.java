@@ -46,6 +46,12 @@ public class AiToolCallAuditEntity extends BaseEntity {
     private Long sessionId;
 
     /**
+     * 回复消息ID
+     */
+    @TableField("reply_id")
+    private Long replyId;
+
+    /**
      * Agent ID
      */
     @TableField("agent_id")
@@ -109,19 +115,7 @@ public class AiToolCallAuditEntity extends BaseEntity {
      * 是否执行成功：1成功，0失败，ASK未执行时可为空
      */
     @TableField("success_status")
-    private Integer successStatus;
-
-    /**
-     * 错误码
-     */
-    @TableField("error_code")
-    private String errorCode;
-
-    /**
-     * 错误信息
-     */
-    @TableField("error_message")
-    private String errorMessage;
+    private String successStatus;
 
     /**
      * 工具开始执行时间

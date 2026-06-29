@@ -1,23 +1,15 @@
 package com.zw.agent.service.impl;
 
+import cn.hutool.core.date.DateTime;
+import com.zw.agent.entity.AiToolCallAuditEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentInterventionRequest;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.runtime.AgentRuntimeFactory;
-import com.zw.agent.service.AgentChatService;
-import com.zw.agent.service.AiAgentMessageService;
-import com.zw.agent.service.AiAgentRunEventService;
-import com.zw.agent.service.AiAgentRunService;
+import com.zw.agent.service.*;
 import com.zw.common.context.UserInfo;
-import io.agentscope.core.event.AgentEvent;
-import io.agentscope.core.event.AgentEventType;
-import io.agentscope.core.event.ConfirmResult;
-import io.agentscope.core.event.ExternalExecutionResultEvent;
-import io.agentscope.core.event.ModelCallEndEvent;
-import io.agentscope.core.event.RequireExternalExecutionEvent;
-import io.agentscope.core.event.RequireUserConfirmEvent;
-import io.agentscope.core.event.UserConfirmResultEvent;
+import io.agentscope.core.event.*;
 import io.agentscope.core.message.ContentBlock;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.message.ToolResultBlock;
@@ -26,6 +18,7 @@ import io.agentscope.core.message.ToolUseBlock;
 import io.agentscope.core.model.ChatUsage;
 import io.agentscope.core.permission.PermissionRule;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.BeanUtils;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -56,6 +49,7 @@ public class AgentChatServiceImpl implements AgentChatService {
     private final AiAgentRunEventService agentRunEventService;
     private final AiAgentMessageService agentMessageService;
     private final AiAgentRunService agentRunService;
+    private final AiToolCallAuditService toolCallAuditService;
 
     @Override
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,UserInfo userInfo, Long sessionId, String text,Long runId) {
@@ -128,6 +122,11 @@ public class AgentChatServiceImpl implements AgentChatService {
         AtomicReference<Integer> usageToken = new AtomicReference<>(0);
         AtomicReference<Double> usageTime = new AtomicReference<>(0.0);
         AtomicReference<String> waitingEventType = new AtomicReference<>();
+        AiToolCallAuditEntity toolCallAuditEntity = new AiToolCallAuditEntity();
+        AiToolCallAuditEntity toolCallAuditEntitycopy = new AiToolCallAuditEntity();
+        // 获取当前时间
+        Long now = System.currentTimeMillis();
+
         Set<String> loggedEventTypes = ConcurrentHashMap.newKeySet();
         // 用于记录事件序列号，保证递增
         AtomicLong seq = new AtomicLong(0);
@@ -146,6 +145,32 @@ public class AgentChatServiceImpl implements AgentChatService {
                             usageTime.set(usage.getTime());
                         }
                     }
+
+                    // 记录工具调用事件
+                    if (eventType.equals(AgentEventType.TOOL_CALL_START.getValue())) {
+                        ToolCallStartEvent rawEvent = (ToolCallStartEvent) runtimeEvent.getRawEvent();
+                        toolCallAuditEntity.setStartedAt(new DateTime().toLocalDateTime());
+                        toolCallAuditEntity.setToolName(rawEvent.getToolCallName());
+                        toolCallAuditEntity.setToolCallId(rawEvent.getToolCallId());
+                        toolCallAuditEntity.setReplyId(Long.valueOf(rawEvent.getReplyId()));
+                        toolCallAuditEntity.setTenantId(userInfo.getTenantId());
+                        toolCallAuditEntity.setSessionId(sessionId);
+                        toolCallAuditEntity.setRunId(runId);
+                        toolCallAuditEntity.setAgentId(config.getAgentId());
+                        toolCallAuditEntity.setAgentConfigId(config.getAgentConfigId());
+                        toolCallAuditEntity.setUserId(userInfo.getUserId());
+                    }
+                    if (eventType.equals(AgentEventType.TOOL_RESULT_END.getValue())){
+                        ToolResultEndEvent  rawEvent = (ToolResultEndEvent) runtimeEvent.getRawEvent();
+                        toolCallAuditEntity.setEndedAt(new DateTime().toLocalDateTime());
+                        toolCallAuditEntity.setSuccessStatus(rawEvent.getState().getValue());
+                        toolCallAuditService.save(toolCallAuditEntity);
+                    }
+
+
+
+
+
                     if (isWaitingEvent(eventType)) {
                         waitingEventType.set(eventType);
                     }
