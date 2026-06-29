@@ -1,4 +1,4 @@
-package com.zw.agent.tools;
+package com.zw.agent.tools.testCustomer;
 
 import com.zw.common.entity.Result;
 import io.agentscope.core.message.ToolResultBlock;
@@ -15,12 +15,12 @@ import java.util.List;
 import java.util.Map;
 
 @Component
-public class HttpPostTool extends AbstractHttpTool {
+public class HttpPutTool extends AbstractHttpTool {
 
-    public HttpPostTool() {
+    public HttpPutTool() {
         super(ToolBase.builder()
-                .name("http_post")
-                .description("Send HTTP POST request with JSON body")
+                .name("http_put")
+                .description("Send HTTP PUT request with JSON body")
                 .inputSchema(inputSchema()));
     }
 
@@ -30,15 +30,15 @@ public class HttpPostTool extends AbstractHttpTool {
             String url = ToolSchemaUtils.requiredString(param, "url");
             String body = ToolSchemaUtils.optionalString(param, "body");
             String headers = ToolSchemaUtils.optionalString(param, "headers");
-            log.info("HTTP POST Request: {}", url);
+            log.info("HTTP PUT Request: {}", url);
 
             HttpEntity<String> entity = new HttpEntity<>(body, buildHeaders(headers));
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.PUT, entity, String.class);
 
-            log.info("HTTP POST Response: status={}", response.getStatusCode());
+            log.info("HTTP PUT Response: status={}", response.getStatusCode());
             return Mono.just(ToolResultBlock.text(Result.ok(response.getBody()).toString()));
         } catch (Exception ex) {
-            log.error("HTTP POST request failed", ex);
+            log.error("HTTP PUT request failed", ex);
             return Mono.just(ToolResultBlock.text(Result.fail("HTTP请求失败: " + ex.getMessage()).toString()));
         }
     }

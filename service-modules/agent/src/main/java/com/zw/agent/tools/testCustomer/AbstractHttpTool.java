@@ -1,4 +1,4 @@
-package com.zw.agent.tools;
+package com.zw.agent.tools.testCustomer;
 
 import io.agentscope.core.tool.ToolBase;
 import org.slf4j.Logger;

@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class ToolRegistrySyncRunner implements ApplicationRunner {
 
-    private static final String TOOL_BASE_PACKAGE = "com.zw.agent.tools";
+    private static final String TOOL_BASE_PACKAGE = "com.zw.agent.tools.*";
     private static final Logger log = LoggerFactory.getLogger(ToolRegistrySyncRunner.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 

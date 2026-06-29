@@ -72,7 +72,7 @@ public class AgentChatController {
                 userMessage.getId()
         );
 
-        log.info("Controller 里同步 DB 初始化耗时, runId={}, initCostMs={}",
+        log.error("Controller 里同步 DB 初始化耗时, runId={}, initCostMs={}",
                 run.getId(),
                 (System.nanoTime() - requestStartNs) / 1_000_000
         );
