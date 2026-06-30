@@ -150,14 +150,14 @@ public class AgentChatServiceImpl implements AgentChatService {
                     long nowNs = System.nanoTime();
                     streamSubscribeNs.set(nowNs);
 
-                    log.error("从接口入口到doOnSubscribe当前点总耗时, runId={}, costFromRequestStartMs={}",
+                    log.warn("从接口入口到doOnSubscribe当前点总耗时, runId={}, costFromRequestStartMs={}",
                             runId,
                             (nowNs - requestStartNs) / 1_000_000
                     );
                 })
                 .doOnNext(runtimeEvent -> {
                     if (firstEventLogged.compareAndSet(false, true)) {
-                        log.error("从接口入口到doOnNext当前点总耗时, runId={}, costFromRequestStartMs={}, costFromSubscribeMs={}",
+                        log.warn("从接口入口到doOnNext当前点总耗时, runId={}, costFromRequestStartMs={}, costFromSubscribeMs={}",
                                 runId,
                                 (System.nanoTime() - requestStartNs) / 1_000_000,
                                 (System.nanoTime() - streamSubscribeNs.get()) / 1_000_000
@@ -204,7 +204,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                 // 在流结束后追加完成事件告诉前端流结束了
                 .concatWith(Mono.defer(() -> {
                     long doneNs = System.nanoTime();
-                    log.error("服务端准备返回最终done事件的时间, runId={}, totalCostMs={}, streamCostMs={}",
+                    log.warn("服务端准备返回最终done事件的时间, runId={}, totalCostMs={}, streamCostMs={}",
                             runId,
                             (doneNs - requestStartNs) / 1_000_000,
                             (doneNs - streamSubscribeNs.get()) / 1_000_000
@@ -256,14 +256,14 @@ public class AgentChatServiceImpl implements AgentChatService {
                 .onErrorResume(e -> {
                     long errorNs = System.nanoTime();
 
-                    log.error("Agent stream before send error, runId={}, totalCostMs={}, streamCostMs={}",
+                    log.warn("Agent stream before send error, runId={}, totalCostMs={}, streamCostMs={}",
                             runId,
                             (errorNs - requestStartNs) / 1_000_000,
                             (errorNs - streamSubscribeNs.get()) / 1_000_000,
                             e
                     );
 
-                    log.error("Agent stream failed, runId={}", runId, e);
+                    log.warn("Agent stream failed, runId={}", runId, e);
 
                     Mono.fromRunnable(() ->
                                     agentRunService.markFailed(
@@ -291,7 +291,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                 .doFinally(signalType -> {
                     long finishNs = System.nanoTime();
 
-                    log.error("Agent stream finally, runId={}, signalType={}, totalCostMs={}, streamCostMs={}",
+                    log.warn("Agent stream finally, runId={}, signalType={}, totalCostMs={}, streamCostMs={}",
                             runId,
                             signalType,
                             (finishNs - requestStartNs) / 1_000_000,

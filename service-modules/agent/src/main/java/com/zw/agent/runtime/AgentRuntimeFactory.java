@@ -26,6 +26,7 @@ import io.agentscope.core.permission.PermissionRule;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -41,6 +42,7 @@ import java.util.concurrent.TimeUnit;
  * Agent运行时工厂类，负责创建和管理HarnessAgent实例。
  * 提供基于租户ID、Agent ID和版本号的缓存机制，确保相同配置的Agent实例复用。
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class AgentRuntimeFactory {
@@ -62,12 +64,15 @@ public class AgentRuntimeFactory {
         String toolkitCacheKey = "toolkit:" + config.getTenantId();
         String toolPermissionCacheKey = "toolPermission:" + config.getTenantId() + ":" + userInfo.getRoleCode();
 
+        // 构造工具
         Toolkit toolkit = toolkitCache.get(toolkitCacheKey, key -> {
             Toolkit toolkitBuild = toolkitFactory.buildToolkit(config.getTenantId());
+
             redisService.setIfAbsent(toolkitCacheKey, "1", 30L, TimeUnit.DAYS);
             return toolkitBuild;
         });
 
+        // 构造权限
         PermissionContextState permissionContextState = permissionContextStateCache.get(toolPermissionCacheKey, key -> {
             PermissionContextState build = buildPermissionContext(config, userInfo, toolkit);
             redisService.setIfAbsent(toolPermissionCacheKey, "1", 30L, TimeUnit.DAYS);
@@ -75,6 +80,7 @@ public class AgentRuntimeFactory {
         });
 
 
+        // 构造模型配置
         return agentCache.get(agentCacheKey, key -> {
 
             OpenAIChatModel model = OpenAIChatModel.builder()
@@ -85,13 +91,14 @@ public class AgentRuntimeFactory {
                     .formatter(new OpenAIChatFormatter())
                     .build();
 
+            // 构造Agent实例和Agent配置
             HarnessAgent harnessAgent = HarnessAgent.builder()
                     .name(config.getAgentName())
                     .sysPrompt(config.getSysPrompt())
                     .model(model)
                     .toolkit(toolkit)
                     .permissionContext(permissionContextState)
-                    .maxIters(1000)
+                    .maxIters(100)
                     .build();
 
             redisService.setIfAbsent(key, "1", 30L, TimeUnit.DAYS);
@@ -108,7 +115,7 @@ public class AgentRuntimeFactory {
         String roleCode = String.valueOf(userInfo.getRoleCode());
 
         PermissionContextState.Builder builder = PermissionContextState.builder()
-                .mode(PermissionMode.DEFAULT);
+                .mode(PermissionMode.valueOf(config.getPermissionMode()));
 
         Set<String> toolNames = toolkit.getToolNames();
 
@@ -150,8 +157,6 @@ public class AgentRuntimeFactory {
                 }
             }
         }
-
-        builder.mode(PermissionMode.valueOf(config.getPermissionMode()));
 
         return builder.build();
     }
