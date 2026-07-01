@@ -13,40 +13,17 @@ public final class AgentRuntimeKeys {
     private AgentRuntimeKeys() {
     }
 
-    public static String userKey(String tenantCode, Long userId) {
-        String tenantPart = pathSafeSegment(tenantCode, "tenant");
-        String userPart = userId == null
-                ? "anonymous"
-                : pathSafeSegment(String.valueOf(userId), "anonymous");
-        return limitLength("tenant-" + tenantPart + "-user-" + userPart);
+    public static String userKey(Long tenantId, Long userId) {
+        return "tenant:" + tenantId + ":user:" + userId;
     }
 
-    public static String sessionKey(String sessionKey) {
-        return pathSafeSegment(sessionKey, "default");
+    public static String sessionKey(Long tenantId, Long agentId, Long agentConfigId, Long sessionId) {
+        return "tenant:" + tenantId
+                + ":agent:" + agentId
+                + ":config:" + agentConfigId
+                + ":session:" + sessionId;
     }
 
-    static String pathSafeSegment(String value, String fallback) {
-        if (value == null || value.isBlank()) {
-            return fallback;
-        }
-
-        String trimmed = value.strip();
-        StringBuilder key = new StringBuilder(trimmed.length());
-        for (int i = 0; i < trimmed.length(); ) {
-            int codePoint = trimmed.codePointAt(i);
-            if (isSafeAscii(codePoint)) {
-                key.appendCodePoint(codePoint);
-            } else {
-                key.append(encodedCodePoint(codePoint));
-            }
-            i += Character.charCount(codePoint);
-        }
-
-        if (key.isEmpty()) {
-            return fallback;
-        }
-        return limitLength(key.toString());
-    }
 
     private static boolean isSafeAscii(int codePoint) {
         return (codePoint >= 'a' && codePoint <= 'z')

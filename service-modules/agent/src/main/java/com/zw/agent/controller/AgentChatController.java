@@ -9,6 +9,7 @@ import com.zw.agent.entity.message.AgentInterventionRequest;
 import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.runtime.AgentFullConfigService;
 import com.zw.agent.runtime.AgentRuntimeFactory;
+import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.*;
 import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
@@ -72,7 +73,7 @@ public class AgentChatController {
                 userMessage.getId()
         );
 
-        log.error("Controller 里同步 DB 初始化耗时, runId={}, initCostMs={}",
+        log.warn("Controller 里同步 DB 初始化耗时, runId={}, initCostMs={}",
                 run.getId(),
                 (System.nanoTime() - requestStartNs) / 1_000_000
         );
@@ -113,10 +114,9 @@ public class AgentChatController {
         UserInfo userInfo = UserContext.get();
         // 获取运行时配置
         AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(userInfo.getTenantId(), request.getAgentId());
-        String tenantUserId = userInfo.getTenantId().toString()+"-"+userInfo.getUserId().toString();
 
         return agentRuntimeFactory
-                .call(config, tenantUserId, request.getSessionId(), request.getContent());
+                .call(config, userInfo.getUserId(), request.getSessionId(), request.getContent());
     }
 
 }

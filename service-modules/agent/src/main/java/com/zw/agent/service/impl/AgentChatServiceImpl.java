@@ -7,6 +7,7 @@ import com.zw.agent.entity.message.AgentInterventionRequest;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.runtime.AgentRuntimeFactory;
+import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.*;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.event.*;
@@ -55,9 +56,8 @@ public class AgentChatServiceImpl implements AgentChatService {
     @Override
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,UserInfo userInfo, Long sessionId, String text,Long runId,Long requestStartNs, Long requestStartMs) {
         // 从上下文获取当前用户信息
-        String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
         return streamRuntimeEvents(
-                agentRuntimeFactory.callStreamEvents(config, tenantUserId, sessionId, text),
+                agentRuntimeFactory.callStreamEvents(config, AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()), sessionId, text),
                 config,
                 userInfo,
                 sessionId,
@@ -77,11 +77,10 @@ public class AgentChatServiceImpl implements AgentChatService {
             Long requestStartMs
     ) {
         Long runId = requireRunId(request);
-        String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
         return streamRuntimeEvents(
                 agentRuntimeFactory.continueWithConfirmResults(
                         config,
-                        tenantUserId,
+                        userInfo.getUserId(),
                         sessionId,
                         toConfirmResults(request.getConfirmResults())
                 ),
@@ -104,11 +103,10 @@ public class AgentChatServiceImpl implements AgentChatService {
             Long requestStartMs
     ) {
         Long runId = requireRunId(request);
-        String tenantUserId = userInfo.getTenantId() + "-" + userInfo.getUserId();
         return streamRuntimeEvents(
                 agentRuntimeFactory.continueWithExternalExecutionResults(
                         config,
-                        tenantUserId,
+                        userInfo.getUserId(),
                         sessionId,
                         toToolResults(request.getToolResults())
                 ),
@@ -256,14 +254,14 @@ public class AgentChatServiceImpl implements AgentChatService {
                 .onErrorResume(e -> {
                     long errorNs = System.nanoTime();
 
-                    log.warn("Agent stream before send error, runId={}, totalCostMs={}, streamCostMs={}",
+                    log.error("Agent stream before send error, runId={}, totalCostMs={}, streamCostMs={}",
                             runId,
                             (errorNs - requestStartNs) / 1_000_000,
                             (errorNs - streamSubscribeNs.get()) / 1_000_000,
                             e
                     );
 
-                    log.warn("Agent stream failed, runId={}", runId, e);
+                    log.error("Agent stream failed, runId={}", runId, e);
 
                     Mono.fromRunnable(() ->
                                     agentRunService.markFailed(
@@ -275,7 +273,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe(
                                     null,
-                                    ex -> log.warn("Mark agent run failed failed, runId={}", runId, ex)
+                                    ex -> log.error("Mark agent run failed failed, runId={}", runId, ex)
                             );
 
                     return Flux.just(ServerSentEvent.<AgentStreamResponse>builder()
