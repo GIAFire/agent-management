@@ -1,12 +1,14 @@
-package com.zw.agent.runtime;
+package com.zw.agent.factory.agentFactory;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.zw.agent.entity.AiToolRolePermissionEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
+import com.zw.agent.factory.permissionFactory.permissionFactory;
+import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.AiToolRolePermissionService;
-import com.zw.agent.tools.toolkitFactory.TenantToolkitFactory;
+import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
 import com.zw.common.RedisService;
 import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
@@ -55,8 +57,9 @@ public class AgentRuntimeFactory {
 
     private final TenantToolkitFactory toolkitFactory;
 
+    private final permissionFactory permissionFactory;
+
     private final RedisService redisService;
-    private final AiToolRolePermissionService toolRolePermissionService;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config) {
         UserInfo userInfo = UserContext.get();
@@ -74,7 +77,7 @@ public class AgentRuntimeFactory {
 
         // 构造权限
         PermissionContextState permissionContextState = permissionContextStateCache.get(toolPermissionCacheKey, key -> {
-            PermissionContextState build = buildPermissionContext(config, userInfo, toolkit);
+            PermissionContextState build = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
             redisService.setIfAbsent(toolPermissionCacheKey, "1", 30L, TimeUnit.DAYS);
             return build;
         });
@@ -105,60 +108,6 @@ public class AgentRuntimeFactory {
 
             return harnessAgent;
         });
-    }
-
-    private PermissionContextState buildPermissionContext(
-            AgentConfigDTO config,
-            UserInfo userInfo,
-            Toolkit toolkit
-    ) {
-        String roleCode = String.valueOf(userInfo.getRoleCode());
-
-        PermissionContextState.Builder builder = PermissionContextState.builder()
-                .mode(PermissionMode.valueOf(config.getPermissionMode()));
-
-        Set<String> toolNames = toolkit.getToolNames();
-
-        for (String toolName : toolNames) {
-            AiToolRolePermissionEntity toolRolePermission = toolRolePermissionService.getOne(new LambdaQueryWrapper<AiToolRolePermissionEntity>()
-                    .eq(AiToolRolePermissionEntity::getToolName, toolName)
-                    .eq(AiToolRolePermissionEntity::getRoleCode, roleCode)
-                    .eq(AiToolRolePermissionEntity::getTenantId, userInfo.getTenantId())
-                    .eq(AiToolRolePermissionEntity::getStatus, (byte) 1));
-
-            if (toolRolePermission == null) {
-                PermissionRule rule =
-                        new PermissionRule(
-                                toolName,
-                                null,
-                                PermissionBehavior.DENY,
-                                "userSettings"
-                        );
-                builder.addDenyRule(toolName, rule);
-            } else {
-                String behavior = toolRolePermission.getBehavior() == null
-                        ? ""
-                        : toolRolePermission.getBehavior().trim().toUpperCase();
-                PermissionRule rule =
-                        new PermissionRule(
-                                toolName,
-                                toolRolePermission.getRuleContent(),
-                                PermissionBehavior.fromString(behavior),
-                                "userSettings"
-                        );
-
-                switch (behavior) {
-                    case "ALLOW" -> builder.addAllowRule(toolName, rule);
-                    case "DENY" -> builder.addDenyRule(toolName, rule);
-                    case "ASK" -> builder.addAskRule(toolName, rule);
-                    default -> {
-                        // PASSTHROUGH 一般不建议作为显式配置规则使用
-                    }
-                }
-            }
-        }
-
-        return builder.build();
     }
 
     /**

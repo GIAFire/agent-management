@@ -1,12 +1,11 @@
 package com.zw.agent.service.impl;
 
-import cn.hutool.core.date.DateTime;
 import com.zw.agent.entity.AiToolCallAuditEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentInterventionRequest;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.event.AgentStreamResponse;
-import com.zw.agent.runtime.AgentRuntimeFactory;
+import com.zw.agent.factory.agentFactory.AgentRuntimeFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.*;
 import com.zw.common.context.UserInfo;
@@ -20,14 +19,12 @@ import io.agentscope.core.model.ChatUsage;
 import io.agentscope.core.permission.PermissionRule;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.BeanUtils;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -254,14 +251,14 @@ public class AgentChatServiceImpl implements AgentChatService {
                 .onErrorResume(e -> {
                     long errorNs = System.nanoTime();
 
-                    log.error("Agent stream before send error, runId={}, totalCostMs={}, streamCostMs={}",
+                    log.warn("Agent stream before send error, runId={}, totalCostMs={}, streamCostMs={}",
                             runId,
                             (errorNs - requestStartNs) / 1_000_000,
                             (errorNs - streamSubscribeNs.get()) / 1_000_000,
                             e
                     );
 
-                    log.error("Agent stream failed, runId={}", runId, e);
+                    log.warn("Agent stream failed, runId={}", runId, e);
 
                     Mono.fromRunnable(() ->
                                     agentRunService.markFailed(

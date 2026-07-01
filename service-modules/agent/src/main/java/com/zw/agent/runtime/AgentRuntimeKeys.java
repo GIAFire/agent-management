@@ -14,14 +14,14 @@ public final class AgentRuntimeKeys {
     }
 
     public static String userKey(Long tenantId, Long userId) {
-        return "tenant:" + tenantId + ":user:" + userId;
+        return "tenant-" + tenantId + "-user-" + userId;
     }
 
     public static String sessionKey(Long tenantId, Long agentId, Long agentConfigId, Long sessionId) {
-        return "tenant:" + tenantId
-                + ":agent:" + agentId
-                + ":config:" + agentConfigId
-                + ":session:" + sessionId;
+        return "tenant-" + tenantId
+                + "-agent-" + agentId
+                + "-config-" + agentConfigId
+                + "-session-" + sessionId;
     }
 
 
