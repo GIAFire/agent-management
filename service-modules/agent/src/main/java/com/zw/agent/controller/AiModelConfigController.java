@@ -4,9 +4,9 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiModelConfigEntity;
 import com.zw.agent.service.AiModelConfigService;
-import com.zw.agent.support.EntityDefaults;
 import com.zw.common.entity.Result;
 import java.util.List;
+import com.zw.common.support.EntityDefaults;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 

@@ -43,7 +43,7 @@ public class AgentChatController {
         UserInfo userInfo = UserContext.get();
 
         // 加载智能体的已发布配置
-        AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(
+        AgentConfigDTO agentConfig = agentFullConfigService.loadPublishedConfig(
                 userInfo.getTenantId(),
                 request.getAgentId()
         );
@@ -52,7 +52,7 @@ public class AgentChatController {
         AiAgentSessionEntity session = agentSessionService.getOrCreateSession(
                 userInfo,
                 request.getAgentId(),
-                config.getAgentConfigId(),
+                agentConfig.getAgentConfigId(),
                 request.getSessionId()
         );
 
@@ -67,7 +67,7 @@ public class AgentChatController {
         AiAgentRunEntity run = agentRunService.createRunningRun(
                 userInfo,
                 request.getAgentId(),
-                config.getAgentConfigId(),
+                agentConfig.getAgentConfigId(),
                 session.getId(),
                 userMessage.getId()
         );
@@ -77,7 +77,7 @@ public class AgentChatController {
                 (System.nanoTime() - requestStartNs) / 1_000_000
         );
 
-        return agentChatService.chatStream(config,userInfo, session.getId(), request.getContent(),run.getId(),requestStartNs,
+        return agentChatService.chatStream(agentConfig,userInfo, session.getId(), request.getContent(),run.getId(),requestStartNs,
                 requestStartMs);
     }
 

@@ -42,42 +42,42 @@ public class AgentFullConfigService {
             throw new AgentConfigException("agentId 不能为空");
         }
         // 查询租户信息、Agent定义、Agent配置信息和模型配置
-        AgentConfigDTO agentFullInfo = agentServiceImpl.getAgentFullInfo(tenantId, agentId);
+        AgentConfigDTO agentConfig = agentServiceImpl.getAgentFullInfo(tenantId, agentId);
 
         try {
-            String decrypt = AESUtil.decrypt(agentFullInfo.getApiKey());
-            agentFullInfo.setApiKey(decrypt);
+            String decrypt = AESUtil.decrypt(agentConfig.getApiKey());
+            agentConfig.setApiKey(decrypt);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
         // 从JSON配置中提取工作空间路径，若未配置则使用默认路径
         String workspacePath = readText(
-                agentFullInfo.getWorkspaceConfigJson(),
-                defaultWorkspacePath(tenantId, agentId, agentFullInfo.getAgentConfigId()),
+                agentConfig.getWorkspaceConfigJson(),
+                defaultWorkspacePath(tenantId, agentId, agentConfig.getAgentConfigId()),
                 "workspacePath",
                 "path"
         );
-        agentFullInfo.setWorkspacePath(workspacePath);
+        agentConfig.setWorkspacePath(workspacePath);
 
         // 从JSON配置中提取消息压缩触发阈值和保留数量
         int compactionTriggerMessages = readInt(
-                agentFullInfo.getCompactionConfigJson(),
+                agentConfig.getCompactionConfigJson(),
                 20,
                 "triggerMessages",
                 "compactionTriggerMessages"
         );
-        agentFullInfo.setCompactionTriggerMessages(compactionTriggerMessages);
+        agentConfig.setCompactionTriggerMessages(compactionTriggerMessages);
 
         int compactionKeepMessages = readInt(
-                agentFullInfo.getCompactionConfigJson(),
+                agentConfig.getCompactionConfigJson(),
                 8,
                 "keepMessages",
                 "compactionKeepMessages"
         );
-        agentFullInfo.setCompactionKeepMessages(compactionKeepMessages);
+        agentConfig.setCompactionKeepMessages(compactionKeepMessages);
 
-        return agentFullInfo;
+        return agentConfig;
     }
 
 

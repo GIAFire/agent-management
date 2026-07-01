@@ -1,11 +1,9 @@
 package com.zw.agent.service.impl;
 
 import com.zw.agent.entity.AiAgentRunEventEntity;
-import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.mapper.AiAgentRunEventMapper;
 import com.zw.agent.service.AiAgentRunEventService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.zw.common.context.UserContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

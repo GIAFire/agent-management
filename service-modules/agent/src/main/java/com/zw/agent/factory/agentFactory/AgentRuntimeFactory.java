@@ -1,16 +1,14 @@
 package com.zw.agent.factory.agentFactory;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.github.benmanes.caffeine.cache.Cache;
-import com.zw.agent.entity.AiToolRolePermissionEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
+import com.zw.agent.factory.modelFactory.ModelFactory;
 import com.zw.agent.factory.permissionFactory.permissionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
-import com.zw.agent.service.AiToolRolePermissionService;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
 import com.zw.common.RedisService;
-import com.zw.common.context.UserContext;
+import com.zw.common.constant.CacheKeyBuilder;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
@@ -20,15 +18,14 @@ import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.message.UserMessage;
+import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.model.OpenAIChatModel;
-import io.agentscope.core.permission.PermissionBehavior;
 import io.agentscope.core.permission.PermissionContextState;
-import io.agentscope.core.permission.PermissionMode;
-import io.agentscope.core.permission.PermissionRule;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -36,7 +33,6 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 
@@ -50,62 +46,37 @@ import java.util.concurrent.TimeUnit;
 public class AgentRuntimeFactory {
 
     private final Cache<String, HarnessAgent> agentCache;
-
-    private final Cache<String, Toolkit> toolkitCache;
-
-    private final Cache<String, PermissionContextState> permissionContextStateCache;
-
     private final TenantToolkitFactory toolkitFactory;
-
     private final permissionFactory permissionFactory;
+    private final ModelFactory modelFactory;
+    private final CacheKeyBuilder cacheKeyBuilder;
 
-    private final RedisService redisService;
-
-    public HarnessAgent getOrCreateAgent(AgentConfigDTO config) {
-        UserInfo userInfo = UserContext.get();
-        String agentCacheKey = "agent:" + userInfo.getUserId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
-        String toolkitCacheKey = "toolkit:" + config.getTenantId();
-        String toolPermissionCacheKey = "toolPermission:" + config.getTenantId() + ":" + userInfo.getRoleCode();
-
+    public HarnessAgent getOrCreateAgent(AgentConfigDTO config,UserInfo userInfo) {
+        String agentCacheKey = cacheKeyBuilder.buildAgentKey(config.getAgentId(), userInfo.getTenantId(), userInfo.getUserId(), config.getAgentConfigId());
+        HarnessAgent agent = agentCache.getIfPresent(agentCacheKey);
+        if (agent != null){
+            return agent;
+        }
         // 构造工具
-        Toolkit toolkit = toolkitCache.get(toolkitCacheKey, key -> {
-            Toolkit toolkitBuild = toolkitFactory.buildToolkit(config.getTenantId());
-
-            redisService.setIfAbsent(toolkitCacheKey, "1", 30L, TimeUnit.DAYS);
-            return toolkitBuild;
-        });
+        Toolkit toolkit = toolkitFactory.buildToolkit(config.getTenantId());
 
         // 构造权限
-        PermissionContextState permissionContextState = permissionContextStateCache.get(toolPermissionCacheKey, key -> {
-            PermissionContextState build = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
-            redisService.setIfAbsent(toolPermissionCacheKey, "1", 30L, TimeUnit.DAYS);
-            return build;
-        });
+        PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
 
+        // 构造模型
+        ChatModelBase chatModelBase = modelFactory.buildModel(config);
 
         // 构造模型配置
         return agentCache.get(agentCacheKey, key -> {
-
-            OpenAIChatModel model = OpenAIChatModel.builder()
-                    .apiKey(config.getApiKey())
-                    .modelName(config.getModelName())
-                    .baseUrl(config.getBaseUrl())
-                    .stream(config.getIsStream())
-                    .formatter(new OpenAIChatFormatter())
-                    .build();
-
             // 构造Agent实例和Agent配置
             HarnessAgent harnessAgent = HarnessAgent.builder()
                     .name(config.getAgentName())
                     .sysPrompt(config.getSysPrompt())
-                    .model(model)
+                    .model(chatModelBase)
                     .toolkit(toolkit)
                     .permissionContext(permissionContextState)
                     .maxIters(100)
                     .build();
-
-            redisService.setIfAbsent(key, "1", 30L, TimeUnit.DAYS);
-
             return harnessAgent;
         });
     }
@@ -124,12 +95,13 @@ public class AgentRuntimeFactory {
 
     public Flux<AgentRuntimeEvent> callStreamEvents(
             AgentConfigDTO config,
+            UserInfo userInfo,
             String userKey,
             Long sessionId,
             String text
     ) {
         // 通过Agent配置,获取或创建Agent实例
-        HarnessAgent harnessAgent = getOrCreateAgent(config);
+        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo);
 
         // 通过租户ID-用户ID,还有sessionId,构建运行时上下文
         RuntimeContext context = RuntimeContext.builder()
@@ -147,12 +119,12 @@ public class AgentRuntimeFactory {
 
     public Flux<AgentRuntimeEvent> continueWithConfirmResults(
             AgentConfigDTO config,
-            Long userId,
+            UserInfo userInfo,
             Long sessionId,
             List<ConfirmResult> confirmResults
     ) {
-        HarnessAgent harnessAgent = getOrCreateAgent(config);
-        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userId),AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
+        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo);
+        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()),AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
         Msg confirmMsg = Msg.builder()
                 .name("user")
                 .role(MsgRole.USER)
@@ -166,12 +138,12 @@ public class AgentRuntimeFactory {
 
     public Flux<AgentRuntimeEvent> continueWithExternalExecutionResults(
             AgentConfigDTO config,
-            Long userId,
+            UserInfo userInfo,
             Long sessionId,
             List<ToolResultBlock> toolResults
     ) {
-        HarnessAgent harnessAgent = getOrCreateAgent(config);
-        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userId), AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
+        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo);
+        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()), AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
         List<ContentBlock> content = new ArrayList<>(toolResults == null ? List.of() : toolResults);
         Msg toolMsg = Msg.builder()
                 .name("external")

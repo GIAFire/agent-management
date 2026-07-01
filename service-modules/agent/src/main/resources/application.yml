@@ -41,8 +41,8 @@ spring:
           #   username: root
           #   password: root
 
-# mybatis配置
-mybatis:
+mybatis-plus:
+  # 全局配置
   global-config:
     db-config:
       # 全局设置主键生成策略
@@ -51,6 +51,10 @@ mybatis:
       logic-delete-value: 1         # 逻辑已删除值（默认1）
       logic-not-delete-value: 0     # 逻辑未删除值（默认0）
   # 搜索指定包别名
-  typeAliasesPackage: com.zw.agent.mapper
+  type-aliases-package: com.zw.agent.mapper
   # 配置mapper的扫描，找到所有的mapper.xml映射文件
-  mapperLocations: classpath:mapper/*.xml
+  mapper-locations: classpath:mapper/*.xml
+  # MyBatis配置
+  configuration:
+    # 使用字符串方式处理枚举
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler

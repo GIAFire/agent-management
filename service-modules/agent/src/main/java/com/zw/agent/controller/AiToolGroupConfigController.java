@@ -5,11 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiToolGroupConfigEntity;
 import com.zw.agent.mapper.AiToolGroupConfigMapper;
 import com.zw.agent.service.AiToolGroupConfigService;
-import com.zw.agent.support.EntityDefaults;
 import com.zw.common.entity.Result;
+import com.zw.common.support.EntityDefaults;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.Collections;
 import java.util.List;
 

@@ -1,5 +1,6 @@
 package com.zw.agent.entity.DTO;
 
+import com.zw.agent.factory.modelFactory.ModelType;
 import io.agentscope.core.permission.PermissionMode;
 import lombok.Data;
 
@@ -42,7 +43,7 @@ public class AgentConfigDTO {
 
     // ========== ModelConfig 字段 ==========
     private Long modelId;
-    private String provider;
+    private ModelType provider;
     private String baseUrl;
     private String apiKey;
     private String modelName;

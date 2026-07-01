@@ -1,12 +1,12 @@
 package com.zw.auth.controller;
 
-import com.zw.auth.config.JwtProperties;
 import com.zw.auth.entity.DTO.UserInfoDTO;
 import com.zw.auth.entity.VO.LoginRequest;
 import com.zw.auth.entity.VO.LoginResponse;
 import com.zw.auth.entity.VO.UserInfoVO;
 import com.zw.auth.service.SysUserService;
 import com.zw.common.RedisService;
+import com.zw.common.config.JwtProperties;
 import com.zw.common.constant.RedisConstants;
 import com.zw.common.entity.Result;
 import com.zw.common.utils.JwtUtils;
@@ -45,7 +45,6 @@ public class AuthController {
         UserInfoVO userInfo = new UserInfoVO();
         BeanUtils.copyProperties(user, userInfo);
         userInfo.setUserId(user.getId());
-        redisService.setCacheObject(RedisConstants.USER_INFO + userInfo.getUserId(), userInfo,7L, TimeUnit.DAYS);
         String token = JwtUtils.createToken(
                 String.valueOf(user.getId()),
                 jwtProperties.getIssuer(),
@@ -53,6 +52,7 @@ public class AuthController {
                 jwtProperties.getExpireSeconds(),
                 claims
         );
+        redisService.setCacheObject(RedisConstants.SESSION + token, userInfo,jwtProperties.getExpireSeconds(), TimeUnit.SECONDS);
         LoginResponse loginResponse = new LoginResponse(token,
                  "Bearer",
                 jwtProperties.getExpireSeconds(),
