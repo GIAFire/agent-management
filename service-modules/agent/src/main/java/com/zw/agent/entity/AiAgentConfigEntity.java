@@ -52,10 +52,10 @@ public class AiAgentConfigEntity extends BaseEntity {
     private String sysPrompt;
 
     /**
-     * 关联 ai_model_config.id
+     * 关联 ai_agent_model.id
      */
-    @TableField("model_config_id")
-    private Long modelConfigId;
+    @TableField("modelid")
+    private Long modelId;
 
     /**
      * ReAct 最大循环次数，防止无限工具调用

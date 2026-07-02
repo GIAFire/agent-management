@@ -3,11 +3,12 @@ package com.zw.agent.factory.agentFactory;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
+import com.zw.agent.factory.compactionFactory.CompactionFactory;
 import com.zw.agent.factory.modelFactory.ModelFactory;
-import com.zw.agent.factory.permissionFactory.permissionFactory;
+import com.zw.agent.factory.permissionFactory.PermissionFactory;
+import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
-import com.zw.common.RedisService;
 import com.zw.common.constant.CacheKeyBuilder;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
@@ -23,9 +24,10 @@ import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.permission.PermissionContextState;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
+import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
+import io.agentscope.harness.agent.memory.compaction.ToolResultEvictionConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -33,7 +35,6 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -47,37 +48,39 @@ public class AgentRuntimeFactory {
 
     private final Cache<String, HarnessAgent> agentCache;
     private final TenantToolkitFactory toolkitFactory;
-    private final permissionFactory permissionFactory;
+    private final PermissionFactory permissionFactory;
+    private final CompactionFactory compactionFactory;
+    private final ToolResultEvictionFactory toolResultEvictionFactory;
     private final ModelFactory modelFactory;
     private final CacheKeyBuilder cacheKeyBuilder;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config,UserInfo userInfo) {
         String agentCacheKey = cacheKeyBuilder.buildAgentKey(config.getAgentId(), userInfo.getTenantId(), userInfo.getUserId(), config.getAgentConfigId());
-        HarnessAgent agent = agentCache.getIfPresent(agentCacheKey);
-        if (agent != null){
-            return agent;
-        }
-        // 构造工具
-        Toolkit toolkit = toolkitFactory.buildToolkit(config.getTenantId());
-
-        // 构造权限
-        PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
-
-        // 构造模型
-        ChatModelBase chatModelBase = modelFactory.buildModel(config);
 
         // 构造模型配置
         return agentCache.get(agentCacheKey, key -> {
+            // 构造工具
+            Toolkit toolkit = toolkitFactory.buildToolkit(config.getTenantId());
+            // 构造权限
+            PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
+            // 构造上下文压缩配置
+            CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
+            // 大工具结果卸载
+            ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
+            // 构造模型
+            ChatModelBase chatModelBase = modelFactory.buildModel(config);
+
             // 构造Agent实例和Agent配置
-            HarnessAgent harnessAgent = HarnessAgent.builder()
+            return HarnessAgent.builder()
                     .name(config.getAgentName())
                     .sysPrompt(config.getSysPrompt())
                     .model(chatModelBase)
                     .toolkit(toolkit)
                     .permissionContext(permissionContextState)
-                    .maxIters(100)
+                    .maxIters(config.getMaxIters()) // 最大推理循环次数
+                    .compaction(compactionConfig)
+                    .toolResultEviction(toolResultEvictionConfig)
                     .build();
-            return harnessAgent;
         });
     }
 

@@ -1,5 +1,6 @@
 package com.zw.agent.tools.testCustomer;
 
+import com.zw.agent.tools.ToolSchemaUtils;
 import com.zw.common.entity.Result;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.tool.ToolBase;

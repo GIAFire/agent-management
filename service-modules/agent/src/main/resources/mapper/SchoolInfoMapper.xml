@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zw.agent.mapper.SchoolInfoMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.zw.agent.entity.SchoolInfoEntity">
+        <id column="id" property="id" />
+        <result column="ding_id" property="dingId" />
+        <result column="school_type" property="schoolType" />
+        <result column="school_belong" property="schoolBelong" />
+        <result column="school_name" property="schoolName" />
+        <result column="school_address" property="schoolAddress" />
+        <result column="gaode_location" property="gaodeLocation" />
+        <result column="admin_id" property="adminId" />
+        <result column="delete_status" property="deleteStatus" />
+        <result column="create_id" property="createId" />
+        <result column="create_by" property="createBy" />
+        <result column="create_at" property="createAt" />
+        <result column="update_id" property="updateId" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_at" property="updateAt" />
+        <result column="del_unique_key" property="delUniqueKey" />
+        <result column="dt" property="dt" />
+        <result column="school_type_name" property="schoolTypeName" />
+        <result column="school_blong_name" property="schoolBlongName" />
+        <result column="school_belong_name" property="schoolBelongName" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, ding_id, school_type, school_belong, school_name, school_address, gaode_location, admin_id, delete_status, create_id, create_by, create_at, update_id, update_by, update_at, del_unique_key, dt, school_type_name, school_blong_name, school_belong_name
+    </sql>
+
+    <select id="findSchoolInfo" resultType="java.util.Map" >
+        SELECT
+            si.school_name 学校名称,
+            si.school_address 学校地址,
+            CASE si.school_type
+            WHEN '10899' THEN '民办学校'
+            WHEN '10900' THEN '幼儿园'
+            WHEN '10901' THEN '公办学校'
+            ELSE '其他'
+            END 学校类型,
+            ss.name 所属区域
+        FROM
+            school_info si
+        LEFT JOIN
+            school_setting ss ON si.school_belong = ss.id
+        <where>
+            <if test="district != null and district != ''">
+                AND ss.name LIKE CONCAT('%', #{district}, '%')
+            </if>
+            <if test="schoolName != null and schoolName != ''">
+                AND si.school_name LIKE CONCAT('%', #{schoolName}, '%')
+            </if>
+            <if test="schoolAddress != null and schoolAddress != ''">
+                AND si.school_address LIKE CONCAT('%', #{schoolAddress}, '%')
+            </if>
+            <if test="schoolType != null and schoolType != ''">
+                AND si.school_type = #{schoolType}
+            </if>
+        </where>
+    </select>
+
+    <select id="schoolGroupByType" resultType="java.util.Map" >
+        SELECT
+        CASE si.school_type
+            WHEN '10899' THEN '民办学校'
+            WHEN '10900' THEN '幼儿园'
+            WHEN '10901' THEN '公办学校'
+            ELSE '其他'
+            END 学校类型,
+        count( 1 ) 数量
+        FROM
+            school_info si
+                LEFT JOIN school_setting ss ON si.school_belong = ss.id
+        GROUP BY
+            si.school_type
+    </select>
+
+    <select id="schoolGroupByDistrict" resultType="java.util.Map" >
+        SELECT
+            ss.NAME 所属区域,
+            count( 1 ) 数量
+        FROM
+            school_info si
+                LEFT JOIN school_setting ss ON si.school_belong = ss.id
+        GROUP BY
+            ss.NAME
+    </select>
+
+    <select id="queryTableList" resultType="java.util.Map">
+        SELECT
+            TABLE_NAME 表名,
+            TABLE_COMMENT 表注释,
+            TABLE_ROWS 数据行数
+        FROM
+            information_schema.TABLES
+        WHERE
+            TABLE_SCHEMA = DATABASE ()
+        ORDER BY
+            TABLE_NAME
+    </select>
+
+</mapper>

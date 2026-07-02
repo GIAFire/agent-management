@@ -6,8 +6,6 @@ import org.icepear.echarts.Option;
 
 @Data
 public class ToolResponse {
-    Long count;
+    Integer count;
     Object data;
-    String optionTemplate;
-    String toLLMMessage;
 }

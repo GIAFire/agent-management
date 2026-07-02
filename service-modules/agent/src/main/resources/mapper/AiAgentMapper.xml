@@ -66,7 +66,7 @@
 
             ac.id AS agentConfigId,
             ac.sys_prompt AS sysPrompt,
-            ac.model_config_id AS modelConfigId,
+            ac.model_id AS modelId,
             ac.max_iters AS maxIters,
             ac.compaction_config_json AS compactionConfigJson,
             ac.workspace_config_json AS workspaceConfigJson,
@@ -74,6 +74,7 @@
             ac.visual_schema_json AS visualSchemaJson,
             ac.publish_status AS publishStatus,
             ac.published_at AS publishedAt,
+            ac.tool_result_eviction_enabled AS toolResultEvictionEnabled,
 
             model.id AS modelId,
             model.provider AS provider,
@@ -93,7 +94,7 @@
                  LEFT JOIN ai_agent_config ac ON ac.agent_id = agent.id
                     AND ac.deleted = 0
                     AND ac.publish_status = 1
-                 LEFT JOIN ai_model_config model ON model.id = ac.model_config_id
+                 LEFT JOIN ai_agent_model model ON model.id = ac.model_id
                     AND model.deleted = 0
         WHERE agent.id = #{agentId}
           AND agent.tenant_id = #{tenantId}

@@ -2,8 +2,8 @@ package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zw.agent.entity.AiModelConfigEntity;
-import com.zw.agent.service.AiModelConfigService;
+import com.zw.agent.entity.AiAgentModelEntity;
+import com.zw.agent.service.AiAgentModelService;
 import com.zw.common.entity.Result;
 import java.util.List;
 import com.zw.common.support.EntityDefaults;
@@ -21,42 +21,42 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/modelConfig")
 @AllArgsConstructor
-public class AiModelConfigController {
-    private final AiModelConfigService aiModelConfigService;
+public class AiAgentModelController {
+    private final AiAgentModelService aiAgentModelService;
 
     @GetMapping("/list")
-    public Result<List<AiModelConfigEntity>> list() {
+    public Result<List<AiAgentModelEntity>> list() {
 
-        return Result.ok(aiModelConfigService.list());
+        return Result.ok(aiAgentModelService.list());
     }
 
     @GetMapping("/page")
-    public Result<IPage<AiModelConfigEntity>> page(
+    public Result<IPage<AiAgentModelEntity>> page(
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size
     ) {
-        return Result.ok(aiModelConfigService.page(new Page<>(current, size)));
+        return Result.ok(aiAgentModelService.page(new Page<>(current, size)));
     }
 
     @GetMapping("/{id}")
-    public Result<AiModelConfigEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiModelConfigService.getById(id));
+    public Result<AiAgentModelEntity> getById(@PathVariable Long id) {
+        return Result.ok(aiAgentModelService.getById(id));
     }
 
     @PostMapping("/save")
-    public Result<Boolean> save(@RequestBody AiModelConfigEntity entity) {
+    public Result<Boolean> save(@RequestBody AiAgentModelEntity entity) {
 //        BeanUtils.copyProperties(entity, modelConfigEntity);
-        return Result.ok(aiModelConfigService.save(EntityDefaults.create(entity)));
+        return Result.ok(aiAgentModelService.save(EntityDefaults.create(entity)));
     }
 
     @PutMapping
-    public Result<Boolean> update(@RequestBody AiModelConfigEntity entity) {
-        return Result.ok(aiModelConfigService.updateById(EntityDefaults.update(entity)));
+    public Result<Boolean> update(@RequestBody AiAgentModelEntity entity) {
+        return Result.ok(aiAgentModelService.updateById(EntityDefaults.update(entity)));
     }
 
     @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
-        return Result.ok(aiModelConfigService.removeById(id));
+        return Result.ok(aiAgentModelService.removeById(id));
     }
 
 }

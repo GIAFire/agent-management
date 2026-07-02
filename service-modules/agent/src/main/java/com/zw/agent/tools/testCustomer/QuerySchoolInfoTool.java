@@ -1,13 +1,13 @@
 package com.zw.agent.tools.testCustomer;
 
 import com.zw.agent.service.CommonService;
+import com.zw.agent.service.IServiceSchoolInfoService;
 import com.zw.agent.tools.ToolResponse;
 import com.zw.agent.tools.ToolSchemaUtils;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.tool.ToolBase;
 import io.agentscope.core.tool.ToolCallParam;
 import lombok.extern.slf4j.Slf4j;
-import org.icepear.echarts.Bar;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -19,15 +19,18 @@ import java.util.Map;
 
 @Slf4j
 @Component
-public class CommonTool extends ToolBase {
+public class QuerySchoolInfoTool extends ToolBase {
 
     @Autowired
-    private CommonService commonService;
+    private IServiceSchoolInfoService schoolInfoService;
 
-    public CommonTool() {
+    public QuerySchoolInfoTool() {
         super(ToolBase.builder()
-                .name("test_query_equipment_info")
-                .description("查询设备信息")
+                .name("query_school_info")
+                .description("查询学校信息,如果出现地名+区名,则将区名去掉,提供地名即可,如:龙岗区改为龙岗\n" +
+                        "问题示例：1. 查一下龙岗区各街道学校统计情况。" +
+                        "如果查询学校名,则只提供学校名专有名词即可,如小学、中学、学校这些词不要作为参数提供,如龙岭初级中学,改为龙岭" +
+                        "问题示例: 2. 查一下龙岭初级中学信息。")
                 .inputSchema(inputSchema())
                 .readOnly(true)
                 .concurrencySafe(true));
@@ -36,12 +39,12 @@ public class CommonTool extends ToolBase {
     @Override
     public Mono<ToolResultBlock> callAsync(ToolCallParam param) {
         try {
-            List<Map<String, Object>> res = commonService.testQueryEquipmentInfo(param.getInput());
-            Integer count = res.size();
+            List<Map<String, Object>> schoolInfo = schoolInfoService.findSchoolInfo(param.getInput());
+            int count = schoolInfo.size();
 
             ObjectMapper mapper = new ObjectMapper();
             ToolResponse toolResponse = new ToolResponse();
-            toolResponse.setData(res);
+            toolResponse.setData(schoolInfo);
             toolResponse.setCount(count);
             return Mono.just(ToolResultBlock.text(mapper.writeValueAsString(toolResponse)));
         } catch (Exception ex) {
@@ -51,12 +54,10 @@ public class CommonTool extends ToolBase {
 
     private static Map<String, Object> inputSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("equipmentName", ToolSchemaUtils.stringProperty("设备名称"));
-        properties.put("level", ToolSchemaUtils.stringProperty("设备等级"));
-        properties.put("factory", ToolSchemaUtils.stringProperty("生产厂家"));
-        properties.put("orgName", ToolSchemaUtils.stringProperty("游乐园名称"));
-        properties.put("contactName", ToolSchemaUtils.stringProperty("设备联系人"));
-        properties.put("contactJob", ToolSchemaUtils.stringProperty("联系人职位"));
+        properties.put("district", ToolSchemaUtils.stringProperty("区域名"));
+        properties.put("schoolAddress", ToolSchemaUtils.stringProperty("街道地址"));
+        properties.put("schoolName", ToolSchemaUtils.stringProperty("学校名"));
+        properties.put("schoolType", ToolSchemaUtils.stringProperty("学校类型"));
         // list中是必填参数
         return ToolSchemaUtils.objectSchema(properties, null);
     }

@@ -1,8 +1,8 @@
 package com.zw.agent.service.impl;
 
-import com.zw.agent.entity.AiModelConfigEntity;
-import com.zw.agent.mapper.AiModelConfigMapper;
-import com.zw.agent.service.AiModelConfigService;
+import com.zw.agent.entity.AiAgentModelEntity;
+import com.zw.agent.mapper.AiAgentModelMapper;
+import com.zw.agent.service.AiAgentModelService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import org.springframework.stereotype.Service;
 
@@ -15,6 +15,6 @@ import org.springframework.stereotype.Service;
  * @since 2026-06-20
  */
 @Service
-public class AiModelConfigServiceImpl extends ServiceImpl<AiModelConfigMapper, AiModelConfigEntity> implements AiModelConfigService {
+public class AiAgentModelServiceImpl extends ServiceImpl<AiAgentModelMapper, AiAgentModelEntity> implements AiAgentModelService {
 
 }

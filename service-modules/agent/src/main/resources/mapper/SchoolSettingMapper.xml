@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zw.agent.mapper.SchoolSettingMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.zw.agent.entity.SchoolSettingEntity">
+        <id column="id" property="id" />
+        <result column="parent_id" property="parentId" />
+        <result column="ding_id" property="dingId" />
+        <result column="type" property="type" />
+        <result column="name" property="name" />
+        <result column="del_unique_key" property="delUniqueKey" />
+        <result column="delete_status" property="deleteStatus" />
+        <result column="create_id" property="createId" />
+        <result column="create_by" property="createBy" />
+        <result column="create_at" property="createAt" />
+        <result column="update_id" property="updateId" />
+        <result column="update_by" property="updateBy" />
+        <result column="update_at" property="updateAt" />
+    </resultMap>
+
+    <!-- 通用查询结果列 -->
+    <sql id="Base_Column_List">
+        id, parent_id, ding_id, type, name, del_unique_key, delete_status, create_id, create_by, create_at, update_id, update_by, update_at
+    </sql>
+
+</mapper>

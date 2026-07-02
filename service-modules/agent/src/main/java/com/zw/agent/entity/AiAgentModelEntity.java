@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zw.agent.factory.modelFactory.ModelType;
 import com.zw.common.entity.BaseEntity;
 
 import java.math.BigDecimal;
@@ -22,8 +23,8 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("ai_model_config")
-public class AiModelConfigEntity extends BaseEntity {
+@TableName("ai_agent_model")
+public class AiAgentModelEntity extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
 
@@ -43,7 +44,7 @@ public class AiModelConfigEntity extends BaseEntity {
      * 模型供应商
      */
     @TableField("provider")
-    private String provider;
+    private ModelType provider;
 
     /**
      * apiUrl

@@ -19,7 +19,7 @@ import java.util.Set;
 @Slf4j
 @RequiredArgsConstructor
 @Component
-public class permissionFactory {
+public class PermissionFactory {
 
     private final AiToolRolePermissionService toolRolePermissionService;
 

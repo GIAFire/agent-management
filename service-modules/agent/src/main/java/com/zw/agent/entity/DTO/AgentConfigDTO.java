@@ -28,7 +28,6 @@ public class AgentConfigDTO {
     private Long agentConfigId;
     private String sysPrompt;
     private String permissionMode;
-    private Long modelConfigId;
     private Integer maxIters;
     private String compactionConfigJson;
     private String workspaceConfigJson;
@@ -41,7 +40,7 @@ public class AgentConfigDTO {
     private Integer publishStatus;
     private LocalDateTime publishedAt;
 
-    // ========== ModelConfig 字段 ==========
+    // ========== Model 字段 ==========
     private Long modelId;
     private ModelType provider;
     private String baseUrl;
@@ -55,4 +54,9 @@ public class AgentConfigDTO {
     private Integer maxAttempts;
     private Long fallbackModelConfigId;
     private Integer modelStatus;
+
+    // ========== Compaction上下文压缩 字段 ==========
+    private Integer triggerMessages = 30;
+    private Integer keepMessages = 10;
+    private  Boolean toolResultEvictionEnabled;
 }
