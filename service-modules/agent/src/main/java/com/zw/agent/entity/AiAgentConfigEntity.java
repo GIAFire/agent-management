@@ -54,7 +54,7 @@ public class AiAgentConfigEntity extends BaseEntity {
     /**
      * 关联 ai_agent_model.id
      */
-    @TableField("modelid")
+    @TableField("model_id")
     private Long modelId;
 
     /**

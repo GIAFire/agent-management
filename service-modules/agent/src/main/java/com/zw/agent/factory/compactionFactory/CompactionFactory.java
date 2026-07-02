@@ -20,8 +20,8 @@ public class CompactionFactory {
                 .triggerMessages(config.getTriggerMessages())     // 30 条触发
                 .keepMessages(config.getKeepMessages())        // 压缩后保留最近 10 条原文
                 .truncateArgs(CompactionConfig.TruncateArgsConfig.builder()
-                        .maxArgLength(2000)
-                        .truncationText("... [truncated] ...")
+                        .maxArgLength(1000)
+                        .truncationText("<<<ARGS_TRUNCATED_BY_COMPACTION>>>")
                         .build())                                   // 截断大文本参数长度
                 .build();
     }

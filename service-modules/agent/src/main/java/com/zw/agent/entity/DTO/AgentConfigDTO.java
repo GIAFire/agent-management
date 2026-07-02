@@ -29,16 +29,17 @@ public class AgentConfigDTO {
     private String sysPrompt;
     private String permissionMode;
     private Integer maxIters;
-    private String compactionConfigJson;
-    private String workspaceConfigJson;
-    // 兼容性字段
     private String workspacePath;
-    private Integer compactionTriggerMessages;
-    private Integer compactionKeepMessages;
-
-    private String visualSchemaJson;
-    private Integer publishStatus;
-    private LocalDateTime publishedAt;
+    private String contextEnabled;
+    private String triggerMode;
+    // ========== Compaction上下文压缩 字段 ==========
+    private Integer triggerMessages;
+    private Integer keepMessages;
+    private Integer triggerTokens;
+    private Integer keepTokens;
+    private  Boolean truncateArgsEnabled;   // 是否启用工具参数预截断：1启用，0关闭
+    private  Boolean toolResultEvictionEnabled; // 是否启用大工具结果卸载：1启用，0关闭
+    // 兼容性字段
 
     // ========== Model 字段 ==========
     private Long modelId;
@@ -55,8 +56,4 @@ public class AgentConfigDTO {
     private Long fallbackModelConfigId;
     private Integer modelStatus;
 
-    // ========== Compaction上下文压缩 字段 ==========
-    private Integer triggerMessages = 30;
-    private Integer keepMessages = 10;
-    private  Boolean toolResultEvictionEnabled;
 }

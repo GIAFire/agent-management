@@ -5,7 +5,6 @@
     <resultMap id="AgentFullResultMap" type="com.zw.agent.entity.DTO.AgentConfigDTO">
         <!-- Agent 字段映射 -->
         <result property="agentId" column="agent_id"/>
-        <result property="agentIdentifier" column="agent_identifier"/>
         <result property="agentKey" column="agent_key"/>
         <result property="agentName" column="agent_name"/>
         <result property="agentDescription" column="agent_description"/>
@@ -23,10 +22,8 @@
         <!-- AgentConfig 字段映射 -->
         <result property="agentConfigId" column="agent_config_id"/>
         <result property="sysPrompt" column="sys_prompt"/>
-        <result property="modelConfigId" column="model_config_id"/>
+        <result property="modelId" column="model_id"/>
         <result property="maxIters" column="max_iters"/>
-        <result property="compactionConfigJson" column="compaction_config_json"/>
-        <result property="workspaceConfigJson" column="workspace_config_json"/>
         <result property="permissionMode" column="permission_mode"/>
         <result property="visualSchemaJson" column="visual_schema_json"/>
         <result property="publishStatus" column="publish_status"/>
@@ -68,12 +65,18 @@
             ac.sys_prompt AS sysPrompt,
             ac.model_id AS modelId,
             ac.max_iters AS maxIters,
-            ac.compaction_config_json AS compactionConfigJson,
-            ac.workspace_config_json AS workspaceConfigJson,
+            ac.workspace_path AS workspacePath,
             ac.permission_mode AS permissionMode,
             ac.visual_schema_json AS visualSchemaJson,
             ac.publish_status AS publishStatus,
             ac.published_at AS publishedAt,
+            ac.tool_result_eviction_enabled AS toolResultEvictionEnabled,
+            ac.context_enabled AS contextEnabled,
+            ac.trigger_messages AS triggerMessages,
+            ac.keep_messages AS keepMessages,
+            ac.trigger_tokens AS triggerTokens,
+            ac.keep_tokens AS keepTokens,
+            ac.truncate_args_enabled AS truncateArgsEnabled,
             ac.tool_result_eviction_enabled AS toolResultEvictionEnabled,
 
             model.id AS modelId,
