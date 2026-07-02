@@ -54,8 +54,13 @@ public class AgentRuntimeFactory {
     private final ModelFactory modelFactory;
     private final CacheKeyBuilder cacheKeyBuilder;
 
-    public HarnessAgent getOrCreateAgent(AgentConfigDTO config,UserInfo userInfo) {
-        String agentCacheKey = cacheKeyBuilder.buildAgentKey(config.getAgentId(), userInfo.getTenantId(), userInfo.getUserId(), config.getAgentConfigId());
+    public HarnessAgent getOrCreateAgent(AgentConfigDTO config,UserInfo userInfo,Long sessionId) {
+        String agentCacheKey = cacheKeyBuilder.buildAgentKey(
+                config.getAgentId(),
+                userInfo.getTenantId(),
+                userInfo.getUserId(),
+                config.getAgentConfigId(),
+                sessionId);
 
         // 构造模型配置
         return agentCache.get(agentCacheKey, key -> {
@@ -104,7 +109,7 @@ public class AgentRuntimeFactory {
             String text
     ) {
         // 通过Agent配置,获取或创建Agent实例
-        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo);
+        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
 
         // 通过租户ID-用户ID,还有sessionId,构建运行时上下文
         RuntimeContext context = RuntimeContext.builder()
@@ -126,7 +131,7 @@ public class AgentRuntimeFactory {
             Long sessionId,
             List<ConfirmResult> confirmResults
     ) {
-        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo);
+        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
         RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()),AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
         Msg confirmMsg = Msg.builder()
                 .name("user")
@@ -145,7 +150,7 @@ public class AgentRuntimeFactory {
             Long sessionId,
             List<ToolResultBlock> toolResults
     ) {
-        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo);
+        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
         RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()), AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
         List<ContentBlock> content = new ArrayList<>(toolResults == null ? List.of() : toolResults);
         Msg toolMsg = Msg.builder()
