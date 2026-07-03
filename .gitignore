@@ -33,3 +33,4 @@ node_modules/
 logs/
 workspace/
 **/resources/rebel.xml
+/.agentscope/

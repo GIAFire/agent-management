@@ -22,6 +22,7 @@ import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.permission.PermissionContextState;
+import io.agentscope.core.state.AgentStateStore;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
@@ -32,6 +33,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -84,6 +86,9 @@ public class AgentRuntimeFactory {
                     .permissionContext(permissionContextState)
                     .maxIters(config.getMaxIters()) // 最大推理循环次数
                     .compaction(compactionConfig)
+                    .workspace(Paths.get(config.getWorkspacePath())) // 配置工作空间路径
+//                    .additionalContextFile("knowledge.md")  构造Agent实例时,可直接注入上下文文件
+                    .disableMemoryTools()
                     .toolResultEviction(toolResultEvictionConfig)
                     .build();
         });
