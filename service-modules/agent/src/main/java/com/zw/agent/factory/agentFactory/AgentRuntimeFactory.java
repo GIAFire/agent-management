@@ -1,7 +1,6 @@
 package com.zw.agent.factory.agentFactory;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import com.zw.agent.entity.AiAgentStateLogEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
@@ -125,10 +124,7 @@ public class AgentRuntimeFactory {
         HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
 
         // 通过租户ID-用户ID,还有sessionId,构建运行时上下文
-        RuntimeContext runtimeContext = RuntimeContext.builder()
-                .userId(userKey)
-                .sessionId(sessionKey)
-                .build();
+        RuntimeContext runtimeContext = buildRuntimeContext(userKey, sessionKey);
         // 获取用户消息
         UserMessage userMessage = new UserMessage(text);
 
@@ -163,7 +159,9 @@ public class AgentRuntimeFactory {
             List<ConfirmResult> confirmResults
     ) {
         HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
-        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()), String.valueOf(sessionId));
+        String userKey = AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId());
+        String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
+        RuntimeContext context = buildRuntimeContext(userKey, sessionKey);
         Msg confirmMsg = Msg.builder()
                 .name("user")
                 .role(MsgRole.USER)
@@ -174,7 +172,7 @@ public class AgentRuntimeFactory {
         Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(confirmMsg), context)
                 .map(this::toRuntimeEvent);
 
-        return new AgentRuntimeStream(harnessAgent, runtimeEvent);
+        return new AgentRuntimeStream(harnessAgent, context, runtimeEvent, userKey, sessionKey);
     }
 
     public AgentRuntimeStream continueWithExternalExecutionResults(
@@ -184,7 +182,9 @@ public class AgentRuntimeFactory {
             List<ToolResultBlock> toolResults
     ) {
         HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
-        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()), String.valueOf(sessionId));
+        String userKey = AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId());
+        String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
+        RuntimeContext context = buildRuntimeContext(userKey, sessionKey);
         List<ContentBlock> content = new ArrayList<>(toolResults == null ? List.of() : toolResults);
         Msg toolMsg = Msg.builder()
                 .name("external")
@@ -195,7 +195,7 @@ public class AgentRuntimeFactory {
         Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(toolMsg), context)
                 .map(this::toRuntimeEvent);
 
-        return new AgentRuntimeStream(harnessAgent, runtimeEvent);
+        return new AgentRuntimeStream(harnessAgent, context, runtimeEvent, userKey, sessionKey);
     }
 
     private RuntimeContext buildRuntimeContext(String userKey, String sessionKey) {
