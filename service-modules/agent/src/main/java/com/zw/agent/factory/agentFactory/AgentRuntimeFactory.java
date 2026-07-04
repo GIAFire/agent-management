@@ -6,6 +6,7 @@ import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.factory.compactionFactory.CompactionFactory;
 import com.zw.agent.factory.modelFactory.ModelFactory;
 import com.zw.agent.factory.permissionFactory.PermissionFactory;
+import com.zw.agent.factory.runtimeContextFactory.RuntimeContextFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
@@ -23,6 +24,8 @@ import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.permission.PermissionContextState;
 import io.agentscope.core.state.AgentStateStore;
+import io.agentscope.core.state.State;
+import io.agentscope.core.tool.ToolExecutionContext;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
@@ -34,9 +37,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 /**
@@ -54,6 +55,7 @@ public class AgentRuntimeFactory {
     private final CompactionFactory compactionFactory;
     private final ToolResultEvictionFactory toolResultEvictionFactory;
     private final ModelFactory modelFactory;
+    private final RuntimeContextFactory runtimeContextFactory;
     private final CacheKeyBuilder cacheKeyBuilder;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config,UserInfo userInfo,Long sessionId) {
@@ -68,7 +70,7 @@ public class AgentRuntimeFactory {
         return agentCache.get(agentCacheKey, key -> {
             // 构造工具
             Toolkit toolkit = toolkitFactory.buildToolkit(config.getTenantId());
-            // 构造权限
+            // TODO 构造权限,注意:更新用户权限后,旧session会话中的权限上下文并不会更新
             PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
             // 构造上下文压缩配置
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
@@ -117,15 +119,12 @@ public class AgentRuntimeFactory {
         HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
 
         // 通过租户ID-用户ID,还有sessionId,构建运行时上下文
-        RuntimeContext context = RuntimeContext.builder()
-                .userId(userKey)
-                .sessionId(AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(),sessionId))
-                .build();
+        RuntimeContext runtimeContext = runtimeContextFactory.RuntimeContextFactory(userInfo, config, userKey, sessionId);
         // 获取用户消息
         UserMessage userMessage = new UserMessage(text);
 
         // 获取Agent事件流
-        Flux<AgentEvent> agentEventFlux = harnessAgent.streamEvents(userMessage, context);
+        Flux<AgentEvent> agentEventFlux = harnessAgent.streamEvents(userMessage, runtimeContext);
         return agentEventFlux
                 .map(this::toRuntimeEvent);
     }

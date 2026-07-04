@@ -3,6 +3,7 @@ package com.zw.common.context;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 public class UserInfo  implements Serializable {
@@ -14,7 +15,7 @@ public class UserInfo  implements Serializable {
 
     private Long tenantId;
 
-    private Long roleCode;
+    private List<String> roleCodes;
 
     private Byte status;
 }

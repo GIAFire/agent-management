@@ -11,8 +11,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class CompactionFactory {
 
-
-
     public CompactionConfig buildCompaction(
             AgentConfigDTO config
     ){
@@ -21,7 +19,7 @@ public class CompactionFactory {
                 .keepMessages(config.getKeepMessages())        // 压缩后保留最近 10 条原文
                 .truncateArgs(CompactionConfig.TruncateArgsConfig.builder()
                         .maxArgLength(1000)
-                        .truncationText("<<<ARGS_TRUNCATED_BY_COMPACTION>>>")
+                        .truncationText("... [truncated] ...")
                         .build())                                   // 截断大文本参数长度
                 .build();
     }

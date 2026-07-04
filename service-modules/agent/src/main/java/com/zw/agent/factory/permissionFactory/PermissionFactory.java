@@ -14,7 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.util.Set;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -29,7 +30,7 @@ public class PermissionFactory {
             UserInfo userInfo,
             Toolkit toolkit
     ){
-        String roleCode = String.valueOf(userInfo.getRoleCode());
+        List<String> roleCodes = userInfo.getRoleCodes();
 
         PermissionContextState.Builder builder = PermissionContextState.builder()
                 .mode(PermissionMode.valueOf(config.getPermissionMode()));
@@ -37,11 +38,20 @@ public class PermissionFactory {
         Set<String> toolNames = toolkit.getToolNames();
 
         for (String toolName : toolNames) {
-            AiToolRolePermissionEntity toolRolePermission = toolRolePermissionService.getOne(new LambdaQueryWrapper<AiToolRolePermissionEntity>()
+            List<AiToolRolePermissionEntity> permissionList = toolRolePermissionService.list(new LambdaQueryWrapper<AiToolRolePermissionEntity>()
                     .eq(AiToolRolePermissionEntity::getToolName, toolName)
-                    .eq(AiToolRolePermissionEntity::getRoleCode, roleCode)
+                    .in(AiToolRolePermissionEntity::getRoleCode, roleCodes)
                     .eq(AiToolRolePermissionEntity::getTenantId, userInfo.getTenantId())
                     .eq(AiToolRolePermissionEntity::getStatus, (byte) 1));
+
+            // 去重,多个角色可能存在相同工具权限
+            AiToolRolePermissionEntity toolRolePermission = permissionList.stream()
+                    .collect(Collectors.collectingAndThen(
+                            Collectors.toCollection(() -> new TreeSet<>(
+                                    Comparator.comparing(AiToolRolePermissionEntity::getToolId)
+                            )),
+                            list -> list.isEmpty() ? null : list.first() // 取第一个
+                    ));
 
             if (toolRolePermission == null) {
                 PermissionRule rule =
