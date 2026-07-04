@@ -54,7 +54,7 @@ public class AgentChatServiceImpl implements AgentChatService {
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,UserInfo userInfo, Long sessionId, String text,Long runId,Long requestStartNs, Long requestStartMs) {
         // 从上下文获取当前用户信息
         return streamRuntimeEvents(
-                agentRuntimeFactory.callStreamEvents(config,userInfo, AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()), sessionId, text),
+                agentRuntimeFactory.callStreamEvents(config,userInfo, sessionId, text),
                 config,
                 userInfo,
                 sessionId,

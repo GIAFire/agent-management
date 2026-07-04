@@ -102,7 +102,6 @@ public class AgentRuntimeFactory {
      * 最后异步执行Agent调用并返回文本格式的响应内容。
      *
      * @param config       Agent运行时配置，用于获取或创建Agent实例
-     * @param userKey 运行时用户标识键，用于构建运行时上下文
      * @param sessionId    会话标识键，用于跟踪会话状态
      * @param text         用户输入的文本消息内容
      * @return Mono封装的字符串响应，包含Agent处理后的文本内容
@@ -111,7 +110,6 @@ public class AgentRuntimeFactory {
     public Flux<AgentRuntimeEvent> callStreamEvents(
             AgentConfigDTO config,
             UserInfo userInfo,
-            String userKey,
             Long sessionId,
             String text
     ) {
@@ -119,7 +117,10 @@ public class AgentRuntimeFactory {
         HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
 
         // 通过租户ID-用户ID,还有sessionId,构建运行时上下文
-        RuntimeContext runtimeContext = runtimeContextFactory.RuntimeContextFactory(userInfo, config, userKey, sessionId);
+        RuntimeContext runtimeContext = RuntimeContext.builder()
+                .userId(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()))
+                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
+                .build();
         // 获取用户消息
         UserMessage userMessage = new UserMessage(text);
 
@@ -136,7 +137,7 @@ public class AgentRuntimeFactory {
             List<ConfirmResult> confirmResults
     ) {
         HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
-        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()),AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
+        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()),String.valueOf(sessionId));
         Msg confirmMsg = Msg.builder()
                 .name("user")
                 .role(MsgRole.USER)
@@ -155,7 +156,7 @@ public class AgentRuntimeFactory {
             List<ToolResultBlock> toolResults
     ) {
         HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
-        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()), AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
+        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()), String.valueOf(sessionId));
         List<ContentBlock> content = new ArrayList<>(toolResults == null ? List.of() : toolResults);
         Msg toolMsg = Msg.builder()
                 .name("external")
@@ -382,7 +383,7 @@ public class AgentRuntimeFactory {
         // 构建运行时上下文
         RuntimeContext context = RuntimeContext.builder()
                 .userId(AgentRuntimeKeys.userKey(config.getTenantId(), userId))
-                .sessionId(AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId))
+                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
                 .build();
 
         return harnessAgent.call(new UserMessage(text), context)

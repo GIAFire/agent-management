@@ -17,11 +17,8 @@ public final class AgentRuntimeKeys {
         return "tenant-" + tenantId + "-user-" + userId;
     }
 
-    public static String sessionKey(Long tenantId, Long agentId, Long agentConfigId, Long sessionId) {
-        return "tenant-" + tenantId
-                + "-agent-" + agentId
-                + "-config-" + agentConfigId
-                + "-session-" + sessionId;
+    public static String sessionKey(Long sessionId) {
+        return "session-" + sessionId;
     }
 
 

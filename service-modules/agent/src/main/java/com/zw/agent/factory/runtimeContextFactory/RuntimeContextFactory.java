@@ -26,14 +26,13 @@ public class RuntimeContextFactory {
     public RuntimeContext RuntimeContextFactory(
             UserInfo userInfo,
             AgentConfigDTO config,
-            String userKey,
             Long sessionId
     ){
 
 //        List<Map<String,String>> permission = toolRolePermissionService.getToolPermissionByUserId(userInfo.getUserId());
         RuntimeContext build = RuntimeContext.builder()
-                .userId(userKey)
-                .sessionId(AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId))
+                .userId(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()))
+                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
                 .build();
         return build;
     }
