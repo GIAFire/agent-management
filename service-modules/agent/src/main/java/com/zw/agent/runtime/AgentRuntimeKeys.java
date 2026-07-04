@@ -14,11 +14,18 @@ public final class AgentRuntimeKeys {
     }
 
     public static String userKey(Long tenantId, Long userId) {
-        return "tenant-" + tenantId + "-user-" + userId;
+        return "tenant_" + tenantId + "-user_" + userId;
     }
 
     public static String sessionKey(Long sessionId) {
-        return "session-" + sessionId;
+        return "session_" + sessionId;
+    }
+
+    public static String redisStateKey(String runtimeUserKey, String runtimeSessionKey) {
+        return "agent-state-session_"
+                + runtimeUserKey
+                + "-"
+                + runtimeSessionKey;
     }
 
 

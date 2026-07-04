@@ -83,12 +83,6 @@ public class AiAgentStateLogEntity extends BaseEntity {
     private String stateKey;
 
     /**
-     * 状态版本号，每次保存后递增，用于并发与排查
-     */
-    @TableField("state_version")
-    private Long stateVersion;
-
-    /**
      * 序列化后状态大小，单位字节
      */
     @TableField("state_size_bytes")

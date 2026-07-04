@@ -1,13 +1,17 @@
 package com.zw.agent.service.impl;
 
+import com.zw.agent.entity.AiAgentStateLogEntity;
 import com.zw.agent.entity.AiToolCallLogEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentInterventionRequest;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.factory.agentFactory.AgentRuntimeFactory;
+import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
+import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.*;
 import com.zw.common.context.UserInfo;
+import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
 import io.agentscope.core.message.ContentBlock;
 import io.agentscope.core.message.TextBlock;
@@ -16,6 +20,8 @@ import io.agentscope.core.message.ToolResultState;
 import io.agentscope.core.message.ToolUseBlock;
 import io.agentscope.core.model.ChatUsage;
 import io.agentscope.core.permission.PermissionRule;
+import io.agentscope.core.state.AgentState;
+import io.agentscope.harness.agent.HarnessAgent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.codec.ServerSentEvent;
@@ -24,6 +30,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,12 +56,16 @@ public class AgentChatServiceImpl implements AgentChatService {
     private final AiAgentMessageLogService agentMessageService;
     private final AiAgentRunLogService agentRunService;
     private final AiToolCallLogService toolCallAuditService;
+    private final AiAgentStateLogService agentStateLogService;
 
     @Override
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,UserInfo userInfo, Long sessionId, String text,Long runId,Long requestStartNs, Long requestStartMs) {
         // 从上下文获取当前用户信息
+        AgentRuntimeStream agentRuntimeStream = agentRuntimeFactory.callStreamEvents(config, userInfo, sessionId, text);
         return streamRuntimeEvents(
-                agentRuntimeFactory.callStreamEvents(config,userInfo, sessionId, text),
+                agentRuntimeStream.getAgent(),
+                agentRuntimeStream.getRuntimeContext(),
+                agentRuntimeStream.getRuntimeEvents(),
                 config,
                 userInfo,
                 sessionId,
@@ -73,13 +85,15 @@ public class AgentChatServiceImpl implements AgentChatService {
             Long requestStartMs
     ) {
         Long runId = requireRunId(request);
-        return streamRuntimeEvents(
-                agentRuntimeFactory.continueWithConfirmResults(
-                        config,
+        AgentRuntimeStream agentRuntimeStream = agentRuntimeFactory
+                .continueWithConfirmResults(config,
                         userInfo,
                         sessionId,
-                        toConfirmResults(request.getConfirmResults())
-                ),
+                        toConfirmResults(request.getConfirmResults()));
+        return streamRuntimeEvents(
+                agentRuntimeStream.getAgent(),
+                agentRuntimeStream.getRuntimeContext(),
+                agentRuntimeStream.getRuntimeEvents(),
                 config,
                 userInfo,
                 sessionId,
@@ -99,13 +113,16 @@ public class AgentChatServiceImpl implements AgentChatService {
             Long requestStartMs
     ) {
         Long runId = requireRunId(request);
+        AgentRuntimeStream agentRuntimeStream = agentRuntimeFactory.continueWithExternalExecutionResults(
+                config,
+                userInfo,
+                sessionId,
+                toToolResults(request.getToolResults())
+        );
         return streamRuntimeEvents(
-                agentRuntimeFactory.continueWithExternalExecutionResults(
-                        config,
-                        userInfo,
-                        sessionId,
-                        toToolResults(request.getToolResults())
-                ),
+                agentRuntimeStream.getAgent(),
+                agentRuntimeStream.getRuntimeContext(),
+                agentRuntimeStream.getRuntimeEvents(),
                 config,
                 userInfo,
                 sessionId,
@@ -116,6 +133,8 @@ public class AgentChatServiceImpl implements AgentChatService {
     }
 
     private Flux<ServerSentEvent<AgentStreamResponse>> streamRuntimeEvents(
+            HarnessAgent agent,
+            RuntimeContext runtimeContext,
             Flux<AgentRuntimeEvent> runtimeEvents,
             AgentConfigDTO config,
             UserInfo userInfo,
@@ -222,6 +241,14 @@ public class AgentChatServiceImpl implements AgentChatService {
                                         totalTime
                                 );
 
+                                agentStateLogService.updateState(
+                                        agent,
+                                        runtimeContext,
+                                        config,
+                                        userInfo,
+                                        sessionId
+                                );
+
                                 if (waitingType != null) {
                                     agentRunService.markWaiting(runId, waitingRunStatus(waitingType));
                                 }
@@ -233,7 +260,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe(
                                     null,
-                                    ex -> log.warn("Save stream final data failed, runId={}", runId, ex)
+                                    ex -> log.warn("保存state信息失败, runId={}", runId, ex)
                             );
 
                     return Mono.just(ServerSentEvent.<AgentStreamResponse>builder()

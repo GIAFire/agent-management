@@ -2,6 +2,13 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiAgentStateLogEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.common.context.UserInfo;
+import io.agentscope.core.agent.RuntimeContext;
+import io.agentscope.harness.agent.HarnessAgent;
+import org.springframework.scheduling.annotation.Async;
+
+import java.util.concurrent.CompletableFuture;
 
 /**
  * <p>
@@ -13,4 +20,18 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiAgentStateLogService extends IService<AiAgentStateLogEntity> {
 
+
+    CompletableFuture<Boolean> saveStateLogAsync(UserInfo userInfo,
+                                                 AgentConfigDTO config,
+                                                 Long sessionId,
+                                                 String userKey,
+                                                 String sessionKey);
+
+    Boolean updateState(
+            HarnessAgent agent,
+            RuntimeContext runtimeContext,
+            AgentConfigDTO config,
+            UserInfo userInfo,
+            Long sessionId
+    );
 }

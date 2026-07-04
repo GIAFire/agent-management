@@ -22,7 +22,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("ai_tool_call_audit")
+@TableName("ai_tool_call_log")
 public class AiToolCallLogEntity extends BaseEntity {
 
     private static final long serialVersionUID = 1L;

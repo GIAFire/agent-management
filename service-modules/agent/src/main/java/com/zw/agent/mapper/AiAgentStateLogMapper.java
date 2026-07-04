@@ -15,4 +15,5 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiAgentStateLogMapper extends BaseMapper<AiAgentStateLogEntity> {
 
+    Boolean updateByRuntimeKey(AiAgentStateLogEntity update);
 }

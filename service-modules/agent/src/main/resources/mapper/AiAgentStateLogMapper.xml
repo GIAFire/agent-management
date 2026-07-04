@@ -2,4 +2,18 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiAgentStateLogMapper">
 
+    <update id="updateByRuntimeKey">
+        UPDATE ai_agent_state_log
+        SET state_size_bytes = #{stateSizeBytes},
+        context_message_count = #{contextMessageCount},
+        summary_exists = #{summaryExists},
+        summary_preview = #{summaryPreview},
+        last_saved_at = #{lastSavedAt}
+        <if test="lastCompactedAt != null">
+            , last_compacted_at = #{lastCompactedAt}
+        </if>
+        WHERE runtime_user_key = #{runtimeUserKey}
+        AND runtime_session_key = #{runtimeSessionKey}
+        AND tenant_id = #{tenantId}
+    </update>
 </mapper>
