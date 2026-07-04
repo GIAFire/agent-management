@@ -17,7 +17,7 @@
     </description>
 
     <properties>
-        <agentscope.version>2.0.0-RC3</agentscope.version>
+        <agentscope.version>2.0.0-RC4</agentscope.version>
     </properties>
     <dependencies>
         <dependency>
