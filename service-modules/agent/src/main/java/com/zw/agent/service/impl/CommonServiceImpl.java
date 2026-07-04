@@ -21,6 +21,11 @@ public class CommonServiceImpl extends ServiceImpl<CommonMapper, CommonEntity> i
     }
 
     @Override
+    public List<Map<String, Object>> bigData(Map<String, Object> params) {
+        return commonMapper.bigData(params);
+    }
+
+    @Override
     public long count() {
         return commonMapper.count();
     }

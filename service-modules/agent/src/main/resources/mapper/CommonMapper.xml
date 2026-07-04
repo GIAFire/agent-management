@@ -36,6 +36,15 @@
         </where>
     </select>
 
+    <select id="bigData" resultType="java.util.HashMap" parameterType="map">
+        SELECT * FROM enuo_warning
+        <where>
+            <if test="orgId != null and orgId != ''">
+                AND org_id = #{orgId}
+            </if>
+        </where>
+        limit 200
+    </select>
 
     <select id="count" resultType="Long">
         SELECT
@@ -44,4 +53,5 @@
         enuo_equipment eq
         LEFT JOIN enuo_org org ON eq.org_id = org.id
     </select>
+
 </mapper>
