@@ -1,7 +1,7 @@
 package com.zw.agent.controller;
 
-import com.zw.agent.entity.AiAgentMessageEntity;
-import com.zw.agent.entity.AiAgentRunEntity;
+import com.zw.agent.entity.AiAgentMessageLogEntity;
+import com.zw.agent.entity.AiAgentRunLogEntity;
 import com.zw.agent.entity.AiAgentSessionEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentChatRequest;
@@ -29,8 +29,8 @@ public class AgentChatController {
     private final AgentRuntimeFactory agentRuntimeFactory;
     private final AgentFullConfigService agentFullConfigService;
     private final AiAgentSessionService agentSessionService;
-    private final AiAgentMessageService agentMessageService;
-    private final AiAgentRunService agentRunService;
+    private final AiAgentMessageLogService agentMessageService;
+    private final AiAgentRunLogService agentRunService;
     private final AgentChatService agentChatService;
 
 
@@ -57,14 +57,14 @@ public class AgentChatController {
         );
 
         // 保存用户发送的消息
-        AiAgentMessageEntity userMessage = agentMessageService.saveUserMessage(
+        AiAgentMessageLogEntity userMessage = agentMessageService.saveUserMessage(
                 userInfo,
                 session.getId(),
                 request.getContent()
         );
 
         // 创建运行记录，状态为运行中
-        AiAgentRunEntity run = agentRunService.createRunningRun(
+        AiAgentRunLogEntity run = agentRunService.createRunningRun(
                 userInfo,
                 request.getAgentId(),
                 agentConfig.getAgentConfigId(),

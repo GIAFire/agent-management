@@ -1,6 +1,6 @@
 package com.zw.agent.service;
 
-import com.zw.agent.entity.AiToolCallAuditEntity;
+import com.zw.agent.entity.AiToolCallLogEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
@@ -16,7 +16,7 @@ import java.util.Map;
  * @author 智纬
  * @since 2026-06-28
  */
-public interface AiToolCallAuditService extends IService<AiToolCallAuditEntity> {
+public interface AiToolCallLogService extends IService<AiToolCallLogEntity> {
 
     public void handleToolCallAuditEvent(
             String eventType,
@@ -25,7 +25,7 @@ public interface AiToolCallAuditService extends IService<AiToolCallAuditEntity> 
             UserInfo userInfo,
             Long sessionId,
             Long runId,
-            Map<String, AiToolCallAuditEntity> toolAuditMap
+            Map<String, AiToolCallLogEntity> toolAuditMap
     );
 
 }

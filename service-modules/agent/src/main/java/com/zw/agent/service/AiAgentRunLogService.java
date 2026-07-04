@@ -1,6 +1,6 @@
 package com.zw.agent.service;
 
-import com.zw.agent.entity.AiAgentRunEntity;
+import com.zw.agent.entity.AiAgentRunLogEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.zw.common.context.UserInfo;
 
@@ -12,9 +12,9 @@ import com.zw.common.context.UserInfo;
  * @author 
  * @since 2026-06-20
  */
-public interface AiAgentRunService extends IService<AiAgentRunEntity> {
+public interface AiAgentRunLogService extends IService<AiAgentRunLogEntity> {
 
-    AiAgentRunEntity createRunningRun(UserInfo userInfo, Long agentId, Long agentConfigId, Long sessionId, Long messageId);
+    AiAgentRunLogEntity createRunningRun(UserInfo userInfo, Long agentId, Long agentConfigId, Long sessionId, Long messageId);
 
     void markSuccess(Long runId, Long messageId);
 

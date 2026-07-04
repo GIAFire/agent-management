@@ -1,6 +1,6 @@
 package com.zw.agent.service;
 
-import com.zw.agent.entity.AiAgentMessageEntity;
+import com.zw.agent.entity.AiAgentMessageLogEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.zw.common.context.UserInfo;
 
@@ -12,9 +12,9 @@ import com.zw.common.context.UserInfo;
  * @author 
  * @since 2026-06-20
  */
-public interface AiAgentMessageService extends IService<AiAgentMessageEntity> {
+public interface AiAgentMessageLogService extends IService<AiAgentMessageLogEntity> {
 
-    AiAgentMessageEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content);
+    AiAgentMessageLogEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content);
 
     void saveAssistantMessage(UserInfo userInfo, Long sessionId, Long runId, String msg,String agentName, Integer usageToken, Double usageTime);
 }

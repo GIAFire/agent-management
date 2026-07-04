@@ -1,10 +1,10 @@
 package com.zw.agent.service.impl;
 
-import com.zw.agent.entity.AiAgentMessageEntity;
-import com.zw.agent.entity.AiAgentRunEntity;
-import com.zw.agent.mapper.AiAgentMessageMapper;
-import com.zw.agent.mapper.AiAgentRunMapper;
-import com.zw.agent.service.AiAgentMessageService;
+import com.zw.agent.entity.AiAgentMessageLogEntity;
+import com.zw.agent.entity.AiAgentRunLogEntity;
+import com.zw.agent.mapper.AiAgentMessageLogMapper;
+import com.zw.agent.mapper.AiAgentRunLogMapper;
+import com.zw.agent.service.AiAgentMessageLogService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.context.UserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,16 +22,16 @@ import java.time.LocalDateTime;
  * @since 2026-06-20
  */
 @Service
-public class AiAgentMessageServiceImpl extends ServiceImpl<AiAgentMessageMapper, AiAgentMessageEntity> implements AiAgentMessageService {
+public class AiAgentMessageLogLogServiceImpl extends ServiceImpl<AiAgentMessageLogMapper, AiAgentMessageLogEntity> implements AiAgentMessageLogService {
 
     @Autowired
-    private AiAgentMessageMapper agentMessageMapper;
+    private AiAgentMessageLogMapper agentMessageMapper;
     @Autowired
-    private AiAgentRunMapper agentRunMapper;
+    private AiAgentRunLogMapper agentRunMapper;
 
     @Override
-    public AiAgentMessageEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content) {
-        AiAgentMessageEntity agentMessageEntity = new AiAgentMessageEntity();
+    public AiAgentMessageLogEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content) {
+        AiAgentMessageLogEntity agentMessageEntity = new AiAgentMessageLogEntity();
         agentMessageEntity.setRole("USER");
         agentMessageEntity.setSenderName(userInfo.getUserName());
         agentMessageEntity.setTextContent(content);
@@ -46,7 +46,7 @@ public class AiAgentMessageServiceImpl extends ServiceImpl<AiAgentMessageMapper,
     @Transactional
     @Override
     public void saveAssistantMessage(UserInfo userInfo, Long sessionId, Long runId, String msg,String agentName, Integer usageToken, Double usageTime) {
-        AiAgentMessageEntity agentMessageEntity = new AiAgentMessageEntity();
+        AiAgentMessageLogEntity agentMessageEntity = new AiAgentMessageLogEntity();
         agentMessageEntity.setRole("ASSISTANT");
         agentMessageEntity.setSenderName(agentName);
         agentMessageEntity.setTextContent(msg);
@@ -59,9 +59,9 @@ public class AiAgentMessageServiceImpl extends ServiceImpl<AiAgentMessageMapper,
         agentMessageEntity.setCreatedAt(LocalDateTime.now());
         agentMessageMapper.insert(agentMessageEntity);
 
-        AiAgentRunEntity aiAgentRunEntity = agentRunMapper.selectById(runId);
-        aiAgentRunEntity.setOutputMessageId(agentMessageEntity.getId());
-        aiAgentRunEntity.setStatus("SUCCESS");
-        agentRunMapper.updateById(aiAgentRunEntity);
+        AiAgentRunLogEntity aiAgentRunLogEntity = agentRunMapper.selectById(runId);
+        aiAgentRunLogEntity.setOutputMessageId(agentMessageEntity.getId());
+        aiAgentRunLogEntity.setStatus("SUCCESS");
+        agentRunMapper.updateById(aiAgentRunLogEntity);
     }
 }

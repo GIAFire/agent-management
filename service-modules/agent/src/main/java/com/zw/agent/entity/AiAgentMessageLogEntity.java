@@ -21,7 +21,7 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @TableName("ai_agent_message")
-public class AiAgentMessageEntity extends BaseEntity {
+public class AiAgentMessageLogEntity extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
 

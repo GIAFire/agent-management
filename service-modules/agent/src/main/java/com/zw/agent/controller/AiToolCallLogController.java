@@ -13,6 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/ai-tool-call-audit-entity")
-public class AiToolCallAuditController {
+public class AiToolCallLogController {
 
 }

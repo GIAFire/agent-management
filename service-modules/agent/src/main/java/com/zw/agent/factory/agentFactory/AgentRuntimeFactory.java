@@ -37,6 +37,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.*;
 
 
@@ -123,6 +124,7 @@ public class AgentRuntimeFactory {
                 .build();
         // 获取用户消息
         UserMessage userMessage = new UserMessage(text);
+
 
         // 获取Agent事件流
         Flux<AgentEvent> agentEventFlux = harnessAgent.streamEvents(userMessage, runtimeContext);

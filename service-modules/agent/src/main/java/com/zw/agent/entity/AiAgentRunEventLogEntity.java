@@ -21,7 +21,7 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @TableName("ai_agent_run_event")
-public class AiAgentRunEventEntity extends BaseEntity {
+public class AiAgentRunEventLogEntity extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
 

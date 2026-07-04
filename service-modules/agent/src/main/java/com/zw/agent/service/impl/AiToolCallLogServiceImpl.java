@@ -1,10 +1,10 @@
 package com.zw.agent.service.impl;
 
-import com.zw.agent.entity.AiToolCallAuditEntity;
+import com.zw.agent.entity.AiToolCallLogEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
-import com.zw.agent.mapper.AiToolCallAuditMapper;
-import com.zw.agent.service.AiToolCallAuditService;
+import com.zw.agent.mapper.AiToolCallLogMapper;
+import com.zw.agent.service.AiToolCallLogService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.event.AgentEventType;
@@ -24,7 +24,7 @@ import java.util.Map;
  * @since 2026-06-28
  */
 @Service
-public class AiToolCallAuditServiceImpl extends ServiceImpl<AiToolCallAuditMapper, AiToolCallAuditEntity> implements AiToolCallAuditService {
+public class AiToolCallLogServiceImpl extends ServiceImpl<AiToolCallLogMapper, AiToolCallLogEntity> implements AiToolCallLogService {
 
     public void handleToolCallAuditEvent(
             String eventType,
@@ -33,12 +33,12 @@ public class AiToolCallAuditServiceImpl extends ServiceImpl<AiToolCallAuditMappe
             UserInfo userInfo,
             Long sessionId,
             Long runId,
-            Map<String, AiToolCallAuditEntity> toolAuditMap
+            Map<String, AiToolCallLogEntity> toolAuditMap
     ) {
         if (AgentEventType.TOOL_CALL_START.getValue().equals(eventType)) {
             ToolCallStartEvent rawEvent = (ToolCallStartEvent) runtimeEvent.getRawEvent();
 
-            AiToolCallAuditEntity auditEntity = new AiToolCallAuditEntity();
+            AiToolCallLogEntity auditEntity = new AiToolCallLogEntity();
             auditEntity.setStartedAt(LocalDateTime.now());
             auditEntity.setToolName(rawEvent.getToolCallName());
             auditEntity.setToolCallId(rawEvent.getToolCallId());
@@ -57,7 +57,7 @@ public class AiToolCallAuditServiceImpl extends ServiceImpl<AiToolCallAuditMappe
         if (AgentEventType.TOOL_RESULT_END.getValue().equals(eventType)) {
             ToolResultEndEvent rawEvent = (ToolResultEndEvent) runtimeEvent.getRawEvent();
 
-            AiToolCallAuditEntity auditEntity = toolAuditMap.get(rawEvent.getToolCallId());
+            AiToolCallLogEntity auditEntity = toolAuditMap.get(rawEvent.getToolCallId());
             if (auditEntity != null) {
                 auditEntity.setEndedAt(LocalDateTime.now());
                 auditEntity.setSuccessStatus(rawEvent.getState().getValue());

@@ -1,6 +1,6 @@
 package com.zw.agent.mapper;
 
-import com.zw.agent.entity.AiToolCallAuditEntity;
+import com.zw.agent.entity.AiToolCallLogEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -13,6 +13,6 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-06-28
  */
 @Mapper
-public interface AiToolCallAuditMapper extends BaseMapper<AiToolCallAuditEntity> {
+public interface AiToolCallLogMapper extends BaseMapper<AiToolCallLogEntity> {
 
 }

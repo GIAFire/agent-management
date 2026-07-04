@@ -1,12 +1,11 @@
 package com.zw.agent.service.impl;
 
-import com.zw.agent.entity.AiToolCallAuditEntity;
+import com.zw.agent.entity.AiToolCallLogEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentInterventionRequest;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.factory.agentFactory.AgentRuntimeFactory;
-import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.*;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.event.*;
@@ -45,10 +44,10 @@ import java.util.concurrent.atomic.AtomicReference;
 public class AgentChatServiceImpl implements AgentChatService {
 
     private final AgentRuntimeFactory agentRuntimeFactory;
-    private final AiAgentRunEventService agentRunEventService;
-    private final AiAgentMessageService agentMessageService;
-    private final AiAgentRunService agentRunService;
-    private final AiToolCallAuditService toolCallAuditService;
+    private final AiAgentRunEventLogService agentRunEventService;
+    private final AiAgentMessageLogService agentMessageService;
+    private final AiAgentRunLogService agentRunService;
+    private final AiToolCallLogService toolCallAuditService;
 
     @Override
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,UserInfo userInfo, Long sessionId, String text,Long runId,Long requestStartNs, Long requestStartMs) {
@@ -130,7 +129,7 @@ public class AgentChatServiceImpl implements AgentChatService {
         AtomicReference<Integer> usageToken = new AtomicReference<>(0);
         AtomicReference<Double> usageTime = new AtomicReference<>(0.0);
         AtomicReference<String> waitingEventType = new AtomicReference<>();
-        Map<String, AiToolCallAuditEntity> toolAuditMap = new ConcurrentHashMap<>();
+        Map<String, AiToolCallLogEntity> toolAuditMap = new ConcurrentHashMap<>();
         // 统计耗时
         AtomicLong streamSubscribeNs = new AtomicLong();
         AtomicBoolean firstEventLogged = new AtomicBoolean(false);
@@ -209,7 +208,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                     Integer totalTokens = usageToken.get();
                     Double totalTime = usageTime.get();
                     String waitingType = waitingEventType.get();
-                    List<AiToolCallAuditEntity> audits = new ArrayList<>(toolAuditMap.values());
+                    List<AiToolCallLogEntity> audits = new ArrayList<>(toolAuditMap.values());
                     toolAuditMap.clear();
 
                     Mono.fromRunnable(() -> {
