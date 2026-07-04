@@ -32,6 +32,8 @@ public interface AiAgentStateLogService extends IService<AiAgentStateLogEntity> 
             RuntimeContext runtimeContext,
             AgentConfigDTO config,
             UserInfo userInfo,
-            Long sessionId
+            Long sessionId,
+            Long runId
     );
+
 }

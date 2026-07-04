@@ -13,6 +13,7 @@ import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
 import com.zw.agent.service.AiAgentStateLogService;
+import com.zw.agent.service.AiAgentStateOpLogService;
 import com.zw.common.constant.CacheKeyBuilder;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
@@ -59,6 +60,7 @@ public class AgentRuntimeFactory {
     private final ModelFactory modelFactory;
     private final RuntimeContextFactory runtimeContextFactory;
     private final AiAgentStateLogService agentStateLogService;
+    private final AiAgentStateOpLogService agentStateOpLogService;
     private final CacheKeyBuilder cacheKeyBuilder;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
@@ -114,6 +116,7 @@ public class AgentRuntimeFactory {
             AgentConfigDTO config,
             UserInfo userInfo,
             Long sessionId,
+            Long runId,
             String text
     ) {
         String userKey = AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId());
@@ -171,7 +174,7 @@ public class AgentRuntimeFactory {
         Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(confirmMsg), context)
                 .map(this::toRuntimeEvent);
 
-        return new AgentRuntimeStream(harnessAgent,runtimeEvent);
+        return new AgentRuntimeStream(harnessAgent, runtimeEvent);
     }
 
     public AgentRuntimeStream continueWithExternalExecutionResults(
@@ -192,7 +195,7 @@ public class AgentRuntimeFactory {
         Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(toolMsg), context)
                 .map(this::toRuntimeEvent);
 
-        return new AgentRuntimeStream(harnessAgent,runtimeEvent);
+        return new AgentRuntimeStream(harnessAgent, runtimeEvent);
     }
 
     private RuntimeContext buildRuntimeContext(String userKey, String sessionKey) {

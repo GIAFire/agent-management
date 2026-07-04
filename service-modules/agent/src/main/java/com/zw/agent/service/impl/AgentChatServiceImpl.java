@@ -57,11 +57,12 @@ public class AgentChatServiceImpl implements AgentChatService {
     private final AiAgentRunLogService agentRunService;
     private final AiToolCallLogService toolCallAuditService;
     private final AiAgentStateLogService agentStateLogService;
+    private final AiAgentStateOpLogService agentStateOpLogService;
 
     @Override
-    public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config,UserInfo userInfo, Long sessionId, String text,Long runId,Long requestStartNs, Long requestStartMs) {
+    public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config, UserInfo userInfo, Long sessionId, String text, Long runId, Long requestStartNs, Long requestStartMs) {
         // 从上下文获取当前用户信息
-        AgentRuntimeStream agentRuntimeStream = agentRuntimeFactory.callStreamEvents(config, userInfo, sessionId, text);
+        AgentRuntimeStream agentRuntimeStream = agentRuntimeFactory.callStreamEvents(config, userInfo, sessionId, runId, text);
         return streamRuntimeEvents(
                 agentRuntimeStream.getAgent(),
                 agentRuntimeStream.getRuntimeContext(),
@@ -156,6 +157,8 @@ public class AgentChatServiceImpl implements AgentChatService {
         Long now = System.currentTimeMillis();
 
         Set<String> loggedEventTypes = ConcurrentHashMap.newKeySet();
+
+        AtomicBoolean stateLoadOpLogged = new AtomicBoolean(false);
         // 用于记录事件序列号，保证递增
         AtomicLong seq = new AtomicLong(0);
         Flux<ServerSentEvent<AgentStreamResponse>> serverSentEventFlux = runtimeEvents
@@ -175,6 +178,23 @@ public class AgentChatServiceImpl implements AgentChatService {
                                 (System.nanoTime() - requestStartNs) / 1_000_000,
                                 (System.nanoTime() - streamSubscribeNs.get()) / 1_000_000
                         );
+                    }
+                    if (stateLoadOpLogged.compareAndSet(false, true)) {
+                        Mono.fromRunnable(() ->
+                                        agentStateOpLogService.recordLoad(
+                                                agent,
+                                                userInfo,
+                                                config,
+                                                runtimeContext,
+                                                sessionId,
+                                                runId
+                                        )
+                                )
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .subscribe(
+                                        null,
+                                        ex -> log.warn("Record AgentState LOAD op failed, runId={}", runId, ex)
+                                );
                     }
                     // 如果事件包含增量内容，则追加到缓冲区
                     String eventType = runtimeEvent.getEventType();
@@ -246,7 +266,8 @@ public class AgentChatServiceImpl implements AgentChatService {
                                         runtimeContext,
                                         config,
                                         userInfo,
-                                        sessionId
+                                        sessionId,
+                                        runId
                                 );
 
                                 if (waitingType != null) {
@@ -286,18 +307,21 @@ public class AgentChatServiceImpl implements AgentChatService {
 
                     log.warn("Agent stream failed, runId={}", runId, e);
 
-                    Mono.fromRunnable(() ->
-                                    agentRunService.markFailed(
-                                            runId,
-                                            "FAILED",
-                                            e.getMessage()
-                                    )
-                            )
+                    Mono.fromRunnable(() -> {
+                                        agentRunService.markFailed(
+                                                runId,
+                                                "FAILED",
+                                                e.getMessage()
+                                        );
+                                        agentStateOpLogService.recordSaveFailed(
+                                                userInfo,
+                                                sessionId,
+                                                runId,
+                                                e.getMessage()
+                                        );
+                                    })
                             .subscribeOn(Schedulers.boundedElastic())
-                            .subscribe(
-                                    null,
-                                    ex -> log.error("Mark agent run failed failed, runId={}", runId, ex)
-                            );
+                            .subscribe(null,ex -> log.error("Mark agent run failed failed, runId={}", runId, ex));
 
                     return Flux.just(ServerSentEvent.<AgentStreamResponse>builder()
                             .event("error")

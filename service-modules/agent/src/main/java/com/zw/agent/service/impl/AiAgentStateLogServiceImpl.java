@@ -32,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMapper, AiAgentStateLogEntity> implements AiAgentStateLogService {
 
     private final AiAgentStateLogMapper agentStateLogMapper;
+    private final AiAgentStateOpLogServiceImpl agentStateOpLogService;
 
     @Async
     @Override
@@ -67,30 +68,83 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
             RuntimeContext runtimeContext,
             AgentConfigDTO config,
             UserInfo userInfo,
-            Long sessionId
+            Long sessionId,
+            Long runId
     ) {
+        AiAgentStateLogEntity updateBefore = agentStateLogMapper.selectByRuntimeKey(
+                AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()),
+                AgentRuntimeKeys.sessionKey(sessionId));
+
         AgentState agentState = runtimeContext.getAgentState();
         AgentState agentState2 = agent.getAgentState();
         if (agentState == null){
             agentState = agentState2;
         }
+        if (agentState == null) {
+            agentStateOpLogService.recordSaveFailed(
+                    userInfo,
+                    sessionId,
+                    runId,
+                    "RuntimeContext AgentState is null"
+            );
+            return false;
+        }
         String json = agentState.toJson();
-
-        AiAgentStateLogEntity update = new AiAgentStateLogEntity();
-        update.setTenantId(userInfo.getTenantId());
-        update.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()));
-        update.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
-        update.setStateSizeBytes((long) json.getBytes(StandardCharsets.UTF_8).length);
-        update.setContextMessageCount(agentState.getContext() == null ? 0 : agentState.getContext().size());
-        update.setSummaryExists((byte) (agentState.getSummary() != null ? 1 : 0));
-        update.setSummaryPreview(agentState.getSummary());
-        update.setLastSavedAt(LocalDateTime.now());
+        AiAgentStateLogEntity updateAfter = new AiAgentStateLogEntity();
+        updateAfter.setTenantId(userInfo.getTenantId());
+        updateAfter.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()));
+        updateAfter.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
+        updateAfter.setStateSizeBytes((long) json.getBytes(StandardCharsets.UTF_8).length);
+        updateAfter.setContextMessageCount(agentState.getContext().isEmpty() ? 0 : agentState.getContext().size());
+        updateAfter.setSummaryExists((byte) (agentState.getSummary() != null ? 1 : 0));
+        updateAfter.setSummaryPreview(agentState.getSummary());
+        updateAfter.setLastSavedAt(LocalDateTime.now());
 
         if (agentState.getSummary() != null) {
-            update.setLastCompactedAt(LocalDateTime.now());
+            updateAfter.setLastCompactedAt(LocalDateTime.now());
         }
 
-        return agentStateLogMapper.updateByRuntimeKey(update);
+        Boolean isUpdateByRuntime  = agentStateLogMapper.updateByRuntimeKey(updateAfter);
+
+        agentStateOpLogService.recordSave(
+                userInfo,
+                sessionId,
+                runId,
+                updateBefore,
+                updateAfter,
+                isUpdateByRuntime,
+                null
+        );
+
+        if (isUpdateByRuntime && isCompacted(updateBefore, updateAfter)) {
+            agentStateOpLogService.recordCompact(
+                    userInfo,
+                    sessionId,
+                    runId,
+                    updateBefore,
+                    updateAfter
+            );
+        }
+
+        return isUpdateByRuntime;
+    }
+
+    private boolean isCompacted(AiAgentStateLogEntity before, AiAgentStateLogEntity after) {
+        if (before == null || after == null) {
+            return false;
+        }
+
+        boolean summaryCreated =
+                (before.getSummaryExists() == null || before.getSummaryExists() == 0)
+                        && after.getSummaryExists() != null
+                        && after.getSummaryExists() == 1;
+
+        boolean messageReduced =
+                before.getContextMessageCount() != null
+                        && after.getContextMessageCount() != null
+                        && after.getContextMessageCount() < before.getContextMessageCount();
+
+        return summaryCreated || messageReduced;
     }
 
 }
