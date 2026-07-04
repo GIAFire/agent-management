@@ -349,8 +349,7 @@ public class AgentChatServiceImpl implements AgentChatService {
 
                     Mono.fromRunnable(() ->
                                     agentRunEventService.saveEvent(
-                                            userInfo.getUserId(),
-                                            userInfo.getTenantId(),
+                                            userInfo,
                                             runId,
                                             sessionId,
                                             runtimeEventTypes

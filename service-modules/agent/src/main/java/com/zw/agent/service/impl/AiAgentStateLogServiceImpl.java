@@ -34,9 +34,8 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
     private final AiAgentStateLogMapper agentStateLogMapper;
     private final AiAgentStateOpLogServiceImpl agentStateOpLogService;
 
-    @Async
     @Override
-    public CompletableFuture<Boolean> saveStateLogAsync(UserInfo userInfo,
+    public CompletableFuture<Boolean> saveStateLog(UserInfo userInfo,
                                                         AgentConfigDTO config,
                                                         Long sessionId,
                                                         String userKey,
@@ -75,11 +74,8 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
                 AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()),
                 AgentRuntimeKeys.sessionKey(sessionId));
 
-        AgentState agentState = runtimeContext.getAgentState();
-        AgentState agentState2 = agent.getAgentState();
-        if (agentState == null){
-            agentState = agentState2;
-        }
+        AgentState agentState = agent.getDelegate().getAgentState(runtimeContext);
+
         if (agentState == null) {
             agentStateOpLogService.recordSaveFailed(
                     userInfo,
@@ -96,11 +92,11 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
         updateAfter.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
         updateAfter.setStateSizeBytes((long) json.getBytes(StandardCharsets.UTF_8).length);
         updateAfter.setContextMessageCount(agentState.getContext().isEmpty() ? 0 : agentState.getContext().size());
-        updateAfter.setSummaryExists((byte) (agentState.getSummary() != null ? 1 : 0));
+        updateAfter.setSummaryExists((byte) (agentState.getSummary().isEmpty() ? 0 : 1));
         updateAfter.setSummaryPreview(agentState.getSummary());
         updateAfter.setLastSavedAt(LocalDateTime.now());
 
-        if (agentState.getSummary() != null) {
+        if (!agentState.getSummary().isEmpty()) {
             updateAfter.setLastCompactedAt(LocalDateTime.now());
         }
 

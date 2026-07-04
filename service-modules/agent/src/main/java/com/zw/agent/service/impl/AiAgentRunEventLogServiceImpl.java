@@ -4,6 +4,7 @@ import com.zw.agent.entity.AiAgentRunEventLogEntity;
 import com.zw.agent.mapper.AiAgentRunEventLogMapper;
 import com.zw.agent.service.AiAgentRunEventLogService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zw.common.context.UserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,14 +24,14 @@ public class AiAgentRunEventLogServiceImpl extends ServiceImpl<AiAgentRunEventLo
     @Autowired
     private AiAgentRunEventLogMapper agentRunEventMapper;
     @Override
-    public int saveEvent(Long userId, Long tenantId, Long runId, Long sessionId,String runtimeEvent) {
+    public int saveEvent(UserInfo userInfo, Long runId, Long sessionId, String runtimeEvent) {
         AiAgentRunEventLogEntity agentRunEventEntity = new AiAgentRunEventLogEntity();
         agentRunEventEntity.setRunId(runId);
         agentRunEventEntity.setEventType(runtimeEvent);
-        agentRunEventEntity.setTenantId(tenantId);
+        agentRunEventEntity.setTenantId(userInfo.getTenantId());
         agentRunEventEntity.setSessionId(sessionId);
         agentRunEventEntity.setCreatedAt(LocalDateTime.now());
-        agentRunEventEntity.setCreatedBy(userId);
+        agentRunEventEntity.setCreatedBy(userInfo.getUserId());
         return agentRunEventMapper.insert(agentRunEventEntity);
     }
 }

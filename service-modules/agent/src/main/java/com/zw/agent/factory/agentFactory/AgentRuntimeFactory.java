@@ -128,16 +128,7 @@ public class AgentRuntimeFactory {
         // 获取用户消息
         UserMessage userMessage = new UserMessage(text);
 
-        agentStateLogService.saveStateLogAsync(userInfo, config, sessionId, userKey, sessionKey)
-                .thenAccept(success -> {
-                    if (success) {
-                        log.info("stateLog状态日志保存成功");
-                    }
-                })
-                .exceptionally(throwable -> {
-                    log.error("stateLog状态日志保存失败", throwable);
-                    return null;
-                });
+        agentStateLogService.saveStateLog(userInfo, config, sessionId, userKey, sessionKey);
         // 获取Agent事件流
         Flux<AgentRuntimeEvent> runtimeEvents = harnessAgent
                 .streamEvents(userMessage, runtimeContext)

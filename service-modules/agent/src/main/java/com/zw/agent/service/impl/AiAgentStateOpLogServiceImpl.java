@@ -39,11 +39,7 @@ public class AiAgentStateOpLogServiceImpl extends ServiceImpl<AiAgentStateOpLogM
             Long sessionId,
             Long runId
     ) {
-        AgentState agentState = runtimeContext.getAgentState();
-        AgentState agentState2 = agent.getAgentState();
-        if (agentState == null){
-            agentState = agentState2;
-        }
+        AgentState agentState = agent.getDelegate().getAgentState(runtimeContext);
 
         AiAgentStateOpLogEntity op = new AiAgentStateOpLogEntity();
         op.setTenantId(userInfo.getTenantId());
