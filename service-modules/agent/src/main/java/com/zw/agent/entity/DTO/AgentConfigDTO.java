@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @Data
 public class AgentConfigDTO {
-    // ========== Agent 字段 ==========
+
     private Long agentId;
     private String agentKey;
     private String agentName;
@@ -17,14 +17,12 @@ public class AgentConfigDTO {
     private String agentType;
     private Integer agentStatus;
 
-    // ========== Tenant 字段 ==========
     private Long tenantId;
     private String tenantName;
     private Integer tenantStatus;
     private String tenantNacosNamespaceId;
     private String tenantRemark;
 
-    // ========== AgentConfig 字段 ==========
     private Long agentConfigId;
     private String sysPrompt;
     private String permissionMode;
@@ -32,16 +30,15 @@ public class AgentConfigDTO {
     private String workspacePath;
     private String contextEnabled;
     private String triggerMode;
-    // ========== Compaction上下文压缩 字段 ==========
+    private Integer memoryEnable;
+
     private Integer triggerMessages;
     private Integer keepMessages;
     private Integer triggerTokens;
     private Integer keepTokens;
-    private  Boolean truncateArgsEnabled;   // 是否启用工具参数预截断：1启用，0关闭
-    private  Boolean toolResultEvictionEnabled; // 是否启用大工具结果卸载：1启用，0关闭
-    // 兼容性字段
+    private  Boolean truncateArgsEnabled;
+    private  Boolean toolResultEvictionEnabled;
 
-    // ========== Model 字段 ==========
     private Long modelId;
     private ModelType provider;
     private String baseUrl;

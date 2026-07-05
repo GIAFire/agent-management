@@ -59,5 +59,5 @@ public class AiAgentEntity extends BaseEntity {
      * 状态：1启用，0停用，2草稿
      */
     @TableField("status")
-    private Byte status;
+    private Integer status;
 }

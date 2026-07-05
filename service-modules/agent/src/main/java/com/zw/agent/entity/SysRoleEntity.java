@@ -55,5 +55,5 @@ public class SysRoleEntity extends BaseEntity {
      * 状态：0-禁用，1-启用
      */
     @TableField("status")
-    private Byte status;
+    private Integer status;
 }

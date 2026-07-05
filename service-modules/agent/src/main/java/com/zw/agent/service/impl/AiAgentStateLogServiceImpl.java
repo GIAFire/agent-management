@@ -56,7 +56,6 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
             this.saveOrUpdate(stateLogEntity);
             return CompletableFuture.completedFuture(true);
         } catch (Exception e) {
-            // 返回失败的 Future，让调用方可以处理异常
             return CompletableFuture.failedFuture(e);
         }
     }
@@ -92,7 +91,7 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
         updateAfter.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
         updateAfter.setStateSizeBytes((long) json.getBytes(StandardCharsets.UTF_8).length);
         updateAfter.setContextMessageCount(agentState.getContext().isEmpty() ? 0 : agentState.getContext().size());
-        updateAfter.setSummaryExists((byte) (agentState.getSummary().isEmpty() ? 0 : 1));
+        updateAfter.setSummaryExists(agentState.getSummary().isEmpty() ? 0 : 1);
         updateAfter.setSummaryPreview(agentState.getSummary());
         updateAfter.setLastSavedAt(LocalDateTime.now());
 

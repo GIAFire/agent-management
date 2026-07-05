@@ -112,6 +112,6 @@ public class AiAgentModelEntity extends BaseEntity {
      * 状态：1启用，0停用
      */
     @TableField("status")
-    private Byte status;
+    private Integer status;
 
 }

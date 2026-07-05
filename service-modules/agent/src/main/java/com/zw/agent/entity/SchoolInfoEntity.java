@@ -48,7 +48,7 @@ public class SchoolInfoEntity implements Serializable {
 
     @TableField("delete_status")
     @TableLogic
-    private Byte deleteStatus;
+    private Integer deleteStatus;
 
     @TableField("create_id")
     private Long createId;

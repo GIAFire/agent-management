@@ -32,7 +32,7 @@ public class SchoolSettingEntity implements Serializable {
     private Long dingId;
 
     @TableField("type")
-    private Byte type;
+    private Integer type;
 
     @TableField("name")
     private String name;
@@ -42,7 +42,7 @@ public class SchoolSettingEntity implements Serializable {
 
     @TableField("delete_status")
     @TableLogic
-    private Byte deleteStatus;
+    private Integer deleteStatus;
 
     @TableField("create_id")
     private Long createId;

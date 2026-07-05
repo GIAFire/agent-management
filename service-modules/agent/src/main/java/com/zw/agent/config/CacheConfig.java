@@ -16,24 +16,24 @@ public class CacheConfig {
     @Bean
     public Cache<String, HarnessAgent> agentCache() {
         return Caffeine.newBuilder()
-                .maximumSize(500)  // 最大缓存500个Agent实例
-                .expireAfterAccess(Duration.ofMinutes(60*24*30)) // 三十天后Agent实例缓存失效
+                .maximumSize(500)
+                .expireAfterAccess(Duration.ofMinutes(60*24*30))
                 .build();
     }
 
     @Bean
     public Cache<String, Toolkit> toolkitCache() {
         return Caffeine.newBuilder()
-                .maximumSize(500)  // 最大缓存500个toolkit实例
-                .expireAfterAccess(Duration.ofMinutes(60*24*30)) // 三十天后toolkit实例缓存失效
+                .maximumSize(500)
+                .expireAfterAccess(Duration.ofMinutes(60*24*30))
                 .build();
     }
 
     @Bean
     public Cache<String, PermissionContextState> userToolPermissionCache() {
         return Caffeine.newBuilder()
-                .maximumSize(500)  // 最大缓存500
-                .expireAfterAccess(Duration.ofMinutes(60*24*30)) // 三十天后缓存失效
+                .maximumSize(500)
+                .expireAfterAccess(Duration.ofMinutes(60*24*30))
                 .build();
     }
 }

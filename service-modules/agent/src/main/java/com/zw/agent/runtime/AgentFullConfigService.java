@@ -41,7 +41,6 @@ public class AgentFullConfigService {
         if (agentId == null) {
             throw new AgentConfigException("agentId 不能为空");
         }
-        // 查询租户信息、Agent定义、Agent配置信息和模型配置
         AgentConfigDTO agentConfig = agentServiceImpl.getAgentFullInfo(tenantId, agentId);
 
         try {

@@ -21,7 +21,6 @@ import java.util.Map;
 @Component
 public class RuntimeContextFactory {
 
-    private final AiToolRolePermissionService toolRolePermissionService;
 
     public RuntimeContext RuntimeContextFactory(
             UserInfo userInfo,
@@ -29,7 +28,6 @@ public class RuntimeContextFactory {
             Long sessionId
     ){
 
-//        List<Map<String,String>> permission = toolRolePermissionService.getToolPermissionByUserId(userInfo.getUserId());
         RuntimeContext build = RuntimeContext.builder()
                 .userId(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()))
                 .sessionId(AgentRuntimeKeys.sessionKey(sessionId))

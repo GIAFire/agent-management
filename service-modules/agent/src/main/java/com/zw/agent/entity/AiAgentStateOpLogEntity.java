@@ -103,7 +103,7 @@ public class AiAgentStateOpLogEntity extends BaseEntity {
      * 是否成功：1成功，0失败
      */
     @TableField("success")
-    private Byte success;
+    private Integer success;
 
     /**
      * 失败信息

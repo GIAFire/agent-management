@@ -51,7 +51,6 @@ public class CommonTool extends ToolBase {
 
     private static Map<String, Object> inputSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        // list中是必填参数
         return ToolSchemaUtils.objectSchema(properties, null);
     }
 }

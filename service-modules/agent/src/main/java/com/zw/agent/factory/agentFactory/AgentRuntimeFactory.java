@@ -7,12 +7,10 @@ import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
 import com.zw.agent.factory.compactionFactory.CompactionFactory;
 import com.zw.agent.factory.modelFactory.ModelFactory;
 import com.zw.agent.factory.permissionFactory.PermissionFactory;
-import com.zw.agent.factory.runtimeContextFactory.RuntimeContextFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
 import com.zw.agent.service.AiAgentStateLogService;
-import com.zw.agent.service.AiAgentStateOpLogService;
 import com.zw.common.constant.CacheKeyBuilder;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
@@ -26,7 +24,6 @@ import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.permission.PermissionContextState;
-import io.agentscope.core.state.AgentState;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
@@ -38,7 +35,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.file.Paths;
-import java.time.LocalDateTime;
 import java.util.*;
 
 
@@ -57,9 +53,7 @@ public class AgentRuntimeFactory {
     private final CompactionFactory compactionFactory;
     private final ToolResultEvictionFactory toolResultEvictionFactory;
     private final ModelFactory modelFactory;
-    private final RuntimeContextFactory runtimeContextFactory;
     private final AiAgentStateLogService agentStateLogService;
-    private final AiAgentStateOpLogService agentStateOpLogService;
     private final CacheKeyBuilder cacheKeyBuilder;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
@@ -70,33 +64,29 @@ public class AgentRuntimeFactory {
                 config.getAgentConfigId(),
                 sessionId);
 
-        // 构造模型配置
         return agentCache.get(agentCacheKey, key -> {
-            // 构造工具
             Toolkit toolkit = toolkitFactory.buildToolkit(config.getTenantId());
-            // TODO 构造权限,注意:更新用户权限后,旧session会话中的权限上下文并不会更新
             PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
-            // 构造上下文压缩配置
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
-            // 大工具结果卸载
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
-            // 构造模型
             ChatModelBase chatModelBase = modelFactory.buildModel(config);
 
-            // 构造Agent实例和Agent配置
-            return HarnessAgent.builder()
+            HarnessAgent.Builder agentBuilder = HarnessAgent.builder()
                     .name(config.getAgentName())
                     .sysPrompt(config.getSysPrompt())
                     .model(chatModelBase)
                     .toolkit(toolkit)
                     .permissionContext(permissionContextState)
-                    .maxIters(config.getMaxIters()) // 最大推理循环次数
+                    .maxIters(config.getMaxIters())
                     .compaction(compactionConfig)
-                    .workspace(Paths.get(config.getWorkspacePath())) // 配置工作空间路径
-//                    .additionalContextFile("knowledge.md")  构造Agent实例时,可直接注入上下文文件
-                    .disableMemoryTools()
-                    .toolResultEviction(toolResultEvictionConfig)
-                    .build();
+                    .workspace(Paths.get(config.getWorkspacePath()))
+                    .toolResultEviction(toolResultEvictionConfig);
+            if (config.getMemoryEnable() == 0){
+                agentBuilder.disableMemoryTools();
+                agentBuilder.disableMemoryHooks();
+            }
+
+            return agentBuilder.build();
         });
     }
 

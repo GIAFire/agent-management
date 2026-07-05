@@ -44,7 +44,6 @@ public class PermissionFactory {
                     .eq(AiToolRolePermissionEntity::getTenantId, userInfo.getTenantId())
                     .eq(AiToolRolePermissionEntity::getStatus, (byte) 1));
 
-            // 去重,多个角色可能存在相同工具权限
             AiToolRolePermissionEntity toolRolePermission = permissionList.stream()
                     .collect(Collectors.collectingAndThen(
                             Collectors.toCollection(() -> new TreeSet<>(
@@ -79,7 +78,6 @@ public class PermissionFactory {
                     case "DENY" -> builder.addDenyRule(toolName, rule);
                     case "ASK" -> builder.addAskRule(toolName, rule);
                     default -> {
-                        // PASSTHROUGH 不建议作为显式配置规则使用
                     }
                 }
             }

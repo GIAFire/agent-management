@@ -61,7 +61,7 @@ public class AgentChatServiceImpl implements AgentChatService {
 
     @Override
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config, UserInfo userInfo, Long sessionId, String text, Long runId, Long requestStartNs, Long requestStartMs) {
-        // 从上下文获取当前用户信息
+
         AgentRuntimeStream agentRuntimeStream = agentRuntimeFactory.callStreamEvents(config, userInfo, sessionId, runId, text);
         return streamRuntimeEvents(
                 agentRuntimeStream.getAgent(),
@@ -144,23 +144,19 @@ public class AgentChatServiceImpl implements AgentChatService {
             Long requestStartNs,
             Long requestStartMs
     ) {
-        // 用于累积大模型响应的文本内容
         StringBuilder assistantBuffer = new StringBuilder();
         AtomicReference<Integer> usageToken = new AtomicReference<>(0);
         AtomicReference<Double> usageTime = new AtomicReference<>(0.0);
         AtomicReference<String> waitingEventType = new AtomicReference<>();
         Map<String, AiToolCallLogEntity> toolAuditMap = new ConcurrentHashMap<>();
-        // 统计耗时
         AtomicLong streamSubscribeNs = new AtomicLong();
         AtomicBoolean firstEventLogged = new AtomicBoolean(false);
-        // 获取当前时间
+        AtomicLong seq = new AtomicLong(0);
         Long now = System.currentTimeMillis();
 
         Set<String> loggedEventTypes = ConcurrentHashMap.newKeySet();
 
         AtomicBoolean stateLoadOpLogged = new AtomicBoolean(false);
-        // 用于记录事件序列号，保证递增
-        AtomicLong seq = new AtomicLong(0);
         Flux<ServerSentEvent<AgentStreamResponse>> serverSentEventFlux = runtimeEvents
                 .doOnSubscribe(subscription -> {
                     long nowNs = System.nanoTime();
@@ -196,11 +192,11 @@ public class AgentChatServiceImpl implements AgentChatService {
                                         ex -> log.warn("Record AgentState LOAD op failed, runId={}", runId, ex)
                                 );
                     }
-                    // 如果事件包含增量内容，则追加到缓冲区
                     String eventType = runtimeEvent.getEventType();
                     if (eventType.equals(AgentEventType.TEXT_BLOCK_DELTA.getValue()) && runtimeEvent.getDelta() != null) {
                         assistantBuffer.append(runtimeEvent.getDelta());
                     }
+
                     if (eventType.equals(AgentEventType.MODEL_CALL_END.getValue())) {
                         ModelCallEndEvent modelCallEndEvent = (ModelCallEndEvent) runtimeEvent.getRawEvent();
                         ChatUsage usage = modelCallEndEvent.getUsage();
@@ -210,20 +206,15 @@ public class AgentChatServiceImpl implements AgentChatService {
                         }
                     }
 
-                    // 记录工具调用事件
                     toolCallAuditService.handleToolCallAuditEvent(eventType, runtimeEvent, config, userInfo, sessionId, runId, toolAuditMap);
 
                     if (isWaitingEvent(eventType)) {
                         waitingEventType.set(eventType);
                     }
-                    // 保存事件类型
                     loggedEventTypes.add(eventType);
                 })
-                // 将运行时事件映射为SSE事件
                 .map(runtimeEvent -> ServerSentEvent.<AgentStreamResponse>builder()
-                        // 设置SSE事件类型
                         .event(toSseEventName(runtimeEvent.getEventType()))
-                        // 设置SSE事件数据
                         .data(new AgentStreamResponse(
                                 runId,
                                 runtimeEvent.getEventType(),
@@ -231,10 +222,8 @@ public class AgentChatServiceImpl implements AgentChatService {
                                 seq.incrementAndGet(),
                                 toPayload(runtimeEvent)
                         ))
-                        // 构建SSE事件对象
                         .build()
                 )
-                // 在流结束后追加完成事件告诉前端流结束了
                 .concatWith(Mono.defer(() -> {
                     long doneNs = System.nanoTime();
                     log.warn("服务端准备返回最终done事件的时间, runId={}, totalCostMs={}, streamCostMs={}",
@@ -243,10 +232,6 @@ public class AgentChatServiceImpl implements AgentChatService {
                             (doneNs - streamSubscribeNs.get()) / 1_000_000
                     );
 
-                    String assistantText = assistantBuffer.toString();
-                    Integer totalTokens = usageToken.get();
-                    Double totalTime = usageTime.get();
-                    String waitingType = waitingEventType.get();
                     List<AiToolCallLogEntity> audits = new ArrayList<>(toolAuditMap.values());
                     toolAuditMap.clear();
 
@@ -255,12 +240,11 @@ public class AgentChatServiceImpl implements AgentChatService {
                                         userInfo,
                                         sessionId,
                                         runId,
-                                        assistantText,
+                                        assistantBuffer.toString(),
                                         config.getAgentName(),
-                                        totalTokens,
-                                        totalTime
+                                        usageToken.get(),
+                                        usageTime.get()
                                 );
-
                                 agentStateLogService.updateState(
                                         agent,
                                         runtimeContext,
@@ -270,8 +254,8 @@ public class AgentChatServiceImpl implements AgentChatService {
                                         runId
                                 );
 
-                                if (waitingType != null) {
-                                    agentRunService.markWaiting(runId, waitingRunStatus(waitingType));
+                                if (waitingEventType.get() != null) {
+                                    agentRunService.markWaiting(runId, waitingRunStatus(waitingEventType.get()));
                                 }
 
                                 if (!audits.isEmpty()) {
@@ -289,12 +273,11 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .data(new AgentStreamResponse(
                                     runId,
                                     "DONE",
-                                    totalTokens,
-                                    totalTime
+                                    usageToken.get(),
+                                    usageTime.get()
                             ))
                             .build());
                 }))
-                // 异常处理：当流式调用失败时
                 .onErrorResume(e -> {
                     long errorNs = System.nanoTime();
 

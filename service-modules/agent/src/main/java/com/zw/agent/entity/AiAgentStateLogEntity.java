@@ -98,7 +98,7 @@ public class AiAgentStateLogEntity extends BaseEntity {
      * 是否已经产生上下文摘要：1是，0否
      */
     @TableField("summary_exists")
-    private Byte summaryExists;
+    private Integer summaryExists;
 
     /**
      * 摘要预览，用于后台排查，不保存完整敏感内容

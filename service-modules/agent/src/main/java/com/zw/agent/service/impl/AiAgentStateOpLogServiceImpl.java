@@ -53,7 +53,7 @@ public class AiAgentStateOpLogServiceImpl extends ServiceImpl<AiAgentStateOpLogM
                 AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()),
                 AgentRuntimeKeys.sessionKey(sessionId)
         ));
-        op.setSuccess((byte) 1);
+        op.setSuccess(1);
 
         if (agentState != null) {
             String json = agentState.toJson();
@@ -97,7 +97,7 @@ public class AiAgentStateOpLogServiceImpl extends ServiceImpl<AiAgentStateOpLogM
             op.setAfterMessageCount(after.getContextMessageCount());
         }
 
-        op.setSuccess((byte) (success ? 1 : 0));
+        op.setSuccess(success ? 1 : 0);
         op.setErrorMessage(errorMessage);
         op.setCreatedAt(LocalDateTime.now());
 
@@ -125,7 +125,7 @@ public class AiAgentStateOpLogServiceImpl extends ServiceImpl<AiAgentStateOpLogM
         op.setAfterSizeBytes(after == null ? null : after.getStateSizeBytes());
         op.setBeforeMessageCount(before == null ? null : before.getContextMessageCount());
         op.setAfterMessageCount(after == null ? null : after.getContextMessageCount());
-        op.setSuccess((byte) 1);
+        op.setSuccess(1);
         op.setCreatedAt(LocalDateTime.now());
 
         agentStateOpLogMapper.insert(op);
@@ -147,7 +147,7 @@ public class AiAgentStateOpLogServiceImpl extends ServiceImpl<AiAgentStateOpLogM
         op.setOpType("SAVE");
         op.setStateBackend("REDIS");
         op.setStateKey(AgentRuntimeKeys.redisStateKey(AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()), AgentRuntimeKeys.sessionKey(sessionId)));
-        op.setSuccess((byte) 0);
+        op.setSuccess(0);
         op.setErrorMessage(errorMessage);
         op.setCreatedAt(LocalDateTime.now());
 

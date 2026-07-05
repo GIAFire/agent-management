@@ -36,19 +36,15 @@ public class AgentChatController {
 
     @PostMapping(value = "/chatStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(@RequestBody AgentChatRequest request) {
-        // 统计耗时
         Long requestStartNs = System.nanoTime();
         Long requestStartMs = System.currentTimeMillis();
-        // 从上下文获取当前用户信息
         UserInfo userInfo = UserContext.get();
 
-        // 加载智能体的已发布配置
         AgentConfigDTO agentConfig = agentFullConfigService.loadPublishedConfig(
                 userInfo.getTenantId(),
                 request.getAgentId()
         );
 
-        // 获取或创建智能体会话
         AiAgentSessionEntity session = agentSessionService.getOrCreateSession(
                 userInfo,
                 request.getAgentId(),
@@ -56,14 +52,12 @@ public class AgentChatController {
                 request.getSessionId()
         );
 
-        // 保存用户发送的消息
         AiAgentMessageLogEntity userMessage = agentMessageService.saveUserMessage(
                 userInfo,
                 session.getId(),
                 request.getContent()
         );
 
-        // 创建运行记录，状态为运行中
         AiAgentRunLogEntity run = agentRunService.createRunningRun(
                 userInfo,
                 request.getAgentId(),
@@ -83,7 +77,6 @@ public class AgentChatController {
 
     @PostMapping(value = "/userConfirm", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> userConfirm(@RequestBody AgentInterventionRequest request) {
-        // 统计耗时
         Long requestStartNs = System.nanoTime();
         Long requestStartMs = System.currentTimeMillis();
         UserInfo userInfo = UserContext.get();
@@ -96,7 +89,6 @@ public class AgentChatController {
 
     @PostMapping(value = "/externalExecution", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> externalExecution(@RequestBody AgentInterventionRequest request) {
-        // 统计耗时
         Long requestStartNs = System.nanoTime();
         Long requestStartMs = System.currentTimeMillis();
         UserInfo userInfo = UserContext.get();
@@ -111,7 +103,6 @@ public class AgentChatController {
     @PostMapping("/chatBlock")
     public Mono<String> chatBlock(@RequestBody AgentChatRequest request) {
         UserInfo userInfo = UserContext.get();
-        // 获取运行时配置
         AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(userInfo.getTenantId(), request.getAgentId());
 
         return agentRuntimeFactory

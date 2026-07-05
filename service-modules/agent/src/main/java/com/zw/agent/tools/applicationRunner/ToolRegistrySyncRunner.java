@@ -46,7 +46,6 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        // 扫描所有com.zw.agent.tools包下继承ToolBase的类
         List<AiToolInfoConfigEntity> toolConfigs = scanToolConfigs();
 
         if (toolConfigs.isEmpty()) {
@@ -54,7 +53,6 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
             return;
         }
 
-        // 使用批量upsert语句: 将工具元信息存入数据库
         int count = toolInfoConfigService.upsertBatch(toolConfigs);
         log.info("Synced {} tool definitions into ai_tool_info_config, affected rows={}",
                 toolConfigs.size(), count);
