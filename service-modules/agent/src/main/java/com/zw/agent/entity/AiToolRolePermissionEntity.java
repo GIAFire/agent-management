@@ -23,8 +23,6 @@ import lombok.experimental.Accessors;
 @TableName("ai_tool_role_permission")
 public class AiToolRolePermissionEntity extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 权限规则主键ID
      */

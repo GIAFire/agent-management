@@ -23,8 +23,6 @@ import java.time.LocalDateTime;
 @TableName("sys_tenant")
 public class SysTenantEntity implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 租户主键ID
      */

@@ -90,6 +90,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                 .continueWithConfirmResults(config,
                         userInfo,
                         sessionId,
+                        request.getRunId(),
                         toConfirmResults(request.getConfirmResults()));
         return streamRuntimeEvents(
                 agentRuntimeStream.getAgent(),
@@ -118,6 +119,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                 config,
                 userInfo,
                 sessionId,
+                request.getRunId(),
                 toToolResults(request.getToolResults())
         );
         return streamRuntimeEvents(

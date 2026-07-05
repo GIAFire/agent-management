@@ -25,8 +25,6 @@ import lombok.experimental.Accessors;
 @TableName("ai_agent_state_op_log")
 public class AiAgentStateOpLogEntity extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 状态操作日志主键ID
      */

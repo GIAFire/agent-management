@@ -1,6 +1,7 @@
 package com.zw.agent.factory.runtimeContextFactory;
 
 import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.agent.runtime.AgentCallContext;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.AiToolRolePermissionService;
 import com.zw.common.context.UserInfo;
@@ -22,16 +23,25 @@ import java.util.Map;
 public class RuntimeContextFactory {
 
 
-    public RuntimeContext RuntimeContextFactory(
-            UserInfo userInfo,
-            AgentConfigDTO config,
-            Long sessionId
-    ){
+    public RuntimeContext buildRuntimeContext(AgentConfigDTO config,
+                                               UserInfo userInfo,
+                                               Long sessionId,
+                                               Long runId,
+                                               String userKey,
+                                               String sessionKey) {
 
-        RuntimeContext build = RuntimeContext.builder()
-                .userId(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()))
-                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
-                .build();
-        return build;
+        RuntimeContext.Builder builder = RuntimeContext.builder()
+                .userId(userKey)
+                .sessionId(sessionKey);
+        AgentCallContext agentCallContext = new AgentCallContext();
+        agentCallContext.setAgentConfig(config);
+        agentCallContext.setUserInfo(userInfo);
+        agentCallContext.setSessionId(sessionId);
+        agentCallContext.setRunId(runId);
+        agentCallContext.setRuntimeUserKey(userKey);
+        agentCallContext.setRuntimeSessionKey(sessionKey);
+        builder.put(AgentCallContext.class, agentCallContext);
+
+        return builder.build();
     }
 }

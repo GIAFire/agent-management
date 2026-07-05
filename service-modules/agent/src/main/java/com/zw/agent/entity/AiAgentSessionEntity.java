@@ -25,8 +25,6 @@ import lombok.experimental.Accessors;
 @TableName("ai_agent_session")
 public class AiAgentSessionEntity extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 会话主键ID
      */

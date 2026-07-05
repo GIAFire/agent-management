@@ -23,8 +23,6 @@ import lombok.experimental.Accessors;
 @TableName("ai_agent_message_log")
 public class AiAgentMessageLogEntity extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 消息主键ID
      */

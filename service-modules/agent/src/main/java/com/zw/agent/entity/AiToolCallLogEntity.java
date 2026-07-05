@@ -25,8 +25,6 @@ import lombok.experimental.Accessors;
 @TableName("ai_tool_call_log")
 public class AiToolCallLogEntity extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 工具调用审计主键ID
      */
