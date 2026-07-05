@@ -53,16 +53,14 @@ public class GenerateFileTool extends ToolBase {
         String resultJson = """
                 {
                   "message": "文件已生成并保存到工作区",
-                  "fileId": %d,
                   "fileName": "%s",
                   "fileType": "%s"
-                  "DownloadLink": "http://localhost:8100/download/%s"
+                  "downloadLink": "http://localhost:8100/download/%s"
                 }
                 """.formatted(
-                file.getId(),
                 file.getFileName(),
                 file.getFileExt(),
-                file.getStorageKey()
+                file.getId()
         );
 
         return Mono.just(ToolResultBlock.builder()
