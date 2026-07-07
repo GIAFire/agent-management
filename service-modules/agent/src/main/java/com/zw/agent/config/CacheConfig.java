@@ -2,7 +2,6 @@ package com.zw.agent.config;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import io.agentscope.core.embedding.EmbeddingModel;
 import io.agentscope.core.permission.PermissionContextState;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
@@ -38,11 +37,4 @@ public class CacheConfig {
                 .build();
     }
 
-    @Bean
-    public Cache<String, EmbeddingModel> embeddingModelCache() {
-        return Caffeine.newBuilder()
-                .maximumSize(500)  // 最大缓存500
-                .expireAfterAccess(Duration.ofMinutes(60*24*30)) // 三十天后缓存失效
-                .build();
-    }
 }

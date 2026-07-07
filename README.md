@@ -7,6 +7,7 @@ AgentScope 是一个基于 Spring Cloud 微服务架构的 AI Agent 管理平台
 ## 技术栈
 
 ### 后端技术栈
+- **AgentScope**: 2.0.0-RC4
 - **Spring Boot**: 4.0.6
 - **Spring Cloud**: 2025.1.0
 - **Spring Cloud Alibaba**: 2025.1.0.0
@@ -24,8 +25,6 @@ AgentScope 是一个基于 Spring Cloud 微服务架构的 AI Agent 管理平台
 - **构建工具**: Vite 8.0.8
 - **UI框架**: Element Plus 2.11.5
 - **状态管理**: Pinia 2.3.1
-- **路由**: Vue Router 4.6.3
-- **HTTP客户端**: Axios 1.13.1
 - **Markdown渲染**: markdown-it 14.2.0
 - **Node.js**: ^20.19.0 || >=22.12.0
 
@@ -45,9 +44,7 @@ agentScope/
 ├── ui/                           # 前端应用
 ├── docs/                         # 文档目录
 │   └── sql/                      # SQL脚本
-├── agent/                        # Agent配置目录（IDE配置）
 ├── pom.xml                       # Maven父POM
-└── .gitignore                    # Git忽略配置
 ```
 
 ## 模块详细说明
@@ -93,7 +90,6 @@ agentScope/
 - `JwtAuthGlobalFilter`: JWT认证全局过滤器
 - `GatewayAuthProperties`: 网关认证配置
 - `JwtProperties`: JWT配置属性
-- `GatewayApplication`: 网关启动类
 
 **特性**:
 - 支持路径白名单配置
@@ -408,8 +404,7 @@ Gateway (网关)
 - 工具管理
 - 技能包管理
 - MCP 协议支持
-- 钩子函数机制
-- 敏感词过滤
+- Agent生命周期事件机制
 
 ---
 
