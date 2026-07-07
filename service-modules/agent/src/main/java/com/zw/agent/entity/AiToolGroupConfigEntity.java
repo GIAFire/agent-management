@@ -23,8 +23,6 @@ import lombok.experimental.Accessors;
 @TableName("ai_tool_group_config")
 public class AiToolGroupConfigEntity extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 主键ID
      */

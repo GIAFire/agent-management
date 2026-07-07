@@ -8,6 +8,7 @@ import com.zw.auth.service.SysUserService;
 import com.zw.common.RedisService;
 import com.zw.common.config.JwtProperties;
 import com.zw.common.constant.RedisConstants;
+import com.zw.common.context.UserInfo;
 import com.zw.common.entity.Result;
 import com.zw.common.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
@@ -42,9 +43,9 @@ public class AuthController {
         claims.put("userName", user.getUserName());
         claims.put("tenantId", user.getTenantId());
 
-        UserInfoVO userInfo = new UserInfoVO();
-        BeanUtils.copyProperties(user, userInfo);
+        UserInfo userInfo = new UserInfo();
         userInfo.setUserId(user.getId());
+        BeanUtils.copyProperties(user, userInfo);
         String token = JwtUtils.createToken(
                 String.valueOf(user.getId()),
                 jwtProperties.getIssuer(),

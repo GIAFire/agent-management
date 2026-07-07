@@ -10,6 +10,8 @@ public interface CommonService extends IService<CommonEntity> {
 
     List<Map<String, Object>> testQueryEquipmentInfo(Map<String, Object> params);
 
+    List<Map<String, Object>> bigData(Map<String, Object> params);
+
     @Override
     long count();
 }

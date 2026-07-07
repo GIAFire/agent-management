@@ -3,12 +3,16 @@ package com.zw.agent.factory.agentFactory;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
+import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
 import com.zw.agent.factory.compactionFactory.CompactionFactory;
 import com.zw.agent.factory.modelFactory.ModelFactory;
 import com.zw.agent.factory.permissionFactory.PermissionFactory;
+import com.zw.agent.factory.runtimeContextFactory.RuntimeContextFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
+import com.zw.agent.runtime.AgentCallContext;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
+import com.zw.agent.service.AiAgentStateLogService;
 import com.zw.common.constant.CacheKeyBuilder;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
@@ -22,7 +26,6 @@ import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.permission.PermissionContextState;
-import io.agentscope.core.state.AgentStateStore;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
@@ -34,9 +37,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 
 /**
@@ -54,9 +55,11 @@ public class AgentRuntimeFactory {
     private final CompactionFactory compactionFactory;
     private final ToolResultEvictionFactory toolResultEvictionFactory;
     private final ModelFactory modelFactory;
+    private final AiAgentStateLogService agentStateLogService;
     private final CacheKeyBuilder cacheKeyBuilder;
+    private final RuntimeContextFactory runtimeContextFactory;
 
-    public HarnessAgent getOrCreateAgent(AgentConfigDTO config,UserInfo userInfo,Long sessionId) {
+    public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
         String agentCacheKey = cacheKeyBuilder.buildAgentKey(
                 config.getAgentId(),
                 userInfo.getTenantId(),
@@ -64,33 +67,29 @@ public class AgentRuntimeFactory {
                 config.getAgentConfigId(),
                 sessionId);
 
-        // 构造模型配置
         return agentCache.get(agentCacheKey, key -> {
-            // 构造工具
             Toolkit toolkit = toolkitFactory.buildToolkit(config.getTenantId());
-            // 构造权限
             PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
-            // 构造上下文压缩配置
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
-            // 大工具结果卸载
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
-            // 构造模型
             ChatModelBase chatModelBase = modelFactory.buildModel(config);
 
-            // 构造Agent实例和Agent配置
-            return HarnessAgent.builder()
+            HarnessAgent.Builder agentBuilder = HarnessAgent.builder()
                     .name(config.getAgentName())
                     .sysPrompt(config.getSysPrompt())
                     .model(chatModelBase)
                     .toolkit(toolkit)
                     .permissionContext(permissionContextState)
-                    .maxIters(config.getMaxIters()) // 最大推理循环次数
+                    .maxIters(config.getMaxIters())
                     .compaction(compactionConfig)
-                    .workspace(Paths.get(config.getWorkspacePath())) // 配置工作空间路径
-//                    .additionalContextFile("knowledge.md")  构造Agent实例时,可直接注入上下文文件
-                    .disableMemoryTools()
-                    .toolResultEviction(toolResultEvictionConfig)
-                    .build();
+                    .workspace(Paths.get(config.getWorkspacePath()))
+                    .toolResultEviction(toolResultEvictionConfig);
+            if (config.getMemoryEnable() == 0){
+                agentBuilder.disableMemoryTools();
+                agentBuilder.disableMemoryHooks();
+            }
+
+            return agentBuilder.build();
         });
     }
 
@@ -99,45 +98,53 @@ public class AgentRuntimeFactory {
      * 该方法会先通过配置获取或创建Agent实例，然后构建运行时上下文，
      * 最后异步执行Agent调用并返回文本格式的响应内容。
      *
-     * @param config       Agent运行时配置，用于获取或创建Agent实例
-     * @param userKey 运行时用户标识键，用于构建运行时上下文
-     * @param sessionId    会话标识键，用于跟踪会话状态
-     * @param text         用户输入的文本消息内容
+     * @param config    Agent运行时配置，用于获取或创建Agent实例
+     * @param sessionId 会话标识键，用于跟踪会话状态
+     * @param text      用户输入的文本消息内容
      * @return Mono封装的字符串响应，包含Agent处理后的文本内容
      */
 
-    public Flux<AgentRuntimeEvent> callStreamEvents(
+    public AgentRuntimeStream callStreamEvents(
             AgentConfigDTO config,
             UserInfo userInfo,
-            String userKey,
             Long sessionId,
+            Long runId,
             String text
     ) {
-        // 通过Agent配置,获取或创建Agent实例
-        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
+        String userKey = AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId());
+        String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
+        HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
 
-        // 通过租户ID-用户ID,还有sessionId,构建运行时上下文
-        RuntimeContext context = RuntimeContext.builder()
-                .userId(userKey)
-                .sessionId(AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(),sessionId))
-                .build();
-        // 获取用户消息
+        RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId, userKey, sessionKey);
+
         UserMessage userMessage = new UserMessage(text);
 
-        // 获取Agent事件流
-        Flux<AgentEvent> agentEventFlux = harnessAgent.streamEvents(userMessage, context);
-        return agentEventFlux
+        agentStateLogService.saveStateLog(userInfo, config, sessionId, userKey, sessionKey);
+        Flux<AgentRuntimeEvent> runtimeEvents = harnessAgent
+                .streamEvents(userMessage, runtimeContext)
                 .map(this::toRuntimeEvent);
+
+        return new AgentRuntimeStream(
+                harnessAgent,
+                runtimeContext,
+                runtimeEvents,
+                userKey,
+                sessionKey
+        );
     }
 
-    public Flux<AgentRuntimeEvent> continueWithConfirmResults(
+    public AgentRuntimeStream continueWithConfirmResults(
             AgentConfigDTO config,
             UserInfo userInfo,
             Long sessionId,
+            Long runId,
             List<ConfirmResult> confirmResults
     ) {
-        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
-        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()),AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
+        HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
+        String userKey = AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId());
+        String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
+        RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId, userKey, sessionKey);
+
         Msg confirmMsg = Msg.builder()
                 .name("user")
                 .role(MsgRole.USER)
@@ -145,18 +152,24 @@ public class AgentRuntimeFactory {
                 .textContent("")
                 .build();
 
-        return harnessAgent.streamEvents(List.of(confirmMsg), context)
+        Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(confirmMsg), runtimeContext)
                 .map(this::toRuntimeEvent);
+
+        return new AgentRuntimeStream(harnessAgent, runtimeContext, runtimeEvent, userKey, sessionKey);
     }
 
-    public Flux<AgentRuntimeEvent> continueWithExternalExecutionResults(
+    public AgentRuntimeStream continueWithExternalExecutionResults(
             AgentConfigDTO config,
             UserInfo userInfo,
             Long sessionId,
+            Long runId,
             List<ToolResultBlock> toolResults
     ) {
-        HarnessAgent harnessAgent = getOrCreateAgent(config,userInfo,sessionId);
-        RuntimeContext context = buildRuntimeContext(AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId()), AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId));
+        HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
+        String userKey = AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId());
+        String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
+        RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId, userKey, sessionKey);
+
         List<ContentBlock> content = new ArrayList<>(toolResults == null ? List.of() : toolResults);
         Msg toolMsg = Msg.builder()
                 .name("external")
@@ -164,15 +177,10 @@ public class AgentRuntimeFactory {
                 .content(content)
                 .build();
 
-        return harnessAgent.streamEvents(List.of(toolMsg), context)
+        Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(toolMsg), runtimeContext)
                 .map(this::toRuntimeEvent);
-    }
 
-    private RuntimeContext buildRuntimeContext(String userKey,String sessionKey) {
-        return RuntimeContext.builder()
-                .userId(userKey)
-                .sessionId(sessionKey)
-                .build();
+        return new AgentRuntimeStream(harnessAgent, runtimeContext, runtimeEvent, userKey, sessionKey);
     }
 
     private AgentRuntimeEvent toRuntimeEvent(AgentEvent event) {
@@ -383,7 +391,7 @@ public class AgentRuntimeFactory {
         // 构建运行时上下文
         RuntimeContext context = RuntimeContext.builder()
                 .userId(AgentRuntimeKeys.userKey(config.getTenantId(), userId))
-                .sessionId(AgentRuntimeKeys.sessionKey(config.getTenantId(), config.getAgentId(), config.getAgentConfigId(), sessionId))
+                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
                 .build();
 
         return harnessAgent.call(new UserMessage(text), context)

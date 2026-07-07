@@ -6,23 +6,37 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import java.util.Optional;
+
 @Slf4j
 @RequiredArgsConstructor
 @Component
 public class CompactionFactory {
 
-
-
     public CompactionConfig buildCompaction(
             AgentConfigDTO config
     ){
         return CompactionConfig.builder()
-                .triggerMessages(config.getTriggerMessages())     // 30 条触发
-                .keepMessages(config.getKeepMessages())        // 压缩后保留最近 10 条原文
+                .triggerMessages(
+                        Optional.ofNullable(config.getTriggerMessages())
+                                .orElse(50)
+                )
+                .keepMessages(
+                        Optional.ofNullable(config.getKeepMessages())
+                                .orElse(20)
+                )
+                .triggerTokens(
+                        Optional.ofNullable(config.getTriggerTokens())
+                                .orElse(8000)
+                )
+                .keepTokens(
+                        Optional.ofNullable(config.getKeepTokens())
+                                .orElse(1)
+                )
                 .truncateArgs(CompactionConfig.TruncateArgsConfig.builder()
                         .maxArgLength(1000)
-                        .truncationText("<<<ARGS_TRUNCATED_BY_COMPACTION>>>")
-                        .build())                                   // 截断大文本参数长度
+                        .truncationText("... [truncated] ...")
+                        .build())
                 .build();
     }
 }

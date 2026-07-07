@@ -55,7 +55,7 @@ auth:
   jwt:
     secret: agentScopeJwtSecretKeyForLocalDevChangeMe20260621
     issuer: agent-scope
-    expire-seconds: 7200
+    expire-seconds: 604800
 
 feign:
   client:

@@ -2,6 +2,8 @@ package com.zw.auth.entity.DTO;
 
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class UserInfoDTO {
 
@@ -13,7 +15,7 @@ public class UserInfoDTO {
 
     private String password;
 
-    private String roleCode;
+    private List<String> roleCodes;
 
     private Byte status;
 }

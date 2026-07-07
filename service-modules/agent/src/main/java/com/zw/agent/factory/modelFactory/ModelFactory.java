@@ -19,7 +19,7 @@ public class ModelFactory {
     public ChatModelBase buildModel(
             AgentConfigDTO config
     ){
-        // 根据模型类型,创建对应模型实例
+
         if (ModelType.OPENAI.getCode().equals(config.getProvider().getCode())) {
             return OpenAIChatModel.builder()
                     .apiKey(config.getApiKey())

@@ -23,8 +23,6 @@ import java.time.LocalDateTime;
 @TableName("sys_tenant")
 public class SysTenantEntity implements Serializable {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 租户主键ID
      */
@@ -47,7 +45,7 @@ public class SysTenantEntity implements Serializable {
      * 租户状态：1启用，0停用
      */
     @TableField("status")
-    private Byte status;
+    private Integer status;
 
     /**
      * 租户对应的 Nacos 命名空间ID，用于 Agent/Skill 隔离

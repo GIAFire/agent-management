@@ -26,8 +26,8 @@ public class CommonTool extends ToolBase {
 
     public CommonTool() {
         super(ToolBase.builder()
-                .name("test_query_equipment_info")
-                .description("查询设备信息")
+                .name("bigData")
+                .description("查询大数据信息")
                 .inputSchema(inputSchema())
                 .readOnly(true)
                 .concurrencySafe(true));
@@ -36,7 +36,7 @@ public class CommonTool extends ToolBase {
     @Override
     public Mono<ToolResultBlock> callAsync(ToolCallParam param) {
         try {
-            List<Map<String, Object>> res = commonService.testQueryEquipmentInfo(param.getInput());
+            List<Map<String, Object>> res = commonService.bigData(param.getInput());
             Integer count = res.size();
 
             ObjectMapper mapper = new ObjectMapper();
@@ -51,13 +51,6 @@ public class CommonTool extends ToolBase {
 
     private static Map<String, Object> inputSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        properties.put("equipmentName", ToolSchemaUtils.stringProperty("设备名称"));
-        properties.put("level", ToolSchemaUtils.stringProperty("设备等级"));
-        properties.put("factory", ToolSchemaUtils.stringProperty("生产厂家"));
-        properties.put("orgName", ToolSchemaUtils.stringProperty("游乐园名称"));
-        properties.put("contactName", ToolSchemaUtils.stringProperty("设备联系人"));
-        properties.put("contactJob", ToolSchemaUtils.stringProperty("联系人职位"));
-        // list中是必填参数
         return ToolSchemaUtils.objectSchema(properties, null);
     }
 }

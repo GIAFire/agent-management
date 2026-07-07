@@ -3,6 +3,7 @@ package com.zw.auth.entity.VO;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.List;
 
 @Data
 public class UserInfoVO implements Serializable {
@@ -14,7 +15,7 @@ public class UserInfoVO implements Serializable {
 
     private Long tenantId;
 
-    private String roleCode;
+    private List<String> roleCodes;
 
     private Byte status;
 }

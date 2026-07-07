@@ -25,8 +25,6 @@ import lombok.experimental.Accessors;
 @TableName("sys_permission")
 public class SysPermissionEntity extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * 主键ID
      */
@@ -55,7 +53,7 @@ public class SysPermissionEntity extends BaseEntity {
      * 类型：1-菜单，2-按钮/接口
      */
     @TableField("type")
-    private Byte type;
+    private Integer type;
 
     /**
      * 排序号
@@ -67,5 +65,5 @@ public class SysPermissionEntity extends BaseEntity {
      * 状态：0-禁用，1-启用
      */
     @TableField("status")
-    private Byte status;
+    private Integer status;
 }

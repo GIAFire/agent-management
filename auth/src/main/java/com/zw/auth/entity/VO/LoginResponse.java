@@ -1,5 +1,6 @@
 package com.zw.auth.entity.VO;
 
+import com.zw.common.context.UserInfo;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
@@ -11,5 +12,5 @@ public class LoginResponse {
     private String tokenType;
     private long expiresIn;
     private long expiresAt;
-    private UserInfoVO user;
+    private UserInfo user;
 }

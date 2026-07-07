@@ -23,7 +23,6 @@ import lombok.experimental.Accessors;
 @TableName("sys_user_role")
 public class SysUserRoleEntity extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
 
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;

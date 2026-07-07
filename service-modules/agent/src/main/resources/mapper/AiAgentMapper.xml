@@ -25,9 +25,14 @@
         <result property="modelId" column="model_id"/>
         <result property="maxIters" column="max_iters"/>
         <result property="permissionMode" column="permission_mode"/>
-        <result property="visualSchemaJson" column="visual_schema_json"/>
-        <result property="publishStatus" column="publish_status"/>
-        <result property="publishedAt" column="published_at"/>
+        <result property="contextEnabled" column="context_enabled"/>
+        <result property="triggerMessages" column="trigger_messages"/>
+        <result property="keepMessages" column="keep_messages"/>
+        <result property="triggerTokens" column="trigger_tokens"/>
+        <result property="keepTokens" column="keep_tokens"/>
+        <result property="truncateArgsEnabled" column="truncate_args_enabled"/>
+        <result property="toolResultEvictionEnabled" column="tool_result_eviction_enabled"/>
+        <result property="memoryEnable" column="memory_enable"/>
 
         <!-- ModelConfig 字段映射 -->
         <result property="modelId" column="model_id"/>
@@ -78,6 +83,7 @@
             ac.keep_tokens AS keepTokens,
             ac.truncate_args_enabled AS truncateArgsEnabled,
             ac.tool_result_eviction_enabled AS toolResultEvictionEnabled,
+            ac.memory_enable AS memoryEnable,
 
             model.id AS modelId,
             model.provider AS provider,

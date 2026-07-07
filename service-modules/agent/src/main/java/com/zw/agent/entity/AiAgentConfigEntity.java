@@ -25,8 +25,6 @@ import lombok.experimental.Accessors;
 @TableName("ai_agent_config")
 public class AiAgentConfigEntity extends BaseEntity {
 
-    private static final long serialVersionUID = 1L;
-
     /**
      * Agent 版本主键ID
      */
@@ -91,7 +89,13 @@ public class AiAgentConfigEntity extends BaseEntity {
      * 发布状态：0草稿，1已发布，2已废弃
      */
     @TableField("publish_status")
-    private Byte publishStatus;
+    private Integer publishStatus;
+
+    /**
+     * 是否启用记忆：1启用,0禁用
+     */
+    @TableField("memory_enable")
+    private Integer memoryEnable;
 
     /**
      * 发布时间
