@@ -1,6 +1,6 @@
 package com.zw.agent.mapper;
 
-import com.zw.agent.entity.AiKnowledgeVectorConfigEntity;
+import com.zw.agent.entity.AiKnowledgeBackendConfigEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -13,6 +13,6 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-07-06
  */
 @Mapper
-public interface AiKnowledgeVectorConfigMapper extends BaseMapper<AiKnowledgeVectorConfigEntity> {
+public interface AiKnowledgeBackendConfigMapper extends BaseMapper<AiKnowledgeBackendConfigEntity> {
 
 }

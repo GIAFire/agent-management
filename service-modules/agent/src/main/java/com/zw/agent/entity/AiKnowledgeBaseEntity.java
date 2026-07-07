@@ -32,6 +32,18 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
     private Long id;
 
     /**
+     * 知识库后端ID
+     */
+    @TableField("knowledge_base_id")
+    private Long knowledgeBaseId;
+
+    /**
+     * 知识库后端ID
+     */
+    @TableField("user_id")
+    private Long userId;
+
+    /**
      * 知识库名称，例如产品文档库、售后政策库
      */
     @TableField("knowledge_name")
@@ -42,24 +54,6 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
      */
     @TableField("description")
     private String description;
-
-    /**
-     * 向量存储配置ID，关联ai_knowledge_vector_config.id
-     */
-    @TableField("vector_store_id")
-    private Long vectorStoreId;
-
-    /**
-     * 知识库后端类型：RAGFLOW/SELF_MANAGED/QDRANT/MILVUS/PGVECTOR/ELASTICSEARCH
-     */
-    @TableField("provider_type")
-    private String providerType;
-
-    /**
-     * 外部知识库ID，例如RAGFlow dataset_id、Elasticsearch index、Qdrant collection
-     */
-    @TableField("external_dataset_id")
-    private String externalDatasetId;
 
     /**
      * 切片策略：GENERAL/PARAGRAPH/TOKEN/QA/TABLE/PDF_LAYOUT/CUSTOM

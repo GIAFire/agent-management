@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zw.common.entity.BaseEntity;
-import java.io.Serializable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -22,7 +21,7 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @TableName("ai_knowledge_vector_config")
-public class AiKnowledgeVectorConfigEntity extends BaseEntity {
+public class AiKnowledgeBackendConfigEntity extends BaseEntity {
 
     /**
      * 向量存储配置主键ID
@@ -30,17 +29,15 @@ public class AiKnowledgeVectorConfigEntity extends BaseEntity {
     @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
-    /**
-     * 向量存储名称，例如默认Qdrant、RAGFlow生产库
-     */
-    @TableField("store_name")
-    private String storeName;
+    private Long agentId;
+
+    private Long userId;
 
     /**
-     * 向量存储类型：RAGFLOW/QDRANT/MILVUS/PGVECTOR/ELASTICSEARCH/OPENSEARCH/MYSQL_FULLTEXT
+     * 后端类型:如openai、百炼、RAGFlow、Dify
      */
-    @TableField("store_type")
-    private String storeType;
+    @TableField("backend_store_type")
+    private String backendStoreType;
 
     /**
      * 向量库或RAG服务访问地址，例如RAGFlow地址、Qdrant地址
@@ -55,22 +52,10 @@ public class AiKnowledgeVectorConfigEntity extends BaseEntity {
     private String apiKeyRef;
 
     /**
-     * 数据库名或命名空间，例如Milvus database、PG database
+     * 数据库选型，例如Milvus、PG、ES
      */
-    @TableField("database_name")
-    private String databaseName;
-
-    /**
-     * 集合名、索引名或RAGFlow dataset命名空间
-     */
-    @TableField("collection_name")
-    private String collectionName;
-
-    /**
-     * Embedding模型配置ID，关联你的模型配置表
-     */
-    @TableField("embedding_model_config_id")
-    private Long embeddingModelConfigId;
+    @TableField("database_type")
+    private String databaseType;
 
     /**
      * Embedding模型名称，例如 text-embedding-v3
@@ -91,7 +76,7 @@ public class AiKnowledgeVectorConfigEntity extends BaseEntity {
     private String distanceMetric;
 
     /**
-     * 后端特定配置JSON，例如rerank配置、hybrid检索权重、RAGFlow参数
+     * 后端扩展配置JSON，例如rerank配置、hybrid检索权重、RAGFlow参数
      */
     @TableField("config_json")
     private String configJson;

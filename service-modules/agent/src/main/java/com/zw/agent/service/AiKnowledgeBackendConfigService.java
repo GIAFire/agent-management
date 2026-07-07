@@ -1,6 +1,6 @@
 package com.zw.agent.service;
 
-import com.zw.agent.entity.AiKnowledgeVectorConfigEntity;
+import com.zw.agent.entity.AiKnowledgeBackendConfigEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 /**
@@ -11,6 +11,6 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * @author 智纬
  * @since 2026-07-06
  */
-public interface AiKnowledgeVectorConfigService extends IService<AiKnowledgeVectorConfigEntity> {
+public interface AiKnowledgeBackendConfigService extends IService<AiKnowledgeBackendConfigEntity> {
 
 }
