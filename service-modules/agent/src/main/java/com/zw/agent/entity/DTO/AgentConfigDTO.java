@@ -1,5 +1,6 @@
 package com.zw.agent.entity.DTO;
 
+import com.zw.agent.factory.RAGFactory.EmbeddinModelType;
 import com.zw.agent.factory.modelFactory.ModelType;
 import io.agentscope.core.permission.PermissionMode;
 import lombok.Data;
@@ -55,5 +56,8 @@ public class AgentConfigDTO {
     private Integer maxAttempts;
     private Long fallbackModelConfigId;
     private Integer modelStatus;
+
+    // ========== knowledge 字段 ==========
+    private EmbeddinModelType storeType;
 
 }
