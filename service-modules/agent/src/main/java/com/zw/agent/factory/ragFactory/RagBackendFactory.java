@@ -63,18 +63,21 @@ public class RagBackendFactory {
 
         return switch (apiType) {
             case "OPENAI" -> OpenAiEmbeddingModel.builder()
+                    .baseUrl(config.getModelUrl())
                     .apiKey(apiKey)
                     .modelName(config.getEmbeddingModelName())
-                    .dimensions(config.getEmbeddingDimension())
+//                    .dimensions(config.getEmbeddingDimension())
                     .build();
 
             case "DASHSCOPE", "DASH_SCOPE" -> QwenEmbeddingModel.builder()
+                    .baseUrl(config.getModelUrl())
                     .apiKey(apiKey)
                     .modelName(config.getEmbeddingModelName())
                     .dimension(config.getEmbeddingDimension())
                     .build();
 
             case "ZHIPU" -> ZhipuAiEmbeddingModel.builder()
+                    .baseUrl(config.getModelUrl())
                     .apiKey(apiKey)
                     .model(config.getEmbeddingModelName())
                     .dimensions(config.getEmbeddingDimension())

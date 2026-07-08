@@ -20,7 +20,19 @@
         <agentscope.version>2.0.0-RC4</agentscope.version>
         <embeddingModel.version>1.17.1</embeddingModel.version>
         <embeddingScope.version>1.17.1-beta27</embeddingScope.version>
+        <grpc.version>1.77.0</grpc.version>
     </properties>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.grpc</groupId>
+                <artifactId>grpc-bom</artifactId>
+                <version>${grpc.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>io.agentscope</groupId>

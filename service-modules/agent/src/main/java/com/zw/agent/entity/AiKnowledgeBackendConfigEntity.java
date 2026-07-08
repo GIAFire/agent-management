@@ -59,6 +59,12 @@ public class AiKnowledgeBackendConfigEntity extends BaseEntity {
     private Integer endpointPort;
 
     /**
+     * 模型url
+     */
+    @TableField("model_url")
+    private String modelUrl;
+
+    /**
      * API Key引用，不建议直接存明文，可存密钥管理系统引用
      */
     @TableField("api_key_ref")
