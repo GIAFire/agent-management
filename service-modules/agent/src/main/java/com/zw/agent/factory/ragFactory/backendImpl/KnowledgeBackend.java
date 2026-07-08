@@ -23,4 +23,14 @@ public interface KnowledgeBackend {
             int topK,
             double scoreThreshold
     );
+
+    default List<EmbeddingMatch<TextSegment>> retrieveMatches(
+            KnowledgeBase kb,
+            String query,
+            int topK,
+            double scoreThreshold
+    ) {
+        EmbeddingMatch<TextSegment> match = retrieve(kb, query, topK, scoreThreshold);
+        return match == null ? List.of() : List.of(match);
+    }
 }

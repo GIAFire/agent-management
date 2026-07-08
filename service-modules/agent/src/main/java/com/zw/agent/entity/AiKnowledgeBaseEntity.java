@@ -34,11 +34,11 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
     /**
      * 知识库后端ID
      */
-    @TableField("knowledge_base_id")
-    private Long knowledgeBaseId;
+    @TableField("knowledge_backend_id")
+    private Long knowledgeBackendId;
 
     /**
-     * 知识库后端ID
+     * 用户ID
      */
     @TableField("user_id")
     private Long userId;

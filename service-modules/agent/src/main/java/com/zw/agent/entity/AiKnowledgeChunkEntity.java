@@ -109,7 +109,7 @@ public class AiKnowledgeChunkEntity extends BaseEntity {
     private Integer tokenCount;
 
     /**
-     * 向量存储配置ID，关联ai_knowledge_vector_config.id
+     * 向量存储配置ID，关联ai_knowledge_backend_config.id
      */
     @TableField("vector_store_id")
     private Long vectorStoreId;

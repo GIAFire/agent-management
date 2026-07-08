@@ -21,7 +21,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("ai_knowledge_vector_config")
+@TableName("ai_knowledge_backend_config")
 public class AiKnowledgeBackendConfigEntity extends BaseEntity {
 
     /**
