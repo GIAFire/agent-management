@@ -98,6 +98,54 @@ public class AiAgentConfigEntity extends BaseEntity {
     private Integer memoryEnable;
 
     /**
+     * 是否启用Plan Mode：1启用，0关闭
+     */
+    @TableField("plan_mode_enabled")
+    private Integer planModeEnabled;
+
+    /**
+     * 计划文件目录，相对workspace_path，例如plans
+     */
+    @TableField("plan_file_directory")
+    private Integer planFileDirectory;
+
+    /**
+     * 是否启用todo_write任务列表：1启用，0关闭
+     */
+    @TableField("task_list_enabled")
+    private Integer taskListEnabled;
+
+    /**
+     * Plan阶段是否允许shell工具：1允许，0禁止；生产环境建议关闭
+     */
+    @TableField("allow_shell_in_plan_mode")
+    private Integer allowShellInPlanMode;
+
+    /**
+     * Plan制定完毕后是否需要人工确认：1需要，0不需要
+     */
+    @TableField("plan_exit_approval_required")
+    private Integer planExitApprovalRequired;
+
+    /**
+     * 单个计划最多允许的步骤数量
+     */
+    @TableField("plan_max_steps")
+    private Integer planMaxSteps;
+
+    /**
+     * 是否允许模型自主进入Plan Mode：1允许，0关闭
+     */
+    @TableField("plan_auto_enter_enabled")
+    private Integer planAutoEnterEnabled;
+
+    /**
+     * Plan Mode额外提示词，用于约束计划格式、风险说明和验收标准
+     */
+    @TableField("plan_prompt")
+    private Integer planPrompt;
+
+    /**
      * 发布时间
      */
     @TableField("published_at")
