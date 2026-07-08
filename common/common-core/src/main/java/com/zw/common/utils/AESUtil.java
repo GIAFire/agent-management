@@ -24,7 +24,7 @@ public class AESUtil {
     /**
      * 解密前端加密的数据（完全配套）
      */
-    public static String decrypt(String cipherTextB64) throws Exception {
+    public static String decrypt(String cipherTextB64) {
         // 1. 解码Base64
         byte[] combined = Base64.getDecoder().decode(cipherTextB64);
 
@@ -39,14 +39,19 @@ public class AESUtil {
         // 4. 解码主密钥
         byte[] keyBytes = Base64.getDecoder().decode(masterKeyB64key);
         SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
+        try{
+            // 5. 解密
+            Cipher cipher = Cipher.getInstance(ALGORITHM);
+            GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
+            cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
 
-        // 5. 解密
-        Cipher cipher = Cipher.getInstance(ALGORITHM);
-        GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
-        cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec);
+            byte[] plainBytes = cipher.doFinal(cipherText);
+            return new String(plainBytes, StandardCharsets.UTF_8);
+        }catch (Exception e){
+            // 处理异常
+            return null;
+        }
 
-        byte[] plainBytes = cipher.doFinal(cipherText);
-        return new String(plainBytes, StandardCharsets.UTF_8);
     }
 
     /**

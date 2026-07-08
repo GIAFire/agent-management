@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zw.agent.factory.ragFactory.enumeration.ApiType;
 import com.zw.common.entity.BaseEntity;
 import lombok.Getter;
 import lombok.Setter;
@@ -40,10 +41,22 @@ public class AiKnowledgeBackendConfigEntity extends BaseEntity {
     private String backendStoreType;
 
     /**
+     * 本地后端API类型:如openai、ollama
+     */
+    @TableField("api_type")
+    private ApiType apiType;
+
+    /**
      * 向量库或RAG服务访问地址，例如RAGFlow地址、Qdrant地址
      */
     @TableField("endpoint")
     private String endpoint;
+
+    /**
+     * 向量库或RAG服务访问地址，例如RAGFlow地址、Qdrant地址
+     */
+    @TableField("endpoint_port")
+    private Integer endpointPort;
 
     /**
      * API Key引用，不建议直接存明文，可存密钥管理系统引用
