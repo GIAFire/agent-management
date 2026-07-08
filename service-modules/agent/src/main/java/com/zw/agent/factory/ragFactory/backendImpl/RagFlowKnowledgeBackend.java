@@ -10,7 +10,7 @@ import java.util.List;
 
 public class RagFlowKnowledgeBackend implements KnowledgeBackend {
 
-    private final RagFlowClient ragFlowClient;
+//    private final RagFlowClient ragFlowClient;
 
     @Override
     public BackendStoreType mode() {
