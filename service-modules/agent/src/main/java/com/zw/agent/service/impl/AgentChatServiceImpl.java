@@ -10,6 +10,7 @@ import com.zw.agent.factory.agentFactory.AgentRuntimeFactory;
 import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.*;
+import com.zw.agent.service.plan.PlanRuntimeEventTracker;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
@@ -58,6 +59,7 @@ public class AgentChatServiceImpl implements AgentChatService {
     private final AiToolCallLogService toolCallAuditService;
     private final AiAgentStateLogService agentStateLogService;
     private final AiAgentStateOpLogService agentStateOpLogService;
+    private final AiAgentPlanRuntimeService agentPlanRuntimeService;
 
     @Override
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(AgentConfigDTO config, UserInfo userInfo, Long sessionId, String text, Long runId, Long requestStartNs, Long requestStartMs) {
@@ -155,6 +157,7 @@ public class AgentChatServiceImpl implements AgentChatService {
         AtomicBoolean firstEventLogged = new AtomicBoolean(false);
         AtomicLong seq = new AtomicLong(0);
         Long now = System.currentTimeMillis();
+        PlanRuntimeEventTracker planEventTracker = agentPlanRuntimeService.newTracker();
 
         Set<String> loggedEventTypes = ConcurrentHashMap.newKeySet();
 
@@ -215,17 +218,28 @@ public class AgentChatServiceImpl implements AgentChatService {
                     }
                     loggedEventTypes.add(eventType);
                 })
-                .map(runtimeEvent -> ServerSentEvent.<AgentStreamResponse>builder()
+                .map(runtimeEvent -> {
+                    Map<String, Object> planPayload = agentPlanRuntimeService.handleRuntimeEvent(
+                            agent,
+                            runtimeContext,
+                            runtimeEvent,
+                            config,
+                            userInfo,
+                            sessionId,
+                            runId,
+                            planEventTracker
+                    );
+                    return ServerSentEvent.<AgentStreamResponse>builder()
 //                        .event(toSseEventName(runtimeEvent.getEventType()))
-                        .data(new AgentStreamResponse(
-                                runId,
-                                runtimeEvent.getEventType(),
-                                runtimeEvent.getDelta(),
-                                seq.incrementAndGet(),
-                                toPayload(runtimeEvent)
-                        ))
-                        .build()
-                )
+                            .data(new AgentStreamResponse(
+                                    runId,
+                                    runtimeEvent.getEventType(),
+                                    runtimeEvent.getDelta(),
+                                    seq.incrementAndGet(),
+                                    mergePayload(toPayload(runtimeEvent), planPayload)
+                            ))
+                            .build();
+                })
                 .concatWith(Mono.defer(() -> {
                     long doneNs = System.nanoTime();
                     log.warn("服务端准备返回最终done事件的时间, runId={}, totalCostMs={}, streamCostMs={}",
@@ -458,6 +472,25 @@ public class AgentChatServiceImpl implements AgentChatService {
         }
 
         return null;
+    }
+
+    private Object mergePayload(Object payload, Map<String, Object> planPayload) {
+        if (planPayload == null || planPayload.isEmpty()) {
+            return payload;
+        }
+
+        Map<String, Object> merged = new LinkedHashMap<>();
+        if (payload instanceof Map<?, ?> payloadMap) {
+            payloadMap.forEach((key, value) -> {
+                if (key != null) {
+                    merged.put(String.valueOf(key), value);
+                }
+            });
+        } else if (payload != null) {
+            merged.put("value", payload);
+        }
+        merged.put("planEvent", planPayload);
+        return merged;
     }
 
     private Map<String, Object> interventionPayload(String replyId, List<ToolUseBlock> toolCalls) {

@@ -94,6 +94,9 @@ public class AgentRuntimeFactory {
                         .enablePlanMode(true)   // 装 PlanMode 三件套
                         .planFileDirectory(Optional.ofNullable(config.getPlanFileDirectory()).orElse("plans"));
             }
+            if (config.getTaskListEnabled() == 1){
+                agentBuilder.enableTaskList(true);
+            }
             if (config.getAllowShellInPlanMode() == 1){
                 agentBuilder.allowShellInPlanMode();
             }

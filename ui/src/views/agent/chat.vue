@@ -117,6 +117,26 @@ const STREAM_EVENT_LABELS = {
   ERROR: '执行异常'
 }
 
+const PLAN_STATUS_META = {
+  DRAFT: { label: '草稿', type: 'info' },
+  WAITING_APPROVAL: { label: '待确认', type: 'warning' },
+  APPROVED: { label: '已批准', type: 'success' },
+  REJECTED: { label: '已拒绝', type: 'danger' },
+  EXECUTING: { label: '执行中', type: 'warning' },
+  COMPLETED: { label: '已完成', type: 'success' },
+  FAILED: { label: '失败', type: 'danger' },
+  CANCELLED: { label: '已取消', type: 'info' }
+}
+
+const TASK_STATE_META = {
+  PENDING: { label: '待执行', type: 'info' },
+  IN_PROGRESS: { label: '执行中', type: 'warning' },
+  COMPLETED: { label: '已完成', type: 'success' },
+  BLOCKED: { label: '阻塞', type: 'danger' },
+  FAILED: { label: '失败', type: 'danger' },
+  CANCELLED: { label: '已取消', type: 'info' }
+}
+
 const getStageKey = (eventType = '') => {
   const normalizedType = String(eventType || '').toUpperCase()
 
@@ -251,6 +271,115 @@ const toolStatusText = (toolCall) => {
   return '调用中'
 }
 
+const normalizePlanStatus = (status = '') => String(status || '').toUpperCase()
+
+const normalizeTaskState = (state = '') => String(state || 'PENDING').toUpperCase()
+
+const planStatusMeta = (status) => PLAN_STATUS_META[normalizePlanStatus(status)] || { label: status || '未知', type: 'info' }
+
+const taskStateMeta = (state) => TASK_STATE_META[normalizeTaskState(state)] || { label: state || '未知', type: 'info' }
+
+const planStatusText = (status) => planStatusMeta(status).label
+
+const planStatusType = (status) => planStatusMeta(status).type
+
+const taskStateText = (state) => taskStateMeta(state).label
+
+const taskStateType = (state) => taskStateMeta(state).type
+
+const normalizePlanTask = (task = {}, index = 0) => ({
+  id: task.id || `${task.planId || 'plan'}-${task.taskIndex || index + 1}`,
+  planId: task.planId || '',
+  taskIndex: Number(task.taskIndex) || index + 1,
+  subject: task.subject || task.title || `任务 ${index + 1}`,
+  detail: task.detail || task.description || '',
+  state: normalizeTaskState(task.state),
+  owner: task.owner || '',
+  blocks: Array.isArray(task.blocks) ? task.blocks : [],
+  blockedBy: Array.isArray(task.blockedBy) ? task.blockedBy : [],
+  startedAt: task.startedAt || '',
+  finishedAt: task.finishedAt || ''
+})
+
+const buildPlanProgress = (tasks = []) => {
+  const total = tasks.length
+  const completed = tasks.filter((task) => normalizeTaskState(task.state) === 'COMPLETED').length
+  const inProgress = tasks.filter((task) => normalizeTaskState(task.state) === 'IN_PROGRESS').length
+  const pending = tasks.filter((task) => normalizeTaskState(task.state) === 'PENDING').length
+  return {
+    total,
+    completed,
+    inProgress,
+    pending,
+    percent: total ? Math.round((completed * 100) / total) : 0
+  }
+}
+
+const normalizePlanProgress = (progress = {}, tasks = []) => {
+  const fallback = buildPlanProgress(tasks)
+  const total = Number(progress.total ?? fallback.total) || 0
+  const completed = Number(progress.completed ?? fallback.completed) || 0
+  const inProgress = Number(progress.inProgress ?? fallback.inProgress) || 0
+  const pending = Number(progress.pending ?? fallback.pending) || 0
+  return {
+    total,
+    completed,
+    inProgress,
+    pending,
+    percent: total ? Number(progress.percent ?? Math.round((completed * 100) / total)) || 0 : 0
+  }
+}
+
+const hasPlanOutput = (message) => {
+  return Boolean(message?.planState || (Array.isArray(message?.planTasks) && message.planTasks.length))
+}
+
+const planPanelTitle = (message) => {
+  return message?.planState?.title || message?.planState?.planNo || 'Plan Mode'
+}
+
+const planProgressText = (message) => {
+  const progress = message?.planProgress || buildPlanProgress(message?.planTasks || [])
+  return progress.total ? `${progress.completed}/${progress.total}` : ''
+}
+
+const applyPlanEventPayload = (message, streamEvent) => {
+  const planEvent = streamEvent?.payload?.planEvent
+  if (!message || !planEvent) {
+    return false
+  }
+
+  if (planEvent.plan) {
+    message.planState = {
+      ...(message.planState || {}),
+      ...planEvent.plan
+    }
+  }
+
+  if (Array.isArray(planEvent.tasks)) {
+    message.planTasks = planEvent.tasks.map(normalizePlanTask)
+  } else if (!Array.isArray(message.planTasks)) {
+    message.planTasks = []
+  }
+
+  message.planProgress = normalizePlanProgress(planEvent.progress, message.planTasks || [])
+  message.lastPlanEvent = {
+    type: planEvent.type || '',
+    toolName: planEvent.toolName || '',
+    occurredAt: planEvent.occurredAt || ''
+  }
+  message.planExpanded = message.planExpanded ?? true
+  return true
+}
+
+const togglePlanPanel = (message) => {
+  if (!message) {
+    return
+  }
+  message.planExpanded = !message.planExpanded
+  saveSessions()
+}
+
 const toggleAuxiliaryPanel = (message, key) => {
   if (!message) {
     return
@@ -361,7 +490,8 @@ const hasAuxiliaryOutput = (message) => {
     (Array.isArray(message?.auxiliaryBlocks) && message.auxiliaryBlocks.length) ||
     message?.thinkingContent ||
     message?.toolResultContent ||
-    (Array.isArray(message?.toolCalls) && message.toolCalls.length)
+    (Array.isArray(message?.toolCalls) && message.toolCalls.length) ||
+    hasPlanOutput(message)
   )
 }
 
@@ -1021,6 +1151,10 @@ const appendAuxiliaryDelta = (message, session, streamEvent) => {
     changed = true
   }
 
+  if (applyPlanEventPayload(message, streamEvent)) {
+    changed = true
+  }
+
   if (!changed) {
     return
   }
@@ -1390,6 +1524,9 @@ const loadSessions = () => {
         ? session.messages.map((message) => {
           const toolCalls = normalizeStoredToolCalls(message)
           const auxiliaryBlocks = normalizeStoredAuxiliaryBlocks(message, toolCalls)
+          const planTasks = Array.isArray(message.planTasks)
+            ? message.planTasks.map(normalizePlanTask)
+            : []
           return {
             ...message,
             displayContent: message.displayContent ?? message.content ?? '',
@@ -1406,7 +1543,12 @@ const loadSessions = () => {
             pendingReasoningStartedAt: null,
             pendingIntervention: null,
             toolExpanded: message.toolExpanded ?? message.toolResultExpanded ?? Boolean(toolCalls.length),
-            eventStages: Array.isArray(message.eventStages) ? message.eventStages : []
+            eventStages: Array.isArray(message.eventStages) ? message.eventStages : [],
+            planState: message.planState || null,
+            planTasks,
+            planProgress: normalizePlanProgress(message.planProgress, planTasks),
+            planExpanded: message.planExpanded ?? Boolean(message.planState || planTasks.length),
+            lastPlanEvent: message.lastPlanEvent || null
           }
         })
         : []
@@ -1675,6 +1817,11 @@ const sendMessage = async () => {
       pendingReasoningStartedAt: null,
       toolExpanded: true,
       pendingIntervention: null,
+      planState: null,
+      planTasks: [],
+      planProgress: buildPlanProgress([]),
+      planExpanded: true,
+      lastPlanEvent: null,
       runId: null
     },
     { forceScroll: true }
@@ -1870,6 +2017,67 @@ onBeforeUnmount(() => {
                 </div>
               </section>
             </div>
+
+            <section
+              v-if="message.role === 'assistant' && hasPlanOutput(message)"
+              class="plan-progress-panel"
+            >
+              <button
+                class="plan-progress-toggle"
+                type="button"
+                @click="togglePlanPanel(message)"
+              >
+                <span class="plan-progress-title">{{ planPanelTitle(message) }}</span>
+                <el-tag
+                  size="small"
+                  :type="planStatusType(message.planState?.status)"
+                >
+                  {{ planStatusText(message.planState?.status) }}
+                </el-tag>
+                <small v-if="planProgressText(message)">{{ planProgressText(message) }}</small>
+                <small>{{ message.planExpanded ? '收起' : '展开' }}</small>
+              </button>
+              <div
+                v-show="message.planExpanded"
+                class="plan-progress-body"
+              >
+                <div class="plan-progress-meta">
+                  <span v-if="message.planState?.planFilePath">{{ message.planState.planFilePath }}</span>
+                  <span v-if="message.lastPlanEvent?.occurredAt">{{ message.lastPlanEvent.occurredAt }}</span>
+                </div>
+                <div
+                  v-if="message.planProgress?.total"
+                  class="plan-progress-bar"
+                >
+                  <span :style="{ width: `${message.planProgress.percent || 0}%` }" />
+                </div>
+                <ol
+                  v-if="message.planTasks?.length"
+                  class="plan-task-list"
+                >
+                  <li
+                    v-for="task in message.planTasks"
+                    :key="task.id"
+                    class="plan-task-item"
+                    :class="normalizeTaskState(task.state).toLowerCase()"
+                  >
+                    <div class="plan-task-main">
+                      <span class="plan-task-index">{{ task.taskIndex }}</span>
+                      <div>
+                        <strong>{{ task.subject }}</strong>
+                        <p v-if="task.detail">{{ task.detail }}</p>
+                      </div>
+                    </div>
+                    <el-tag
+                      size="small"
+                      :type="taskStateType(task.state)"
+                    >
+                      {{ taskStateText(task.state) }}
+                    </el-tag>
+                  </li>
+                </ol>
+              </div>
+            </section>
 
             <div
               v-if="shouldShowMessageContent(message)"
@@ -2334,6 +2542,139 @@ onBeforeUnmount(() => {
   line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.plan-progress-panel {
+  overflow: hidden;
+  margin-bottom: 10px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.plan-progress-toggle {
+  display: grid;
+  width: 100%;
+  min-height: 38px;
+  align-items: center;
+  grid-template-columns: minmax(0, 1fr) max-content max-content max-content;
+  gap: 8px;
+  border: 0;
+  cursor: pointer;
+  background: rgba(239, 246, 255, 0.74);
+  color: #334155;
+  font: inherit;
+  text-align: left;
+}
+
+.plan-progress-toggle:hover {
+  background: rgba(219, 234, 254, 0.78);
+}
+
+.plan-progress-title {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-progress-toggle small {
+  color: #64748b;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.plan-progress-body {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.plan-progress-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.plan-progress-bar {
+  overflow: hidden;
+  height: 7px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.plan-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2563eb;
+  transition: width 180ms ease;
+}
+
+.plan-task-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.plan-task-item {
+  display: grid;
+  align-items: start;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.plan-task-item.in_progress {
+  border-color: rgba(245, 158, 11, 0.36);
+  background: #fffbeb;
+}
+
+.plan-task-item.completed {
+  border-color: rgba(34, 197, 94, 0.28);
+  background: #f0fdf4;
+}
+
+.plan-task-main {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.plan-task-index {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.plan-task-main strong {
+  display: block;
+  overflow-wrap: anywhere;
+  color: #1f2937;
+  font-size: 13px;
+}
+
+.plan-task-main p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .tool-call {
