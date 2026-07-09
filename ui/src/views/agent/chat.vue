@@ -271,22 +271,31 @@ const toolStatusText = (toolCall) => {
   return '调用中'
 }
 
+// 统一计划状态大小写，避免后端枚举大小写变化影响展示。
 const normalizePlanStatus = (status = '') => String(status || '').toUpperCase()
 
+// 统一任务状态大小写，并为空状态提供 PENDING 兜底。
 const normalizeTaskState = (state = '') => String(state || 'PENDING').toUpperCase()
 
+// 根据计划状态返回标签文案和 Element Plus 标签类型。
 const planStatusMeta = (status) => PLAN_STATUS_META[normalizePlanStatus(status)] || { label: status || '未知', type: 'info' }
 
+// 根据任务状态返回标签文案和 Element Plus 标签类型。
 const taskStateMeta = (state) => TASK_STATE_META[normalizeTaskState(state)] || { label: state || '未知', type: 'info' }
 
+// 返回计划状态中文文案。
 const planStatusText = (status) => planStatusMeta(status).label
 
+// 返回计划状态对应的标签颜色类型。
 const planStatusType = (status) => planStatusMeta(status).type
 
+// 返回任务状态中文文案。
 const taskStateText = (state) => taskStateMeta(state).label
 
+// 返回任务状态对应的标签颜色类型。
 const taskStateType = (state) => taskStateMeta(state).type
 
+// 标准化后端任务快照，补齐前端渲染任务行所需的字段。
 const normalizePlanTask = (task = {}, index = 0) => ({
   id: task.id || `${task.planId || 'plan'}-${task.taskIndex || index + 1}`,
   planId: task.planId || '',
@@ -301,6 +310,7 @@ const normalizePlanTask = (task = {}, index = 0) => ({
   finishedAt: task.finishedAt || ''
 })
 
+// 根据任务列表计算本地进度，用于后端没有传 progress 时兜底。
 const buildPlanProgress = (tasks = []) => {
   const total = tasks.length
   const completed = tasks.filter((task) => normalizeTaskState(task.state) === 'COMPLETED').length
@@ -315,6 +325,7 @@ const buildPlanProgress = (tasks = []) => {
   }
 }
 
+// 标准化后端进度快照，并用任务列表补齐缺失统计项。
 const normalizePlanProgress = (progress = {}, tasks = []) => {
   const fallback = buildPlanProgress(tasks)
   const total = Number(progress.total ?? fallback.total) || 0
@@ -330,25 +341,30 @@ const normalizePlanProgress = (progress = {}, tasks = []) => {
   }
 }
 
+// 判断当前消息是否已经包含计划或任务信息，决定是否显示 Plan 面板。
 const hasPlanOutput = (message) => {
   return Boolean(message?.planState || (Array.isArray(message?.planTasks) && message.planTasks.length))
 }
 
+// 生成 Plan 面板标题，优先展示计划标题，其次展示计划编号。
 const planPanelTitle = (message) => {
   return message?.planState?.title || message?.planState?.planNo || 'Plan Mode'
 }
 
+// 生成进度短文案，例如 3/5；没有任务时不展示。
 const planProgressText = (message) => {
   const progress = message?.planProgress || buildPlanProgress(message?.planTasks || [])
   return progress.total ? `${progress.completed}/${progress.total}` : ''
 }
 
+// 将 SSE 中的 planEvent 快照合并到当前 assistant 消息，驱动计划面板实时刷新。
 const applyPlanEventPayload = (message, streamEvent) => {
   const planEvent = streamEvent?.payload?.planEvent
   if (!message || !planEvent) {
     return false
   }
 
+  // 后端把计划和任务快照放在 payload.planEvent，前端直接合并即可实时刷新进度。
   if (planEvent.plan) {
     message.planState = {
       ...(message.planState || {}),
@@ -357,6 +373,7 @@ const applyPlanEventPayload = (message, streamEvent) => {
   }
 
   if (Array.isArray(planEvent.tasks)) {
+    // todo_write 每次都是完整任务列表，这里也按完整快照覆盖本地状态。
     message.planTasks = planEvent.tasks.map(normalizePlanTask)
   } else if (!Array.isArray(message.planTasks)) {
     message.planTasks = []
@@ -372,6 +389,7 @@ const applyPlanEventPayload = (message, streamEvent) => {
   return true
 }
 
+// 切换 Plan 面板展开状态，并持久化到本地会话缓存。
 const togglePlanPanel = (message) => {
   if (!message) {
     return

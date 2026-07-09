@@ -219,6 +219,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                     loggedEventTypes.add(eventType);
                 })
                 .map(runtimeEvent -> {
+                    // Plan 事件快照随原始事件一起下发，前端无需额外轮询计划和任务表。
                     Map<String, Object> planPayload = agentPlanRuntimeService.handleRuntimeEvent(
                             agent,
                             runtimeContext,
@@ -474,11 +475,16 @@ public class AgentChatServiceImpl implements AgentChatService {
         return null;
     }
 
+    /**
+     * 合并普通事件 payload 和 Plan 快照 payload。
+     * 原有结构继续保留，Plan 数据统一放在 planEvent 下，方便前端增量消费。
+     */
     private Object mergePayload(Object payload, Map<String, Object> planPayload) {
         if (planPayload == null || planPayload.isEmpty()) {
             return payload;
         }
 
+        // 保留原有 HITL payload，再追加 planEvent，避免影响用户确认弹窗的数据结构。
         Map<String, Object> merged = new LinkedHashMap<>();
         if (payload instanceof Map<?, ?> payloadMap) {
             payloadMap.forEach((key, value) -> {

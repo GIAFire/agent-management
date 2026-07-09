@@ -95,6 +95,7 @@ public class AgentRuntimeFactory {
                         .planFileDirectory(Optional.ofNullable(config.getPlanFileDirectory()).orElse("plans"));
             }
             if (config.getTaskListEnabled() == 1){
+                // 开启 todo_write，让结构化任务列表写入 AgentState，后续事件监听才能同步进业务表。
                 agentBuilder.enableTaskList(true);
             }
             if (config.getAllowShellInPlanMode() == 1){
