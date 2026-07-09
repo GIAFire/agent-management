@@ -17,4 +17,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class AiAgentPlanTaskServiceImpl extends ServiceImpl<AiAgentPlanTaskMapper, AiAgentPlanTaskEntity> implements AiAgentPlanTaskService {
 
+    /**
+     * 按计划 ID 物理删除任务快照。
+     * todo_write 每次都会给出完整任务列表，所以同步前直接清空旧快照再插入新快照，
+     * 可以避免逻辑删除记录残留导致 plan_id + task_index 唯一索引冲突。
+     */
+    @Override
+    public int physicalDeleteByPlanId(Long planId) {
+        if (planId == null) {
+            return 0;
+        }
+        return baseMapper.physicalDeleteByPlanId(planId);
+    }
 }

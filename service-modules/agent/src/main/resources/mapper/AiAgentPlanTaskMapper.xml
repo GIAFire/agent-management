@@ -2,4 +2,13 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiAgentPlanTaskMapper">
 
+    <!--
+        todo_write 是全量替换任务列表，这里必须使用物理删除。
+        如果走 MyBatis-Plus 的逻辑删除，旧任务仍会占用 plan_id + task_index 唯一索引，
+        第二次同步相同任务序号时会出现 DuplicateKeyException。
+    -->
+    <delete id="physicalDeleteByPlanId">
+        DELETE FROM ai_agent_plan_task
+        WHERE plan_id = #{planId}
+    </delete>
 </mapper>

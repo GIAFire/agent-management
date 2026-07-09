@@ -23,6 +23,8 @@ import io.agentscope.core.event.ToolCallDeltaEvent;
 import io.agentscope.core.event.ToolCallStartEvent;
 import io.agentscope.core.event.ToolResultEndEvent;
 import io.agentscope.core.event.UserConfirmResultEvent;
+import io.agentscope.core.message.Msg;
+import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.ToolResultState;
 import io.agentscope.core.message.ToolUseBlock;
 import io.agentscope.core.state.AgentState;
@@ -427,6 +429,11 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
                 true
         );
         String beforeStatus = plan.getStatus();
+        String userGoal = extractLatestUserGoal(agentState);
+        if (StringUtils.hasText(userGoal)) {
+            plan.setTitle(buildTitleFromText(userGoal, plan.getTitle()));
+            plan.setGoal(truncate(userGoal, 500));
+        }
         plan.setStatus("DRAFT");
         plan.setPlanFilePath(resolvePlanRelativePath(config, agentState));
         plan.setRunId(runId);
@@ -483,8 +490,13 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
         plan.setRunId(runId);
         plan.setPlanFilePath(relativePath);
         plan.setPlanContent(content);
-        plan.setTitle(extractTitle(content, plan.getPlanNo()));
-        plan.setGoal(extractGoal(content));
+        String userGoal = extractLatestUserGoal(agentState);
+        String goal = extractGoal(content);
+        if (!StringUtils.hasText(goal)) {
+            goal = userGoal;
+        }
+        plan.setTitle(extractTitle(content, goal, userGoal, plan.getTitle()));
+        plan.setGoal(StringUtils.hasText(goal) ? truncate(goal, 500) : config.getAgentName());
         touchUpdate(plan, userInfo);
         planService.updateById(plan);
 
@@ -627,8 +639,7 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
                         (left, right) -> left
                 ));
 
-        planTaskService.remove(new LambdaQueryWrapper<AiAgentPlanTaskEntity>()
-                .eq(AiAgentPlanTaskEntity::getPlanId, plan.getId()));
+        planTaskService.physicalDeleteByPlanId(plan.getId());
 
         List<AiAgentPlanTaskEntity> entities = new ArrayList<>();
         for (int index = 0; index < stateTasks.size(); index++) {
@@ -749,8 +760,9 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
         plan.setSessionId(sessionId);
         plan.setRunId(runId);
         plan.setPlanNo(generatePlanNo(sessionId));
-        plan.setTitle("Plan " + sessionId);
-        plan.setGoal(config.getAgentName());
+        String userGoal = extractLatestUserGoal(agentState);
+        plan.setTitle(buildTitleFromText(userGoal, config.getAgentName()));
+        plan.setGoal(StringUtils.hasText(userGoal) ? truncate(userGoal, 500) : config.getAgentName());
         plan.setStatus("DRAFT");
         plan.setPlanFilePath(resolvePlanRelativePath(config, agentState));
         plan.setRiskLevel("MEDIUM");
@@ -997,21 +1009,163 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
     }
 
     /**
-     * 从 Markdown 计划内容中提取第一个标题作为计划标题；没有标题时使用 fallback。
+     * 从计划内容和用户诉求中提取计划标题。
+     * 优先使用 PLAN.md 里的 Markdown 标题，其次使用计划正文第一段，再用目标、用户最新需求和旧标题兜底；
+     * 这样 plan_enter 和 plan_write 的前端标题都会贴近实际计划内容，而不是显示 sessionId 或计划编号。
      */
-    private String extractTitle(String content, String fallback) {
-        if (StringUtils.hasText(content)) {
-            for (String line : content.split("\\R")) {
-                String trimmed = line.trim();
-                if (trimmed.startsWith("#")) {
-                    String title = trimmed.replaceFirst("^#+\\s*", "").trim();
-                    if (StringUtils.hasText(title)) {
-                        return truncate(title, 200);
-                    }
+    private String extractTitle(String content, String goalFallback, String userGoalFallback, String fallback) {
+        return firstTitleCandidate(
+                extractMarkdownHeading(content),
+                extractFirstMeaningfulLine(content),
+                goalFallback,
+                userGoalFallback,
+                fallback
+        );
+    }
+
+    /**
+     * 从一段文本生成适合列表展示的短标题。
+     * plan_enter 阶段还没有 PLAN.md 内容，因此会用用户最新输入先生成临时标题，等 plan_write 后再由计划内容覆盖。
+     */
+    private String buildTitleFromText(String text, String fallback) {
+        return firstTitleCandidate(text, fallback);
+    }
+
+    /**
+     * 按顺序挑选第一个有效标题候选。
+     * 这里会跳过“Plan”“计划”“PLAN-日期-sessionId”等泛化标题，避免前端继续展示无业务含义的默认值。
+     */
+    private String firstTitleCandidate(String... candidates) {
+        if (candidates != null) {
+            for (String candidate : candidates) {
+                String title = normalizeTitleCandidate(candidate);
+                if (StringUtils.hasText(title) && !isGenericPlanTitle(title)) {
+                    return truncate(title, 200);
                 }
             }
         }
-        return StringUtils.hasText(fallback) ? fallback : "Plan";
+        return "计划";
+    }
+
+    /**
+     * 提取 PLAN.md 中第一个 Markdown 标题。
+     * 如果标题只是“Plan”“计划”等通用词，后续 firstTitleCandidate 会继续寻找更具体的正文或用户诉求。
+     */
+    private String extractMarkdownHeading(String content) {
+        if (!StringUtils.hasText(content)) {
+            return "";
+        }
+        for (String line : content.split("\\R")) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("#")) {
+                return normalizeTitleCandidate(trimmed);
+            }
+        }
+        return "";
+    }
+
+    /**
+     * 从 PLAN.md 正文中提取第一行有信息量的内容。
+     * 这用于模型没有写 Markdown 标题，或者只写了通用标题时，仍然能从计划内容里得到可读标题。
+     */
+    private String extractFirstMeaningfulLine(String content) {
+        if (!StringUtils.hasText(content)) {
+            return "";
+        }
+        for (String line : content.split("\\R")) {
+            String title = normalizeTitleLine(line);
+            if (StringUtils.hasText(title) && !isGenericPlanTitle(title)) {
+                return title;
+            }
+        }
+        return "";
+    }
+
+    /**
+     * 标准化标题候选文本。
+     * 多行文本会从上到下选第一行有效内容，同时过滤代码块、分隔线、Authorization token 等不适合展示为标题的内容。
+     */
+    private String normalizeTitleCandidate(String value) {
+        if (!StringUtils.hasText(value)) {
+            return "";
+        }
+        for (String line : value.split("\\R")) {
+            String title = normalizeTitleLine(line);
+            if (StringUtils.hasText(title)) {
+                return title;
+            }
+        }
+        return "";
+    }
+
+    /**
+     * 标准化单行标题文本。
+     * 会去掉 Markdown 标题符号、列表序号、常见“目标：/标题：”前缀和多余空白，保留真正能说明计划意图的部分。
+     */
+    private String normalizeTitleLine(String line) {
+        if (!StringUtils.hasText(line)) {
+            return "";
+        }
+        String title = line.trim();
+        if (title.startsWith("```") || title.matches("^-{3,}$") || title.matches("^={3,}$")) {
+            return "";
+        }
+        String lowerTitle = title.toLowerCase(Locale.ROOT);
+        if (lowerTitle.startsWith("authorization:")
+                || lowerTitle.startsWith("bearer ")
+                || lowerTitle.contains(" bearer ")) {
+            return "";
+        }
+        if (title.endsWith(":") || title.endsWith("：")) {
+            return "";
+        }
+        title = title.replaceFirst("^#+\\s*", "");
+        title = title.replaceFirst("^[-*+>]\\s*", "");
+        title = title.replaceFirst("^\\d+[.)、]\\s*", "");
+        title = title.replace("**", "").replace("__", "").trim();
+        title = stripTitleLabelPrefix(title);
+        title = title.replaceAll("\\s+", " ").trim();
+        return truncate(title, 200);
+    }
+
+    /**
+     * 去掉标题候选里的常见标签前缀。
+     * 例如“目标：修复计划模式权限”会被整理成“修复计划模式权限”，避免所有计划标题都显示为“目标”。
+     */
+    private String stripTitleLabelPrefix(String title) {
+        if (!StringUtils.hasText(title)) {
+            return "";
+        }
+        int colonIndex = title.indexOf('：');
+        if (colonIndex < 0) {
+            colonIndex = title.indexOf(':');
+        }
+        if (colonIndex <= 0 || colonIndex > 12) {
+            return title;
+        }
+        String label = title.substring(0, colonIndex).trim().toLowerCase(Locale.ROOT);
+        if (Set.of("目标", "计划目标", "任务", "需求", "标题", "goal", "objective", "title", "plan").contains(label)) {
+            return title.substring(colonIndex + 1).trim();
+        }
+        return title;
+    }
+
+    /**
+     * 判断标题候选是否只是系统默认值或泛化描述。
+     * 这些标题没有业务信息量，需要继续使用计划正文或用户诉求生成更贴近内容的标题。
+     */
+    private boolean isGenericPlanTitle(String title) {
+        if (!StringUtils.hasText(title)) {
+            return true;
+        }
+        String normalized = title.trim().toLowerCase(Locale.ROOT);
+        if (Set.of("plan", "plan.md", "plans", "计划", "工作计划", "执行计划", "计划模式", "goal", "objective").contains(normalized)) {
+            return true;
+        }
+        return normalized.matches("^plan\\s*\\d+$")
+                || normalized.matches("^plan[-_\\s]*\\d{8,}.*")
+                || normalized.matches("^plan[-_\\s]*session.*")
+                || normalized.matches("^\\d{4}[-_/]?\\d{2}[-_/]?\\d{2}.*session.*");
     }
 
     /**
@@ -1029,6 +1183,53 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
             return truncate(trimmed, 500);
         }
         return "";
+    }
+
+    /**
+     * 从 AgentState 的上下文里读取最近一条用户消息，作为 plan_enter 阶段的计划标题和目标兜底。
+     * plan_enter 执行时 PLAN.md 通常还没有写入，所以需要先用用户本轮需求给前端一个有业务含义的临时标题。
+     */
+    private String extractLatestUserGoal(AgentState agentState) {
+        if (agentState == null || agentState.getContext() == null) {
+            return "";
+        }
+        List<Msg> context = agentState.getContext();
+        for (int index = context.size() - 1; index >= 0; index--) {
+            Msg msg = context.get(index);
+            if (msg == null || !MsgRole.USER.equals(msg.getRole())) {
+                continue;
+            }
+            String content = cleanUserGoalContent(msg.getTextContent());
+            if (StringUtils.hasText(content)) {
+                return truncate(content, 500);
+            }
+        }
+        return "";
+    }
+
+    /**
+     * 清理用户消息内容，去掉空行和 Authorization/Bearer token。
+     * 计划标题会进入前端展示和数据库，不能把令牌这类敏感内容误当成标题或目标保存。
+     */
+    private String cleanUserGoalContent(String content) {
+        if (!StringUtils.hasText(content)) {
+            return "";
+        }
+        List<String> lines = new ArrayList<>();
+        for (String line : content.split("\\R")) {
+            String trimmed = line.trim();
+            if (!StringUtils.hasText(trimmed)) {
+                continue;
+            }
+            String lower = trimmed.toLowerCase(Locale.ROOT);
+            if (lower.startsWith("authorization:")
+                    || lower.startsWith("bearer ")
+                    || lower.contains(" bearer ")) {
+                continue;
+            }
+            lines.add(trimmed);
+        }
+        return truncate(String.join("\n", lines), 500);
     }
 
     /**
