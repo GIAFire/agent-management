@@ -216,7 +216,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                     loggedEventTypes.add(eventType);
                 })
                 .map(runtimeEvent -> ServerSentEvent.<AgentStreamResponse>builder()
-                        .event(toSseEventName(runtimeEvent.getEventType()))
+//                        .event(toSseEventName(runtimeEvent.getEventType()))
                         .data(new AgentStreamResponse(
                                 runId,
                                 runtimeEvent.getEventType(),

@@ -28,6 +28,14 @@ public class AgentConfigDTO {
     private String contextEnabled;
     private String triggerMode;
     private Integer memoryEnable;
+    private Integer planModeEnabled;
+    private String planFileDirectory;
+    private Integer taskListEnabled;
+    private Integer allowShellInPlanMode;
+    private Integer planExitApprovalRequired;
+    private Integer planMaxSteps;
+    private Integer planAutoEnterEnabled;
+    private String planPrompt;
 
     private Integer triggerMessages;
     private Integer keepMessages;

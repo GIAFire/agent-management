@@ -85,8 +85,17 @@ public class AgentRuntimeFactory {
                     .workspace(Paths.get(config.getWorkspacePath()))
                     .toolResultEviction(toolResultEvictionConfig);
             if (config.getMemoryEnable() == 0){
-                agentBuilder.disableMemoryTools();
-                agentBuilder.disableMemoryHooks();
+                agentBuilder
+                        .disableMemoryTools()
+                        .disableMemoryHooks();
+            }
+            if (config.getPlanModeEnabled() == 1){
+                agentBuilder
+                        .enablePlanMode(true)   // 装 PlanMode 三件套
+                        .planFileDirectory(Optional.ofNullable(config.getPlanFileDirectory()).orElse("plans"));
+            }
+            if (config.getAllowShellInPlanMode() == 1){
+                agentBuilder.allowShellInPlanMode();
             }
 
             return agentBuilder.build();
