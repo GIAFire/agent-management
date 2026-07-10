@@ -145,6 +145,19 @@ public class AiAgentConfigEntity extends BaseEntity {
     @TableField("plan_prompt")
     private Integer planPrompt;
 
+
+    /**
+     * 是否启用沙箱：1启用，0关闭
+     */
+    @TableField("sandbox_enabled")
+    private Integer sandboxEnabled;
+
+    /**
+     * 沙箱配置ID，关联ai_agent_sandbox_config.id
+     */
+    @TableField("sandbox_config_id")
+    private Long sandboxConfigId;
+
     /**
      * 发布时间
      */
