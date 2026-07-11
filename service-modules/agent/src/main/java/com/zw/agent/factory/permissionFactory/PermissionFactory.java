@@ -26,7 +26,9 @@ public class PermissionFactory {
     private static final List<String> PLAN_MODE_AUTO_ALLOW_TOOLS = List.of(
             "plan_enter",
             "plan_write",
-            "todo_write"
+            "todo_write",
+            "task_output",
+            "agent_spawn"
     );
 
     private final AiToolRolePermissionService toolRolePermissionService;

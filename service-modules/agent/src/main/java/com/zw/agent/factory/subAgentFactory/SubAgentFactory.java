@@ -33,6 +33,7 @@ public class SubAgentFactory {
                     SubagentDeclaration.builder()
                     .name(subagent.getSubagentName())
                     .description(subagent.getDescription())
+                    .inlineAgentsBody(subagent.getSystemPrompt())
                     .workspace(subagent.getWorkspacePath() != null ? Path.of(subagent.getWorkspacePath()) : null)
                     .workspaceMode(WorkspaceMode.SHARED)
                     .model(config.getModelName())
