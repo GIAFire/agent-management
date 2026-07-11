@@ -22,6 +22,7 @@ import io.agentscope.core.event.ToolResultEndEvent;
 import io.agentscope.core.event.ToolResultStartEvent;
 import io.agentscope.core.event.ToolResultTextDeltaEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
@@ -38,6 +39,7 @@ import java.util.Map;
  * @author 智纬
  * @since 2026-06-28
  */
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class AiToolCallLogServiceImpl extends ServiceImpl<AiToolCallLogMapper, AiToolCallLogEntity> implements AiToolCallLogService {
@@ -133,7 +135,12 @@ public class AiToolCallLogServiceImpl extends ServiceImpl<AiToolCallLogMapper, A
             }
 
             if (isMainAgentEvent(runtimeEvent) && isDelegationTool(auditEntity.getToolName())) {
-                subagentTaskService.recordDelegationTask(auditEntity, config, userInfo, sessionId, runId);
+                try {
+                    subagentTaskService.recordDelegationTask(auditEntity, config, userInfo, sessionId, runId);
+                } catch (Exception e) {
+                    log.warn("Record subagent delegation task failed, runId={}, sessionId={}, toolCallId={}",
+                            runId, sessionId, auditEntity.getToolCallId(), e);
+                }
             }
         }
     }

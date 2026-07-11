@@ -70,7 +70,11 @@ public class AiSubagentTaskServiceImpl extends ServiceImpl<AiSubagentTaskMapper,
                 lineValue(output, "agent_id")
         );
         String label = value(input, "label");
-        String taskInput = firstText(value(input, "task"), value(input, "message"));
+        String taskInput = firstText(
+                value(input, "task", "message", "input", "prompt", "content"),
+                mapText(input),
+                ""
+        );
         Integer timeoutSeconds = parseInteger(value(input, "timeout_seconds", "timeoutSeconds"));
 
         AiSubagentEntity subagent = resolveSubagent(config, requestedAgent, label);
@@ -85,8 +89,8 @@ public class AiSubagentTaskServiceImpl extends ServiceImpl<AiSubagentTaskMapper,
         taskEntity.setParentRunId(runId);
         taskEntity.setTaskId(taskId);
         taskEntity.setTaskMode(resolveTaskMode(taskId, timeoutSeconds));
-        taskEntity.setTaskInput(limit(taskInput));
-        taskEntity.setTaskResult(limit(outputText));
+        taskEntity.setTaskInput(defaultText(limit(taskInput)));
+        taskEntity.setTaskResult(defaultText(limit(outputText)));
         taskEntity.setStatus(resolveStatus(toolCallLog.getSuccessStatus(), taskEntity.getTaskMode(), taskId, outputText));
         taskEntity.setTimeoutSeconds(timeoutSeconds);
         taskEntity.setStartedAt(toolCallLog.getStartedAt());
@@ -325,6 +329,10 @@ public class AiSubagentTaskServiceImpl extends ServiceImpl<AiSubagentTaskMapper,
 
     private String blankToNull(String value) {
         return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private String defaultText(String value) {
+        return value == null ? "" : value;
     }
 
     private boolean notBlank(String value) {
