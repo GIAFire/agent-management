@@ -59,6 +59,10 @@ const normalizeStreamEvent = (eventName, eventId, parsedData, rawData) => {
     eventType: dataObject?.eventType || eventName,
     runId: normalizeId(dataObject?.runId, rawData, 'runId'),
     seq: dataObject?.seq ?? null,
+    sourcePath: dataObject?.sourcePath ?? null,
+    subAgentName: dataObject?.subAgentName ?? null,
+    subAgentInstanceId: normalizeId(dataObject?.subAgentInstanceId, rawData, 'subAgentInstanceId'),
+    subAgentTaskId: normalizeId(dataObject?.subAgentTaskId, rawData, 'subAgentTaskId'),
     usageToken: dataObject?.usageToken ?? null,
     usageTime: dataObject?.usageTime ?? null,
     payload: dataObject?.payload ?? null,
@@ -70,6 +74,13 @@ const normalizeStreamEvent = (eventName, eventId, parsedData, rawData) => {
 }
 
 const isTextDeltaEvent = (streamEvent) => {
+  const sourcePath = String(streamEvent.sourcePath || '').trim()
+  if ((sourcePath && sourcePath.toLowerCase() !== 'main') ||
+    streamEvent.subAgentName ||
+    String(streamEvent.sseEvent || '').startsWith('subagent_')) {
+    return false
+  }
+
   return streamEvent.eventType === 'TEXT_BLOCK_DELTA' ||
     streamEvent.sseEvent === 'message_delta' ||
     (!isObject(streamEvent.data) && Boolean(streamEvent.delta))

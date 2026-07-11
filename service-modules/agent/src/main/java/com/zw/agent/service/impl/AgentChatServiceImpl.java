@@ -198,7 +198,9 @@ public class AgentChatServiceImpl implements AgentChatService {
                                 );
                     }
                     String eventType = runtimeEvent.getEventType();
-                    if (eventType.equals(AgentEventType.TEXT_BLOCK_DELTA.getValue()) && runtimeEvent.getDelta() != null) {
+                    if (!isSubAgentRuntimeEvent(runtimeEvent)
+                            && eventType.equals(AgentEventType.TEXT_BLOCK_DELTA.getValue())
+                            && runtimeEvent.getDelta() != null) {
                         assistantBuffer.append(runtimeEvent.getDelta());
                     }
 
@@ -230,13 +232,11 @@ public class AgentChatServiceImpl implements AgentChatService {
                             runId,
                             planEventTracker
                     );
-                    String source = runtimeEvent.getRawEvent().getSource();
                     return ServerSentEvent.<AgentStreamResponse>builder()
-                        .event(toSseEventName(runtimeEvent.getEventType()))
-                        .data(new AgentStreamResponse(
+                        .event(toSseEventName(runtimeEvent))
+                        .data(toStreamResponse(
                                 runId,
-                                runtimeEvent.getEventType(),
-                                runtimeEvent.getDelta(),
+                                runtimeEvent,
                                 seq.incrementAndGet(),
                                 mergePayload(toPayload(runtimeEvent), planPayload)
                         ))
@@ -377,6 +377,18 @@ public class AgentChatServiceImpl implements AgentChatService {
                 || AgentEventType.REQUIRE_EXTERNAL_EXECUTION.getValue().equals(eventType);
     }
 
+    private boolean isSubAgentRuntimeEvent(AgentRuntimeEvent runtimeEvent) {
+        if (runtimeEvent == null || runtimeEvent.getRawEvent() == null) {
+            return false;
+        }
+        if (runtimeEvent.getRawEvent() instanceof SubagentExposedEvent) {
+            return true;
+        }
+
+        String sourcePath = normalizeSourcePath(runtimeEvent.getRawEvent().getSource());
+        return isSubAgentSource(sourcePath);
+    }
+
     private String waitingRunStatus(String eventType) {
         if (AgentEventType.REQUIRE_EXTERNAL_EXECUTION.getValue().equals(eventType)) {
             return "WAITING_EXTERNAL_EXECUTION";
@@ -472,8 +484,46 @@ public class AgentChatServiceImpl implements AgentChatService {
                     .toList());
             return payload;
         }
+        if (rawEvent instanceof SubagentExposedEvent subagentExposedEvent) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("subagentId", subagentExposedEvent.getSubagentId());
+            payload.put("agentId", subagentExposedEvent.getAgentId());
+            payload.put("sessionId", subagentExposedEvent.getSessionId());
+            payload.put("label", subagentExposedEvent.getLabel());
+            return payload;
+        }
 
         return null;
+    }
+
+    private AgentStreamResponse toStreamResponse(
+            Long runId,
+            AgentRuntimeEvent runtimeEvent,
+            Long seq,
+            Object payload
+    ) {
+        AgentStreamResponse response = new AgentStreamResponse(
+                runId,
+                runtimeEvent.getEventType(),
+                runtimeEvent.getDelta(),
+                seq,
+                payload
+        );
+
+        AgentEvent rawEvent = runtimeEvent.getRawEvent();
+        String sourcePath = rawEvent == null ? null : normalizeSourcePath(rawEvent.getSource());
+        String subAgentName = resolveSubAgentName(sourcePath, rawEvent);
+        if (!isSubAgentSource(sourcePath)) {
+            sourcePath = null;
+        }
+
+        response.setSourcePath(sourcePath);
+        response.setSubAgentName(subAgentName);
+        response.setSubAgentInstanceId(metadataLong(rawEvent, "subAgentInstanceId", "subagentInstanceId",
+                "sub_agent_instance_id", "subagent_instance_id", "instanceId"));
+        response.setSubAgentTaskId(metadataLong(rawEvent, "subAgentTaskId", "subagentTaskId",
+                "sub_agent_task_id", "subagent_task_id", "taskId"));
+        return response;
     }
 
     /**
@@ -573,7 +623,20 @@ public class AgentChatServiceImpl implements AgentChatService {
     }
 
 
-    private String toSseEventName(String eventType) {
+    private String toSseEventName(AgentRuntimeEvent runtimeEvent) {
+        String eventType = runtimeEvent == null ? null : runtimeEvent.getEventType();
+        if (AgentEventType.SUBAGENT_EXPOSED.getValue().equals(eventType)) {
+            return "subagent_exposed";
+        }
+
+        String eventName = toBaseSseEventName(eventType);
+        if (isSubAgentRuntimeEvent(runtimeEvent)) {
+            return "subagent_" + eventName;
+        }
+        return eventName;
+    }
+
+    private String toBaseSseEventName(String eventType) {
         if (eventType == null) {
             return "agent_event";
         }
@@ -656,5 +719,78 @@ public class AgentChatServiceImpl implements AgentChatService {
 
         // 工具调用、模型调用、异常、其他事件都可以先统一归类
         return "agent_event";
+    }
+
+    private String normalizeSourcePath(String source) {
+        if (source == null || source.isBlank()) {
+            return null;
+        }
+        return source.trim();
+    }
+
+    private boolean isSubAgentSource(String sourcePath) {
+        if (sourcePath == null || sourcePath.isBlank()) {
+            return false;
+        }
+        String normalized = sourcePath.trim();
+        return !"main".equalsIgnoreCase(normalized);
+    }
+
+    private String resolveSubAgentName(String sourcePath, AgentEvent rawEvent) {
+        if (rawEvent instanceof SubagentExposedEvent subagentExposedEvent) {
+            return firstText(subagentExposedEvent.getLabel(), subagentExposedEvent.getSubagentId());
+        }
+        if (!isSubAgentSource(sourcePath)) {
+            return null;
+        }
+
+        String normalized = sourcePath.replace('\\', '/');
+        int lastSlash = normalized.lastIndexOf('/');
+        if (lastSlash >= 0 && lastSlash < normalized.length() - 1) {
+            return normalized.substring(lastSlash + 1);
+        }
+        return normalized;
+    }
+
+    private Long metadataLong(AgentEvent rawEvent, String... keys) {
+        if (rawEvent == null || rawEvent.getMetadata() == null || rawEvent.getMetadata().isEmpty()) {
+            return null;
+        }
+
+        for (String key : keys) {
+            Object value = rawEvent.getMetadata().get(key);
+            Long parsed = parseLong(value);
+            if (parsed != null) {
+                return parsed;
+            }
+        }
+        return null;
+    }
+
+    private Long parseLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        String text = String.valueOf(value);
+        if (text.isBlank()) {
+            return null;
+        }
+        try {
+            return Long.parseLong(text);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private String firstText(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return null;
     }
 }

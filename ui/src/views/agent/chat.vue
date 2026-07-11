@@ -85,7 +85,8 @@ const canSend = computed(() => {
 const STREAM_STAGE_META = {
   reasoning: { label: '推理事件', order: 10 },
   tool: { label: '工具调用事件', order: 20 },
-  message: { label: '正文事件', order: 30 }
+  subagent: { label: '子智能体事件', order: 30 },
+  message: { label: '正文事件', order: 40 }
 }
 
 const STREAM_EVENT_LABELS = {
@@ -140,6 +141,9 @@ const TASK_STATE_META = {
 const getStageKey = (eventType = '') => {
   const normalizedType = String(eventType || '').toUpperCase()
 
+  if (normalizedType.startsWith('SUBAGENT_')) {
+    return 'subagent'
+  }
   if (normalizedType.startsWith('THINKING_BLOCK_') || normalizedType.startsWith('THINKING_')) {
     return 'reasoning'
   }
@@ -252,7 +256,13 @@ const auxiliaryBlockTitle = (block) => {
   }
 
   const sequence = block?.sequence ? ` ${block.sequence}` : ''
-  return block?.kind === 'tool' ? `工具调用${sequence}` : `推理过程${sequence}`
+  if (block?.kind === 'tool') {
+    return `工具调用${sequence}`
+  }
+  if (block?.kind === 'subagent') {
+    return `子智能体${sequence}`
+  }
+  return `推理过程${sequence}`
 }
 
 const toolStatusText = (toolCall) => {
@@ -503,6 +513,66 @@ const isInterventionEvent = (streamEvent) => {
   return isRequireUserConfirmEvent(streamEvent) || isRequireExternalExecutionEvent(streamEvent)
 }
 
+const normalizeSourcePath = (sourcePath = '') => String(sourcePath || '').trim()
+
+const subAgentNameFromSource = (sourcePath = '') => {
+  const normalizedPath = normalizeSourcePath(sourcePath).replace(/\\/g, '/')
+  if (!normalizedPath || normalizedPath.toLowerCase() === 'main') {
+    return ''
+  }
+  const parts = normalizedPath.split('/').filter(Boolean)
+  return parts[parts.length - 1] || normalizedPath
+}
+
+const getSubAgentName = (streamEvent) => {
+  return streamEvent?.subAgentName || subAgentNameFromSource(streamEvent?.sourcePath) || ''
+}
+
+const isSubAgentStreamEvent = (streamEvent) => {
+  const sseEvent = normalizedSseEvent(streamEvent)
+  const eventType = normalizedEventType(streamEvent)
+  return Boolean(getSubAgentName(streamEvent)) ||
+    sseEvent.startsWith('subagent_') ||
+    eventType === 'SUBAGENT_EXPOSED'
+}
+
+const isSubAgentTextDeltaEvent = (streamEvent) => {
+  return isSubAgentStreamEvent(streamEvent) &&
+    (normalizedEventType(streamEvent) === 'TEXT_BLOCK_DELTA' ||
+      normalizedSseEvent(streamEvent) === 'subagent_message_delta')
+}
+
+const isSubAgentThinkingDeltaEvent = (streamEvent) => {
+  return isSubAgentStreamEvent(streamEvent) &&
+    (normalizedEventType(streamEvent) === 'THINKING_BLOCK_DELTA' ||
+      normalizedSseEvent(streamEvent) === 'subagent_thinking_delta')
+}
+
+const isSubAgentStartEvent = (streamEvent) => {
+  if (!isSubAgentStreamEvent(streamEvent)) {
+    return false
+  }
+  const eventType = normalizedEventType(streamEvent)
+  const sseEvent = normalizedSseEvent(streamEvent)
+  return eventType === 'AGENT_START' ||
+    eventType === 'TEXT_BLOCK_START' ||
+    eventType === 'SUBAGENT_EXPOSED' ||
+    sseEvent === 'subagent_agent_start' ||
+    sseEvent === 'subagent_message_start'
+}
+
+const isSubAgentEndEvent = (streamEvent) => {
+  if (!isSubAgentStreamEvent(streamEvent)) {
+    return false
+  }
+  const eventType = normalizedEventType(streamEvent)
+  const sseEvent = normalizedSseEvent(streamEvent)
+  return eventType === 'AGENT_END' ||
+    eventType === 'TEXT_BLOCK_END' ||
+    sseEvent === 'subagent_agent_end' ||
+    sseEvent === 'subagent_message_end'
+}
+
 const hasAuxiliaryOutput = (message) => {
   return Boolean(
     (Array.isArray(message?.auxiliaryBlocks) && message.auxiliaryBlocks.length) ||
@@ -572,11 +642,16 @@ const nextAuxiliaryBlockSequence = (message, kind) => {
 const createAuxiliaryBlock = (message, kind, extra = {}) => {
   const now = getNowMs()
   const sequence = nextAuxiliaryBlockSequence(message, kind)
+  const defaultTitle = kind === 'tool'
+    ? `工具调用 ${sequence}`
+    : kind === 'subagent'
+      ? `子智能体 ${sequence}`
+      : `推理过程 ${sequence}`
   return {
     id: createAuxiliaryBlockId(kind),
     kind,
     sequence,
-    title: kind === 'tool' ? `工具调用 ${sequence}` : `推理过程 ${sequence}`,
+    title: defaultTitle,
     expanded: false,
     expandedByUser: false,
     status: 'running',
@@ -600,7 +675,11 @@ const touchAuxiliaryBlock = (block, status = 'running') => {
 }
 
 const normalizeAuxiliaryBlock = (block, index = 0) => {
-  const kind = block?.kind === 'tool' ? 'tool' : 'reasoning'
+  const kind = block?.kind === 'tool'
+    ? 'tool'
+    : block?.kind === 'subagent'
+      ? 'subagent'
+      : 'reasoning'
   const toolCall = kind === 'tool'
     ? {
       id: block.toolCall?.id || block.id || createToolCallId(),
@@ -614,12 +693,24 @@ const normalizeAuxiliaryBlock = (block, index = 0) => {
       updatedAt: block.toolCall?.updatedAt || block.endedAt || 0
     }
     : null
+  const subAgent = kind === 'subagent'
+    ? {
+      name: block?.subAgent?.name || block?.subAgentName || '子智能体',
+      sourcePath: block?.subAgent?.sourcePath || block?.sourcePath || '',
+      status: block?.subAgent?.status || block?.status || 'done'
+    }
+    : null
+  const title = block?.title || (kind === 'tool'
+    ? `工具调用 ${block?.sequence || index + 1}`
+    : kind === 'subagent'
+      ? `子智能体 ${subAgent?.name || block?.sequence || index + 1}`
+      : `推理过程 ${block?.sequence || index + 1}`)
 
   return {
     id: block?.id || `${kind}-stored-${index}`,
     kind,
     sequence: block?.sequence || index + 1,
-    title: block?.title || (kind === 'tool' ? `工具调用 ${block?.sequence || index + 1}` : `推理过程 ${block?.sequence || index + 1}`),
+    title,
     expanded: block?.expandedByUser ? Boolean(block.expanded) : false,
     expandedByUser: Boolean(block?.expandedByUser),
     status: block?.status || 'done',
@@ -627,7 +718,8 @@ const normalizeAuxiliaryBlock = (block, index = 0) => {
     endedAt: block?.endedAt || null,
     durationMs: block?.durationMs || 0,
     content: block?.content || '',
-    toolCall
+    toolCall,
+    subAgent
   }
 }
 
@@ -708,11 +800,17 @@ const mergeToolBlocks = (previous, current) => {
 }
 
 const renumberAuxiliaryBlocks = (blocks = []) => {
-  const counts = { reasoning: 0, tool: 0 }
+  const counts = { reasoning: 0, tool: 0, subagent: 0 }
   blocks.forEach((block) => {
     counts[block.kind] = (counts[block.kind] || 0) + 1
     block.sequence = counts[block.kind]
-    block.title = block.kind === 'tool' ? `工具调用 ${block.sequence}` : `推理过程 ${block.sequence}`
+    if (block.kind === 'tool') {
+      block.title = `工具调用 ${block.sequence}`
+    } else if (block.kind === 'subagent') {
+      block.title = `子智能体 ${block.subAgent?.name || block.subAgentName || block.sequence}`
+    } else {
+      block.title = `推理过程 ${block.sequence}`
+    }
   })
   return blocks
 }
@@ -743,14 +841,16 @@ const stageDurationMs = (message, stageKey) => {
 
 const normalizeStoredAuxiliaryBlocks = (message, toolCalls = normalizeStoredToolCalls(message)) => {
   if (Array.isArray(message?.auxiliaryBlocks) && message.auxiliaryBlocks.length) {
-    const counts = { reasoning: 0, tool: 0 }
+    const counts = { reasoning: 0, tool: 0, subagent: 0 }
     const blocks = message.auxiliaryBlocks.map((block, index) => {
       const normalized = normalizeAuxiliaryBlock(block, index)
       counts[normalized.kind] += 1
       normalized.sequence = normalized.sequence || counts[normalized.kind]
       normalized.title = normalized.title || (normalized.kind === 'tool'
         ? `工具调用 ${normalized.sequence}`
-        : `推理过程 ${normalized.sequence}`)
+        : normalized.kind === 'subagent'
+          ? `子智能体 ${normalized.subAgent?.name || normalized.sequence}`
+          : `推理过程 ${normalized.sequence}`)
       return normalized
     })
     return compactAuxiliaryBlocks(blocks)
@@ -984,6 +1084,127 @@ const appendToolEvent = (message, streamEvent) => {
   return true
 }
 
+const subAgentBlockKey = (streamEvent) => {
+  return normalizeSourcePath(streamEvent?.sourcePath) || getSubAgentName(streamEvent) || 'subagent'
+}
+
+const ensureSubAgentBlockIds = (message) => {
+  if (!message.activeSubAgentBlockIds || typeof message.activeSubAgentBlockIds !== 'object') {
+    message.activeSubAgentBlockIds = {}
+  }
+  return message.activeSubAgentBlockIds
+}
+
+const findRunningSubAgentBlock = (message, key, name) => {
+  const blocks = ensureAuxiliaryBlocks(message)
+  for (let index = blocks.length - 1; index >= 0; index -= 1) {
+    const block = blocks[index]
+    if (block.kind !== 'subagent' || block.status !== 'running') {
+      continue
+    }
+    if (block.subAgent?.sourcePath === key || block.subAgent?.name === name) {
+      return block
+    }
+  }
+  return null
+}
+
+const getSubAgentBlock = (message, streamEvent, shouldCreate = false) => {
+  const name = getSubAgentName(streamEvent) || '子智能体'
+  const key = subAgentBlockKey(streamEvent)
+  const activeIds = ensureSubAgentBlockIds(message)
+  let block = findAuxiliaryBlock(message, activeIds[key])
+
+  if (!block && !shouldCreate) {
+    block = findRunningSubAgentBlock(message, key, name)
+  }
+
+  if (!block && shouldCreate) {
+    block = createAuxiliaryBlock(message, 'subagent', {
+      title: `子智能体 ${name}`,
+      expanded: true,
+      subAgentName: name,
+      sourcePath: normalizeSourcePath(streamEvent?.sourcePath),
+      subAgent: {
+        name,
+        sourcePath: normalizeSourcePath(streamEvent?.sourcePath),
+        status: 'running'
+      }
+    })
+    ensureAuxiliaryBlocks(message).push(block)
+  }
+
+  if (!block) {
+    return null
+  }
+
+  block.subAgentName = name
+  block.sourcePath = normalizeSourcePath(streamEvent?.sourcePath)
+  block.subAgent = {
+    ...(block.subAgent || {}),
+    name,
+    sourcePath: block.sourcePath,
+    status: block.status || 'running'
+  }
+  activeIds[key] = block.id
+  return block
+}
+
+const appendSubAgentEvent = (message, streamEvent) => {
+  if (!message || !isSubAgentStreamEvent(streamEvent)) {
+    return false
+  }
+
+  const shouldCreate = isSubAgentStartEvent(streamEvent) ||
+    isSubAgentTextDeltaEvent(streamEvent) ||
+    isSubAgentThinkingDeltaEvent(streamEvent)
+  const shouldFinish = isSubAgentEndEvent(streamEvent)
+  const shouldShowExposed = normalizedEventType(streamEvent) === 'SUBAGENT_EXPOSED'
+  if (!shouldCreate && !shouldFinish && !shouldShowExposed) {
+    return false
+  }
+
+  const block = getSubAgentBlock(message, streamEvent, shouldCreate)
+  if (!block) {
+    return false
+  }
+  const delta = streamEvent?.delta == null ? '' : String(streamEvent.delta)
+
+  if (shouldShowExposed) {
+    const label = streamEvent?.payload?.label || getSubAgentName(streamEvent) || '子智能体'
+    block.title = `子智能体 ${label}`
+    appendToolLine(block, 'content', `${label} 已准备就绪`)
+    touchAuxiliaryBlock(block, 'done')
+    return true
+  }
+
+  if (isSubAgentTextDeltaEvent(streamEvent)) {
+    block.content = `${block.content || ''}${delta}`
+    touchAuxiliaryBlock(block, 'running')
+    return true
+  }
+
+  if (isSubAgentThinkingDeltaEvent(streamEvent)) {
+    block.content = `${block.content || ''}${delta}`
+    touchAuxiliaryBlock(block, 'running')
+    return true
+  }
+
+  if (shouldFinish) {
+    touchAuxiliaryBlock(block, 'done')
+    const activeIds = ensureSubAgentBlockIds(message)
+    delete activeIds[subAgentBlockKey(streamEvent)]
+    return true
+  }
+
+  if (isSubAgentStartEvent(streamEvent)) {
+    touchAuxiliaryBlock(block, 'running')
+    return true
+  }
+
+  return false
+}
+
 const formatToolInput = (input) => {
   if (input == null || input === '') {
     return ''
@@ -1081,7 +1302,7 @@ const recordStreamEvent = (message, streamEvent) => {
   const timing = ensureStreamTiming(message)
   const now = getNowMs()
   const eventType = streamEvent.eventType || streamEvent.sseEvent || 'UNKNOWN'
-  const stageKey = getStageKey(eventType)
+  const stageKey = isSubAgentStreamEvent(streamEvent) ? 'subagent' : getStageKey(eventType)
   if (!stageKey) {
     return
   }
@@ -1157,16 +1378,24 @@ const appendAuxiliaryDelta = (message, session, streamEvent) => {
 
   let changed = false
 
-  if (appendReasoningEvent(message, streamEvent)) {
+  const subAgentEvent = isSubAgentStreamEvent(streamEvent)
+
+  if (appendSubAgentEvent(message, streamEvent)) {
     changed = true
   }
 
-  if (appendToolEvent(message, streamEvent)) {
-    changed = true
-  }
+  if (!subAgentEvent) {
+    if (appendReasoningEvent(message, streamEvent)) {
+      changed = true
+    }
 
-  if (appendInterventionEvent(message, streamEvent)) {
-    changed = true
+    if (appendToolEvent(message, streamEvent)) {
+      changed = true
+    }
+
+    if (appendInterventionEvent(message, streamEvent)) {
+      changed = true
+    }
   }
 
   if (applyPlanEventPayload(message, streamEvent)) {
@@ -1231,6 +1460,7 @@ const finishStreamEvents = (message, status = 'done') => {
 
   message.activeReasoningBlockId = null
   message.activeToolBlockId = null
+  message.activeSubAgentBlockIds = {}
   message.pendingReasoningStartedAt = null
 
   scheduleSaveSessions()
@@ -1250,6 +1480,10 @@ const shouldShowMessageContent = (message) => {
 
 const renderAssistantMarkdown = (message) => {
   return markdownRenderer.render(messageDisplayText(message))
+}
+
+const renderMarkdownText = (text = '') => {
+  return markdownRenderer.render(String(text || ''))
 }
 
 const nowText = () => {
@@ -1558,6 +1792,7 @@ const loadSessions = () => {
             auxiliaryBlocks,
             activeReasoningBlockId: null,
             activeToolBlockId: null,
+            activeSubAgentBlockIds: {},
             pendingReasoningStartedAt: null,
             pendingIntervention: null,
             toolExpanded: message.toolExpanded ?? message.toolResultExpanded ?? Boolean(toolCalls.length),
@@ -1832,6 +2067,7 @@ const sendMessage = async () => {
       auxiliaryBlocks: [],
       activeReasoningBlockId: null,
       activeToolBlockId: null,
+      activeSubAgentBlockIds: {},
       pendingReasoningStartedAt: null,
       toolExpanded: true,
       pendingIntervention: null,
@@ -2010,7 +2246,7 @@ onBeforeUnmount(() => {
                     {{ block.content }}
                   </div>
                   <div
-                    v-else
+                    v-else-if="block.kind === 'tool'"
                     class="tool-call"
                   >
                     <div class="tool-call-header">
@@ -2031,6 +2267,20 @@ onBeforeUnmount(() => {
                       <span class="tool-call-section-title">调用结果</span>
                       <div class="tool-call-text">{{ block.toolCall.result }}</div>
                     </div>
+                  </div>
+                  <div
+                    v-else-if="block.kind === 'subagent'"
+                    class="subagent-call"
+                  >
+                    <div class="subagent-call-header">
+                      <span class="subagent-call-name">{{ block.subAgent?.name || block.subAgentName || '子智能体' }}</span>
+                      <small>{{ block.status === 'done' ? '完成' : '输出中' }}</small>
+                    </div>
+                    <div
+                      v-if="block.content"
+                      class="subagent-call-content markdown-rendered"
+                      v-html="renderMarkdownText(block.content)"
+                    />
                   </div>
                 </div>
               </section>
@@ -2521,7 +2771,7 @@ onBeforeUnmount(() => {
   width: 100%;
   min-height: 32px;
   align-items: center;
-  grid-template-columns: max-content max-content max-content;
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
   gap: 10px;
   border: 0;
   cursor: pointer;
@@ -2742,6 +2992,37 @@ onBeforeUnmount(() => {
 .tool-call-text {
   color: #4b5563;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.subagent-call {
+  display: grid;
+  gap: 8px;
+  white-space: normal;
+}
+
+.subagent-call-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #334155;
+}
+
+.subagent-call-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 760;
+}
+
+.subagent-call-header small {
+  flex: 0 0 auto;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.subagent-call-content {
+  color: #374151;
   overflow-wrap: anywhere;
 }
 
