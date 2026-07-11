@@ -51,6 +51,6 @@ public class CommonTool extends ToolBase {
 
     private static Map<String, Object> inputSchema() {
         Map<String, Object> properties = new LinkedHashMap<>();
-        return ToolSchemaUtils.objectSchema(properties, null);
+        return ToolSchemaUtils.objectSchema(properties, List.of());
     }
 }

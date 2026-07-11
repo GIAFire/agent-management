@@ -59,6 +59,6 @@ public class QuerySchoolInfoTool extends ToolBase {
         properties.put("schoolName", ToolSchemaUtils.stringProperty("学校名"));
         properties.put("schoolType", ToolSchemaUtils.stringProperty("学校类型"));
         // list中是必填参数
-        return ToolSchemaUtils.objectSchema(properties, null);
+        return ToolSchemaUtils.objectSchema(properties, List.of());
     }
 }

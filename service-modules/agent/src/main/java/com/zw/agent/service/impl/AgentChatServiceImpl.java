@@ -231,15 +231,15 @@ public class AgentChatServiceImpl implements AgentChatService {
                             planEventTracker
                     );
                     return ServerSentEvent.<AgentStreamResponse>builder()
-//                        .event(toSseEventName(runtimeEvent.getEventType()))
-                            .data(new AgentStreamResponse(
-                                    runId,
-                                    runtimeEvent.getEventType(),
-                                    runtimeEvent.getDelta(),
-                                    seq.incrementAndGet(),
-                                    mergePayload(toPayload(runtimeEvent), planPayload)
-                            ))
-                            .build();
+                        .event(toSseEventName(runtimeEvent.getEventType()))
+                        .data(new AgentStreamResponse(
+                                runId,
+                                runtimeEvent.getEventType(),
+                                runtimeEvent.getDelta(),
+                                seq.incrementAndGet(),
+                                mergePayload(toPayload(runtimeEvent), planPayload)
+                        ))
+                        .build();
                 })
                 .concatWith(Mono.defer(() -> {
                     long doneNs = System.nanoTime();
