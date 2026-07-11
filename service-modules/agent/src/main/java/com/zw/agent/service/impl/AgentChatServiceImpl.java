@@ -230,6 +230,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                             runId,
                             planEventTracker
                     );
+                    String source = runtimeEvent.getRawEvent().getSource();
                     return ServerSentEvent.<AgentStreamResponse>builder()
                         .event(toSseEventName(runtimeEvent.getEventType()))
                         .data(new AgentStreamResponse(

@@ -13,6 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/ai-subagent-definition-entity")
-public class AiSubagentDefinitionController {
+public class AiSubagentController {
 
 }

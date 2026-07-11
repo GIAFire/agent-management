@@ -3,11 +3,25 @@ package com.zw.agent.event;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.util.Map;
+
 @AllArgsConstructor
 @Data
 public class AgentStreamResponse {
     private Long runId;
     private String eventType;
+    /**
+     * 事件来源路径：
+     * null = 父Agent
+     * main/researcher = 子Agent
+     */
+    private String sourcePath;
+    /**
+     * 子Agent名称，从 sourcePath 里解析，例如 researcher
+     */
+    private String subAgentName;
+    Long subAgentInstanceId;
+    Long subAgentTaskId;
     private String delta;
     private Long seq;
     private Integer usageToken;

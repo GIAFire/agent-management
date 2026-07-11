@@ -8,6 +8,7 @@ import com.zw.agent.factory.compactionFactory.CompactionFactory;
 import com.zw.agent.factory.modelFactory.ModelFactory;
 import com.zw.agent.factory.permissionFactory.PermissionFactory;
 import com.zw.agent.factory.runtimeContextFactory.RuntimeContextFactory;
+import com.zw.agent.factory.subAgentFactory.SubAgentFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentCallContext;
 import com.zw.agent.runtime.AgentRuntimeKeys;
@@ -30,6 +31,7 @@ import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import io.agentscope.harness.agent.memory.compaction.ToolResultEvictionConfig;
+import io.agentscope.harness.agent.subagent.SubagentDeclaration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -58,6 +60,7 @@ public class AgentRuntimeFactory {
     private final AiAgentStateLogService agentStateLogService;
     private final CacheKeyBuilder cacheKeyBuilder;
     private final RuntimeContextFactory runtimeContextFactory;
+    private final SubAgentFactory subAgentFactory;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
         String agentCacheKey = cacheKeyBuilder.buildAgentKey(
@@ -73,6 +76,7 @@ public class AgentRuntimeFactory {
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
             ChatModelBase chatModelBase = modelFactory.buildModel(config);
+            List<SubagentDeclaration> subAgentList = subAgentFactory.buildSubAgent(config);
 
             HarnessAgent.Builder agentBuilder = HarnessAgent.builder()
                     .name(config.getAgentName())
@@ -100,6 +104,9 @@ public class AgentRuntimeFactory {
             }
             if (config.getAllowShellInPlanMode() == 1){
                 agentBuilder.allowShellInPlanMode();
+            }
+            if (!subAgentList.isEmpty()){
+                agentBuilder.subagents(subAgentList);
             }
 
             return agentBuilder.build();

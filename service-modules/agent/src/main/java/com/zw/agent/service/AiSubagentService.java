@@ -1,7 +1,9 @@
 package com.zw.agent.service;
 
-import com.zw.agent.entity.AiSubagentDefinitionEntity;
+import com.zw.agent.entity.AiSubagentEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+
+import java.util.List;
 
 /**
  * <p>
@@ -11,6 +13,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * @author 智纬
  * @since 2026-07-11
  */
-public interface AiSubagentDefinitionService extends IService<AiSubagentDefinitionEntity> {
+public interface AiSubagentService extends IService<AiSubagentEntity> {
 
+    List<AiSubagentEntity> subAgentList(Long agentId);
 }

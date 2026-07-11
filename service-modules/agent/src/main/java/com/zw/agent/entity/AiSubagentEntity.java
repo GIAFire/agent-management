@@ -5,7 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zw.common.entity.BaseEntity;
-import java.io.Serializable;
+import io.agentscope.harness.agent.subagent.WorkspaceMode;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -22,7 +22,7 @@ import lombok.experimental.Accessors;
 @Setter
 @Accessors(chain = true)
 @TableName("ai_subagent_definition")
-public class AiSubagentDefinitionEntity extends BaseEntity {
+public class AiSubagentEntity extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
 
@@ -93,10 +93,10 @@ public class AiSubagentDefinitionEntity extends BaseEntity {
     private Byte persistSession;
 
     /**
-     * 允许使用的工具名数组，例如[read_file,grep_files]
+     * 允许使用的工具名数组，例如read_file,grep_files
      */
-    @TableField("tool_allow_list_json")
-    private String toolAllowListJson;
+    @TableField("tool_allow_list")
+    private String toolAllowList;
 
     /**
      * 绑定知识库ID数组
