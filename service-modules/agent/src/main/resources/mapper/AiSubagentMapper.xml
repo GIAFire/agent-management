@@ -9,7 +9,7 @@
             am.model_name
         FROM
             ai_subagent sa
-                LEFT JOIN ai_subagent_agent_binding sab ON sa.id = sab.agent_id
+                LEFT JOIN ai_subagent_agent_binding sab ON sa.id = sab.subagent_id
                 LEFT JOIN ai_agent a ON sab.agent_id = a.id
                 LEFT JOIN ai_agent_model am ON am.agent_id = a.id
         WHERE

@@ -1,11 +1,15 @@
 package com.zw.agent.factory.modelFactory;
 
 import com.zw.agent.entity.DTO.AgentConfigDTO;
-import io.agentscope.core.formatter.anthropic.AnthropicChatFormatter;
-import io.agentscope.core.formatter.dashscope.DashScopeChatFormatter;
-import io.agentscope.core.formatter.ollama.OllamaChatFormatter;
-import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.model.*;
+import io.agentscope.extensions.model.anthropic.AnthropicChatModel;
+import io.agentscope.extensions.model.anthropic.formatter.AnthropicChatFormatter;
+import io.agentscope.extensions.model.dashscope.DashScopeChatModel;
+import io.agentscope.extensions.model.dashscope.formatter.DashScopeChatFormatter;
+import io.agentscope.extensions.model.ollama.OllamaChatModel;
+import io.agentscope.extensions.model.ollama.formatter.OllamaChatFormatter;
+import io.agentscope.extensions.model.openai.OpenAIChatModel;
+import io.agentscope.extensions.model.openai.formatter.OpenAIChatFormatter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;

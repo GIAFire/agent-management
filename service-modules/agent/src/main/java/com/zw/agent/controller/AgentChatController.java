@@ -100,13 +100,4 @@ public class AgentChatController {
                 requestStartMs);
     }
 
-    @PostMapping("/chatBlock")
-    public Mono<String> chatBlock(@RequestBody AgentChatRequest request) {
-        UserInfo userInfo = UserContext.get();
-        AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(userInfo.getTenantId(), request.getAgentId());
-
-        return agentRuntimeFactory
-                .call(config, userInfo.getUserId(), request.getSessionId(), request.getContent());
-    }
-
 }

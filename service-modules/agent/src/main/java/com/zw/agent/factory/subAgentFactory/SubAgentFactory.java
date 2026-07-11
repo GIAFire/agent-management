@@ -34,7 +34,7 @@ public class SubAgentFactory {
                     .name(subagent.getSubagentName())
                     .description(subagent.getDescription())
                     .workspace(subagent.getWorkspacePath() != null ? Path.of(subagent.getWorkspacePath()) : null)
-                    .workspaceMode(WorkspaceMode.ISOLATED)
+                    .workspaceMode(WorkspaceMode.SHARED)
                     .model(config.getModelName())
                     .persistSession(subagent.getPersistSession() == 1)
                     .steps(subagent.getMaxSteps())

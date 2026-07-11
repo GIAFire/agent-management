@@ -10,7 +10,6 @@ import com.zw.agent.factory.permissionFactory.PermissionFactory;
 import com.zw.agent.factory.runtimeContextFactory.RuntimeContextFactory;
 import com.zw.agent.factory.subAgentFactory.SubAgentFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
-import com.zw.agent.runtime.AgentCallContext;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
 import com.zw.agent.service.AiAgentStateLogService;
@@ -18,14 +17,12 @@ import com.zw.common.constant.CacheKeyBuilder;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
-import io.agentscope.core.formatter.openai.OpenAIChatFormatter;
 import io.agentscope.core.message.ContentBlock;
 import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.ChatModelBase;
-import io.agentscope.core.model.OpenAIChatModel;
 import io.agentscope.core.permission.PermissionContextState;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
@@ -388,38 +385,5 @@ public class AgentRuntimeFactory {
                 null,
                 event
         );
-    }
-
-    public Mono<String> call(AgentConfigDTO config, Long userId, Long sessionId, String text) {
-        /**
-         * 构造模型实例
-         */
-        OpenAIChatModel model = OpenAIChatModel.builder()
-                .apiKey(config.getApiKey())
-                .modelName(config.getModelName())
-                .baseUrl(config.getBaseUrl())
-                .stream(config.getIsStream())
-                .formatter(new OpenAIChatFormatter())
-                .build();
-        String AgentCacheKey = config.getTenantId() + ":" + config.getAgentId() + ":" + config.getAgentConfigId();
-        HarnessAgent harnessAgent = agentCache.get(AgentCacheKey, key ->
-                HarnessAgent.builder()
-                        .name(config.getAgentName())
-                        .sysPrompt(config.getSysPrompt())
-                        .model(model)
-                        .build());
-        // 构建运行时上下文
-        RuntimeContext context = RuntimeContext.builder()
-                .userId(AgentRuntimeKeys.userKey(config.getTenantId(), userId))
-                .sessionId(AgentRuntimeKeys.sessionKey(sessionId))
-                .build();
-
-        return harnessAgent.call(new UserMessage(text), context)
-                .map(msg -> msg.getTextContent());
-    }
-
-    public void evictAgent(Long tenantId, Long agentId, Long agentConfigId) {
-        String AgentCacheKey = tenantId + ":" + agentId + ":" + agentConfigId;
-        agentCache.invalidate(AgentCacheKey);
     }
 }

@@ -50,10 +50,9 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
         String extension = StringUtils.getFilenameExtension(fileName);  // "md"
 
         String relativePath = String.format(
-                "tenant_%d-user_%d/generateFiles/%s/%s",
-                userInfo.getTenantId(),
-                userInfo.getUserId(),
-                runtimeContext.getSessionId(),
+                "%s/generateFiles/%s/%s",
+                agentCallContext.getRuntimeUserKey(),
+                agentCallContext.getRuntimeSessionKey(),
                 fileName
         );
 

@@ -17,7 +17,7 @@
     </description>
 
     <properties>
-        <agentscope.version>2.0.0-RC4</agentscope.version>
+        <agentscope.version>2.0.0-RC5</agentscope.version>
         <embeddingModel.version>1.17.1</embeddingModel.version>
         <embeddingScope.version>1.17.1-beta27</embeddingScope.version>
         <grpc.version>1.77.0</grpc.version>
@@ -37,6 +37,40 @@
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-harness</artifactId>
+            <version>${agentscope.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-model-openai</artifactId>
+            <version>${agentscope.version}</version>
+        </dependency>
+
+        <!-- 阿里云百炼 / DashScope -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-model-dashscope</artifactId>
+            <version>${agentscope.version}</version>
+        </dependency>
+
+        <!-- Anthropic Claude -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-model-anthropic</artifactId>
+            <version>${agentscope.version}</version>
+        </dependency>
+
+        <!-- Google Gemini -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-model-gemini</artifactId>
+            <version>${agentscope.version}</version>
+        </dependency>
+
+        <!-- Ollama -->
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-model-ollama</artifactId>
             <version>${agentscope.version}</version>
         </dependency>
 
