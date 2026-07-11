@@ -5,7 +5,9 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import java.time.LocalDateTime;
+import java.util.Map;
 
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 import com.zw.common.entity.BaseEntity;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,7 +24,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("ai_tool_call_log")
+@TableName(value = "ai_tool_call_log", autoResultMap = true)
 public class AiToolCallLogEntity extends BaseEntity {
 
     /**
@@ -100,14 +102,14 @@ public class AiToolCallLogEntity extends BaseEntity {
     /**
      * 工具入参JSON，敏感字段需要脱敏
      */
-    @TableField("tool_input_json")
-    private String toolInputJson;
+    @TableField(value = "tool_input_json",typeHandler = JacksonTypeHandler.class)
+    private Map<String,Object> toolInputJson;
 
     /**
      * 工具输出JSON，敏感字段需要脱敏或截断
      */
-    @TableField("tool_output_json")
-    private String toolOutputJson;
+    @TableField(value = "tool_output_json",typeHandler = JacksonTypeHandler.class)
+    private Map<String,Object> toolOutputJson;
 
     /**
      * 是否执行成功：1成功，0失败，ASK未执行时可为空
@@ -132,6 +134,12 @@ public class AiToolCallLogEntity extends BaseEntity {
      */
     @TableField("duration_ms")
     private Long durationMs;
+
+    @TableField(exist = false)
+    private StringBuilder toolInputBuffer;
+
+    @TableField(exist = false)
+    private StringBuilder toolOutputBuffer;
 
     @Override
     public String toString() {

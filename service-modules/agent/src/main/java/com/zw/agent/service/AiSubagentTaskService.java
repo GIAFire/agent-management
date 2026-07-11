@@ -2,6 +2,9 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiSubagentTaskEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.entity.AiToolCallLogEntity;
+import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.common.context.UserInfo;
 
 /**
  * <p>
@@ -13,4 +16,11 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiSubagentTaskService extends IService<AiSubagentTaskEntity> {
 
+    void recordDelegationTask(
+            AiToolCallLogEntity toolCallLog,
+            AgentConfigDTO config,
+            UserInfo userInfo,
+            Long sessionId,
+            Long runId
+    );
 }
