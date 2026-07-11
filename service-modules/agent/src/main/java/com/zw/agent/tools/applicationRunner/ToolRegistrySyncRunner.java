@@ -2,7 +2,7 @@ package com.zw.agent.tools.applicationRunner;
 
 import cn.hutool.crypto.digest.DigestUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.service.AiToolInfoConfigService;
 import io.agentscope.core.tool.ToolBase;
@@ -208,10 +208,6 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
     }
 
     private String toJson(Object value) {
-        try {
-            return OBJECT_MAPPER.writeValueAsString(value);
-        } catch (JsonProcessingException ex) {
-            throw new IllegalStateException("Failed to serialize tool metadata", ex);
-        }
+        return OBJECT_MAPPER.writeValueAsString(value);
     }
 }

@@ -9,25 +9,47 @@
     </parent>
 
     <artifactId>agent</artifactId>
-    <version>1.0.0</version>
     <name>agent</name>
 
     <description>
         agent智能体业务
     </description>
-
     <properties>
         <agentscope.version>2.0.0-RC5</agentscope.version>
-        <embeddingModel.version>1.17.1</embeddingModel.version>
-        <embeddingScope.version>1.17.1-beta27</embeddingScope.version>
+        <langchain4j.version>1.17.2</langchain4j.version>
+        <langchain4j-community.version>1.17.2-beta27</langchain4j-community.version>
         <grpc.version>1.77.0</grpc.version>
     </properties>
     <dependencyManagement>
         <dependencies>
+            <!-- 必须统一所有 io.grpc 组件版本 -->
             <dependency>
                 <groupId>io.grpc</groupId>
                 <artifactId>grpc-bom</artifactId>
                 <version>${grpc.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>io.agentscope</groupId>
+                <artifactId>agentscope-bom</artifactId>
+                <version>${agentscope.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-bom</artifactId>
+                <version>${langchain4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-community-bom</artifactId>
+                <version>${langchain4j-community.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -37,96 +59,70 @@
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-harness</artifactId>
-            <version>${agentscope.version}</version>
         </dependency>
 
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-extensions-model-openai</artifactId>
-            <version>${agentscope.version}</version>
         </dependency>
 
         <!-- 阿里云百炼 / DashScope -->
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-extensions-model-dashscope</artifactId>
-            <version>${agentscope.version}</version>
         </dependency>
 
         <!-- Anthropic Claude -->
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-extensions-model-anthropic</artifactId>
-            <version>${agentscope.version}</version>
         </dependency>
 
         <!-- Google Gemini -->
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-extensions-model-gemini</artifactId>
-            <version>${agentscope.version}</version>
         </dependency>
 
         <!-- Ollama -->
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-extensions-model-ollama</artifactId>
-            <version>${agentscope.version}</version>
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-open-ai</artifactId>
-            <version>${embeddingModel.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-ollama</artifactId>
-            <version>${embeddingModel.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-community-dashscope</artifactId>
-            <version>1.17.0-beta27</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-community-zhipu-ai</artifactId>
-            <version>1.17.0-beta27</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-elasticsearch</artifactId>
-            <version>${embeddingScope.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-milvus</artifactId>
-            <version>${embeddingScope.version}</version>
-            <scope>compile</scope>
         </dependency>
 
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-qdrant</artifactId>
-            <version>${embeddingScope.version}</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <!-- Spring Boot 4 MVC API -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webmvc</artifactId>
         </dependency>
 
         <!-- SSE / Flux 支持 -->
@@ -156,7 +152,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
     </dependencies>
 
     <build>

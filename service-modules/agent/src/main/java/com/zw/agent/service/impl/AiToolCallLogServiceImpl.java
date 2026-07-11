@@ -1,7 +1,7 @@
 package com.zw.agent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.zw.agent.entity.AiToolCallLogEntity;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;

@@ -1,9 +1,6 @@
 package com.zw.agent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zw.agent.entity.AiAgentPlanEntity;
 import com.zw.agent.entity.AiAgentPlanOpLogEntity;
 import com.zw.agent.entity.AiAgentPlanTaskEntity;
@@ -35,6 +32,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -1354,11 +1353,7 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
         if (value == null) {
             return null;
         }
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException ex) {
-            return String.valueOf(value);
-        }
+        return objectMapper.writeValueAsString(value);
     }
 
     /**
