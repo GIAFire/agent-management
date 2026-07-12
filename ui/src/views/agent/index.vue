@@ -168,7 +168,14 @@ const promptOptions = computed(() => promptRows.value.map((item) => ({
   value: item.id,
   sysPrompt: item.sysPrompt || ''
 })))
-const permissionOptions = ['DEFAULT', 'ACCEPT_EDITS', 'EXPLORE', 'BYPASS','DONT_ASK']
+// const permissionOptions = ['DEFAULT', 'ACCEPT_EDITS', 'EXPLORE', 'BYPASS','DONT_ASK']
+const permissionOptions = [
+  { label: '所有操作都需要显式规则或用户确认', value: 'DEFAULT' },
+  { label: '自动放行工作目录内的文件操作', value: 'ACCEPT_EDITS' },
+  { label: '只读：拒绝所有写与命令', value: 'EXPLORE' },
+  { label: '放行一切', value: 'BYPASS' },
+  { label: '把所有 询问 转为 拒绝', value: 'DONT_ASK' }
+]
 const publishOptions = [
   { label: '草稿', value: 0 },
   { label: '已发布', value: 1 },
@@ -914,7 +921,7 @@ onMounted(async () => {
                   </el-form-item>
                   <el-form-item label="默认权限模式">
                     <el-select v-model="configForm.permissionMode">
-                      <el-option v-for="item in permissionOptions" :key="item" :label="item" :value="item" />
+                      <el-option v-for="item in permissionOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                   </el-form-item>
                   <el-form-item label="全局权限策略">
