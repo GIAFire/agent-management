@@ -27,46 +27,6 @@ const agentRows = ref([])
 const activeFilter = ref('全部')
 
 const sampleRows = [
-  {
-    id: 'demo-1',
-    agentName: '数据分析助手',
-    agentKey: 'data-analyst',
-    agentType: 'HARNESS',
-    currentVersionId: 'v2.4',
-    modelName: 'Qwen3-235B',
-    status: 1,
-    description: '数据分析与可视化'
-  },
-  {
-    id: 'demo-2',
-    agentName: '合同审查助手',
-    agentKey: 'contract-review',
-    agentType: 'HARNESS',
-    currentVersionId: 'v1.8',
-    modelName: 'DeepSeek-V3',
-    status: 1,
-    description: '合同风险识别与审查'
-  },
-  {
-    id: 'demo-3',
-    agentName: '客服应答助手',
-    agentKey: 'service-agent',
-    agentType: 'REACT',
-    currentVersionId: 'v3.1',
-    modelName: 'Qwen3-32B',
-    status: 1,
-    description: '智能客服与问答'
-  },
-  {
-    id: 'demo-4',
-    agentName: '报告生成助手',
-    agentKey: 'report-agent',
-    agentType: 'HARNESS',
-    currentVersionId: 'v1.3',
-    modelName: 'DeepSeek-V3',
-    status: 2,
-    description: '自动生成业务报告'
-  }
 ]
 
 const form = reactive({
