@@ -1,5 +1,6 @@
 package com.zw.agent.tools.testCustomer;
 
+import com.zw.agent.tools.applicationRunner.Tenant;
 import io.agentscope.core.tool.ToolBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestTemplate;
 
+@Tenant("1")
 abstract class AbstractHttpTool extends ToolBase {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());

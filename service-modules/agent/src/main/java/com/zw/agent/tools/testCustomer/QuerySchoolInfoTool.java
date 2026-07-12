@@ -4,6 +4,7 @@ import com.zw.agent.service.CommonService;
 import com.zw.agent.service.IServiceSchoolInfoService;
 import com.zw.agent.tools.ToolResponse;
 import com.zw.agent.tools.ToolSchemaUtils;
+import com.zw.agent.tools.applicationRunner.Tenant;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.tool.ToolBase;
 import io.agentscope.core.tool.ToolCallParam;
@@ -17,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Tenant("1")
 @Slf4j
 @Component
 public class QuerySchoolInfoTool extends ToolBase {

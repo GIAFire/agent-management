@@ -1,10 +1,14 @@
 package com.zw.agent.service.impl;
 
 import com.zw.agent.entity.AiAgentToolEntity;
+import com.zw.agent.entity.DTO.AgentBindToolDTO;
 import com.zw.agent.mapper.AiAgentToolMapper;
 import com.zw.agent.service.AiAgentToolService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * <p>
@@ -14,7 +18,14 @@ import org.springframework.stereotype.Service;
  * @author 智纬
  * @since 2026-07-12
  */
+@RequiredArgsConstructor
 @Service
 public class AiAgentToolServiceImpl extends ServiceImpl<AiAgentToolMapper, AiAgentToolEntity> implements AiAgentToolService {
 
+    private final AiAgentToolMapper aiAgentToolMapper;
+
+    @Override
+    public List<AgentBindToolDTO> agentBindTools(Long agentId) {
+        return aiAgentToolMapper.agentBindTools(agentId);
+    }
 }

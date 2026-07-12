@@ -1,5 +1,6 @@
 package com.zw.agent.service.impl;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.mapper.AiToolInfoConfigMapper;
 import com.zw.agent.service.AiToolInfoConfigService;
@@ -23,6 +24,8 @@ import java.util.List;
 public class AiToolInfoConfigServiceImpl extends ServiceImpl<AiToolInfoConfigMapper, AiToolInfoConfigEntity> implements AiToolInfoConfigService {
 
     private final AiToolInfoConfigMapper aiToolInfoConfigMapper;
+
+
     @Override
     public int upsertBatch(List<AiToolInfoConfigEntity> list) {
         return aiToolInfoConfigMapper.upsertBatch(list);

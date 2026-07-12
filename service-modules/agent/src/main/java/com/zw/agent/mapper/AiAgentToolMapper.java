@@ -2,7 +2,10 @@ package com.zw.agent.mapper;
 
 import com.zw.agent.entity.AiAgentToolEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.zw.agent.entity.DTO.AgentBindToolDTO;
 import org.apache.ibatis.annotations.Mapper;
+
+import java.util.List;
 
 /**
  * <p>
@@ -15,4 +18,5 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiAgentToolMapper extends BaseMapper<AiAgentToolEntity> {
 
+    List<AgentBindToolDTO> agentBindTools(Long agentId);
 }

@@ -9,6 +9,7 @@ import com.zw.agent.service.AiKnowledgeBackendConfigService;
 import com.zw.agent.service.AiKnowledgeBaseService;
 import com.zw.agent.tools.ToolResponse;
 import com.zw.agent.tools.ToolSchemaUtils;
+import com.zw.agent.tools.applicationRunner.Tenant;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import io.agentscope.core.message.ToolResultBlock;
@@ -23,6 +24,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Tenant("1")
 @Component
 public class QueryKnowledgeBaseTool extends ToolBase {
 

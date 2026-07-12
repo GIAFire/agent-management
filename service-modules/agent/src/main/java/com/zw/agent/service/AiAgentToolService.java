@@ -2,6 +2,9 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiAgentToolEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.entity.DTO.AgentBindToolDTO;
+
+import java.util.List;
 
 /**
  * <p>
@@ -13,4 +16,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiAgentToolService extends IService<AiAgentToolEntity> {
 
+    List<AgentBindToolDTO> agentBindTools(Long agentId);
 }

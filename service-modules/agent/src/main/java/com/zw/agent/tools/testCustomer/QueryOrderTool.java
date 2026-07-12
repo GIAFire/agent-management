@@ -1,6 +1,7 @@
 package com.zw.agent.tools.testCustomer;
 
 import com.zw.agent.tools.ToolSchemaUtils;
+import com.zw.agent.tools.applicationRunner.Tenant;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.tool.ToolBase;
 import io.agentscope.core.tool.ToolCallParam;
@@ -11,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Tenant("1")
 @Component
 public class QueryOrderTool extends ToolBase {
 

@@ -17,5 +17,5 @@ import org.apache.ibatis.annotations.Param;
 @Mapper
 public interface AiAgentMapper extends BaseMapper<AiAgentEntity> {
 
-    AgentConfigDTO getAgentFullInfo(@Param("agentId") Long agentId, @Param("tenantId") Long tenantId);
+    AgentConfigDTO getAgentFullInfo(@Param("agentId") Long agentId);
 }

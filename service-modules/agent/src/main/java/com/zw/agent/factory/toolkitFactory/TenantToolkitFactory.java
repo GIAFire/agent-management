@@ -2,6 +2,8 @@ package com.zw.agent.factory.toolkitFactory;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
+import com.zw.agent.entity.DTO.AgentBindToolDTO;
+import com.zw.agent.service.AiAgentToolService;
 import com.zw.agent.service.AiToolInfoConfigService;
 import io.agentscope.core.tool.Toolkit;
 import lombok.RequiredArgsConstructor;
@@ -24,19 +26,16 @@ public class TenantToolkitFactory {
     private static final Logger log = LoggerFactory.getLogger(TenantToolkitFactory.class);
 
     private final AiToolInfoConfigService toolInfoConfigService;
+    private final AiAgentToolService agentToolService;
     private final ApplicationContext applicationContext;
 
-    public Toolkit buildToolkit(Long tenantId) {
+    public Toolkit buildToolkit(Long agentId) {
         Toolkit toolkit = new Toolkit();
 
-        List<AiToolInfoConfigEntity> toolList = toolInfoConfigService.list(new LambdaQueryWrapper<AiToolInfoConfigEntity>()
-                .eq(AiToolInfoConfigEntity::getTenantId, tenantId)
-                .eq(AiToolInfoConfigEntity::getEnabled, true)
-                .orderByAsc(AiToolInfoConfigEntity::getClassName)
-                .orderByAsc(AiToolInfoConfigEntity::getMethodName));
+        List<AgentBindToolDTO> toolList = agentToolService.agentBindTools(agentId);
 
         Set<String> registeredClasses = new LinkedHashSet<>();
-        for (AiToolInfoConfigEntity toolInfo : toolList) {
+        for (AgentBindToolDTO toolInfo : toolList) {
             if (!StringUtils.hasText(toolInfo.getClassName())
                     || !registeredClasses.add(toolInfo.getClassName())) {
                 continue;
@@ -53,7 +52,7 @@ public class TenantToolkitFactory {
         return toolkit;
     }
 
-    private Object resolveToolBean(AiToolInfoConfigEntity toolConfig) {
+    private Object resolveToolBean(AgentBindToolDTO toolConfig) {
         try {
             if (StringUtils.hasText(toolConfig.getBeanName())
                     && applicationContext.containsBean(toolConfig.getBeanName())) {

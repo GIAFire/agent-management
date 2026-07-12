@@ -32,7 +32,8 @@
         default_group_code,
         enabled,
         updated_at,
-        created_at
+        created_at,
+        tenant_id
         )
         VALUES
         <foreach collection="list" item="item" separator=",">
@@ -59,7 +60,8 @@
             #{item.defaultGroupCode},
             1,
             NOW(),
-            NOW()
+            NOW(),
+            #{item.tenantId}
             )
         </foreach>
         ON DUPLICATE KEY UPDATE

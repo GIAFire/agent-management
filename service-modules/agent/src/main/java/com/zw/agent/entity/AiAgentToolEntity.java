@@ -47,8 +47,8 @@ public class AiAgentToolEntity extends BaseEntity {
     /**
      * 工具权限ID，关联 ai_tool_role_permission.id
      */
-    @TableField("tool_role_permission_id")
-    private Long toolRolePermissionId;
+    @TableField("tool_info_config_id")
+    private Long toolInfoConfigId;
 
     /**
      * 工具函数名，必须与AgentScope注册到Toolkit中的工具名一致
@@ -69,12 +69,6 @@ public class AiAgentToolEntity extends BaseEntity {
     private String toolDescription;
 
     /**
-     * 是否启用该绑定：1启用，0禁用
-     */
-    @TableField("enabled")
-    private Byte enabled;
-
-    /**
      * 工具分组，例如database、workspace、rag、sandbox、business
      */
     @TableField("tool_group")
@@ -85,10 +79,4 @@ public class AiAgentToolEntity extends BaseEntity {
      */
     @TableField("status")
     private Byte status;
-
-    /**
-     * 更新人用户ID
-     */
-    @TableField("updated_by")
-    private Long updatedBy;
 }

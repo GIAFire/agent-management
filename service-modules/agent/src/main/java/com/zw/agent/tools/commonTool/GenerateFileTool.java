@@ -3,6 +3,7 @@ package com.zw.agent.tools.commonTool;
 import com.zw.agent.entity.AiAgentWorkspaceFileEntity;
 import com.zw.agent.service.AiAgentWorkspaceFileService;
 import com.zw.agent.tools.ToolSchemaUtils;
+import com.zw.agent.tools.applicationRunner.Tenant;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.message.ToolResultBlock;
@@ -18,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Tenant("1")
 @Slf4j
 @Component
 public class GenerateFileTool extends ToolBase {

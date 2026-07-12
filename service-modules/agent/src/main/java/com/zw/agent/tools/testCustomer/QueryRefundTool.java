@@ -1,6 +1,7 @@
 package com.zw.agent.tools.testCustomer;
 
 import com.zw.agent.tools.ToolSchemaUtils;
+import com.zw.agent.tools.applicationRunner.Tenant;
 import com.zw.agent.tools.applicationRunner.permission;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.tool.ToolBase;
@@ -14,6 +15,7 @@ import java.util.Map;
 
 @Component
 @permission("order:list")
+@Tenant("1")
 public class QueryRefundTool extends ToolBase {
 
     public QueryRefundTool() {

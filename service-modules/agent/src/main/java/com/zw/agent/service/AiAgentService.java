@@ -14,7 +14,7 @@ import com.zw.agent.entity.DTO.AgentConfigDTO;
  */
 public interface AiAgentService extends IService<AiAgentEntity> {
 
-    AgentConfigDTO getAgentFullInfo(Long agentId, Long tenantId);
+    AgentConfigDTO getAgentFullInfo(Long agentId);
 
     Boolean createAgent(AgentConfigDTO agentVO);
 }

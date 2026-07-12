@@ -14,10 +14,6 @@ public final class EntityDefaults {
     public static <T extends BaseEntity> T create(T entity) {
         LocalDateTime now = LocalDateTime.now();
         UserInfo user = UserContext.get();
-
-        if (entity.getTenantId() == null) {
-            entity.setTenantId(user != null && user.getTenantId() != null ? user.getTenantId() : 1L);
-        }
         if (entity.getDeleted() == null) {
             entity.setDeleted(0);
         }
@@ -37,10 +33,6 @@ public final class EntityDefaults {
     public static <T extends BaseEntity> T update(T entity) {
         LocalDateTime now = LocalDateTime.now();
         UserInfo user = UserContext.get();
-
-        if (entity.getTenantId() == null && user != null && user.getTenantId() != null) {
-            entity.setTenantId(user.getTenantId());
-        }
         if (entity.getDeleted() == null) {
             entity.setDeleted(0);
         }

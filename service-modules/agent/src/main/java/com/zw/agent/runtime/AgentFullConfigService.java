@@ -35,13 +35,10 @@ public class AgentFullConfigService {
      * @throws AgentConfigException 当租户不存在或已停用、Agent不存在或未发布、模型配置无效时抛出异常
      */
     public AgentConfigDTO loadPublishedConfig(Long tenantId, Long agentId) {
-        if (!StringUtils.hasText(tenantId.toString())) {
-            throw new AgentConfigException("tenantId 不能为空");
-        }
         if (agentId == null) {
             throw new AgentConfigException("agentId 不能为空");
         }
-        AgentConfigDTO agentConfig = agentServiceImpl.getAgentFullInfo(tenantId, agentId);
+        AgentConfigDTO agentConfig = agentServiceImpl.getAgentFullInfo(agentId);
 
         try {
             String decrypt = AESUtil.decrypt(agentConfig.getApiKey());

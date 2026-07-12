@@ -76,12 +76,6 @@ public class AiKnowledgeAgentBindingEntity extends BaseEntity {
     private Byte rerankEnabled;
 
     /**
-     * 绑定优先级，数字越小优先级越高
-     */
-    @TableField("priority")
-    private Integer priority;
-
-    /**
      * 状态：1启用，0停用，2删除
      */
     @TableField("status")

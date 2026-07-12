@@ -68,7 +68,7 @@ public class AgentRuntimeFactory {
                 sessionId);
 
         return agentCache.get(agentCacheKey, key -> {
-            Toolkit toolkit = toolkitFactory.buildToolkit(config.getTenantId());
+            Toolkit toolkit = toolkitFactory.buildToolkit(config.getAgentId());
             PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);

@@ -104,9 +104,9 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
         ToolBase tool = resolveToolBean(toolClass);
         Method method = resolveCallMethod(toolClass);
         permission permission = resolvePermission(toolClass, method);
+        Tenant tenant = resolveTenant(toolClass, method);
         String signatureHash = buildSignatureHash(tool);
-
-        return new AiToolInfoConfigEntity()
+        AiToolInfoConfigEntity javaBean = new AiToolInfoConfigEntity()
                 .setPermissionCode(permission == null ? null : permission.value())
                 .setReadOnly(tool.isReadOnly())
                 .setConcurrency(tool.isConcurrencySafe())
@@ -124,6 +124,8 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
                 .setSignatureHash(signatureHash)
                 .setRiskLevel(resolveRiskLevel(tool))
                 .setEnabled(true);
+        javaBean.setTenantId(tenant != null ? Long.parseLong(tenant.value()) : 0L);
+        return javaBean;
     }
 
     private ToolBase resolveToolBean(Class<? extends ToolBase> toolClass) {
@@ -165,6 +167,14 @@ public class ToolRegistrySyncRunner implements ApplicationRunner {
             return methodPermission;
         }
         return toolClass.getAnnotation(permission.class);
+    }
+
+    private Tenant resolveTenant(Class<?> toolClass, Method method) {
+        Tenant methodPermission = method.getAnnotation(Tenant.class);
+        if (methodPermission != null) {
+            return methodPermission;
+        }
+        return toolClass.getAnnotation(Tenant.class);
     }
 
     private String buildSignatureHash(ToolBase tool) {

@@ -152,7 +152,6 @@
                 LEFT JOIN ai_agent_sys_prompt sp ON sp.id = ac.sys_prompt_id
         WHERE
           agent.id = #{agentId}
-          AND agent.tenant_id = #{tenantId}
           AND agent.deleted = 0
         ORDER BY ac.published_at DESC, ac.id DESC
         LIMIT 1

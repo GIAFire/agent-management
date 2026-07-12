@@ -1,5 +1,6 @@
 package com.zw.agent.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
@@ -18,5 +19,6 @@ import java.util.List;
 @Mapper
 public interface AiToolInfoConfigMapper extends BaseMapper<AiToolInfoConfigEntity> {
 
+    @InterceptorIgnore(tenantLine = "true")
     int upsertBatch(@Param("list") List<AiToolInfoConfigEntity> list);
 }

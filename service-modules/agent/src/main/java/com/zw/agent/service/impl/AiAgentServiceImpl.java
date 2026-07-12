@@ -1,14 +1,10 @@
 package com.zw.agent.service.impl;
 
-import com.zw.agent.entity.AiAgentConfigEntity;
-import com.zw.agent.entity.AiAgentEntity;
-import com.zw.agent.entity.AiKnowledgeAgentBindingEntity;
-import com.zw.agent.entity.AiSubagentAgentBindingEntity;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.zw.agent.entity.*;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
-import com.zw.agent.mapper.AiAgentConfigMapper;
-import com.zw.agent.mapper.AiKnowledgeAgentBindingMapper;
-import com.zw.agent.mapper.AiAgentMapper;
-import com.zw.agent.mapper.AiSubagentAgentBindingMapper;
+import com.zw.agent.mapper.*;
 import com.zw.agent.service.AiAgentService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.support.EntityDefaults;
@@ -39,11 +35,15 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
     private final AiAgentMapper aiAgentMapper;
     private final AiAgentConfigMapper agentConfigMapper;
     private final AiKnowledgeAgentBindingMapper knowledgeAgentBindingMapper;
+    private final AiKnowledgeBaseMapper knowledgeBaseMapper;
     private final AiSubagentAgentBindingMapper subagentAgentBindingMapper;
+    private final AiSubagentMapper subagentMapper;
+    private final AiAgentToolMapper agentToolMapper;
+    private final AiToolInfoConfigMapper toolInfoConfigMapper;
 
     @Override
-    public AgentConfigDTO getAgentFullInfo(Long tenantId,Long agentId) {
-        return aiAgentMapper.getAgentFullInfo(agentId, tenantId);
+    public AgentConfigDTO getAgentFullInfo(Long agentId) {
+        return aiAgentMapper.getAgentFullInfo(agentId);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -113,6 +113,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
 
         createKnowledgeBindings(agentVO.getSelectedKnowledgeBaseIds(), agent.getId(), config.getId());
         createSubagentBindings(agentVO.getSelectedSubagentIds(), agent.getId(), config.getId());
+        createToolBindings(agentVO.getSelectedToolIds(), agent.getId(), config.getId());
         return true;
     }
 
@@ -121,20 +122,21 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
             return;
         }
         int priority = 1;
+        List<AiKnowledgeBaseEntity> knowledgeBaseEntities = knowledgeBaseMapper.selectList(new LambdaQueryWrapper<AiKnowledgeBaseEntity>()
+                .in(AiKnowledgeBaseEntity::getId, knowledgeBaseIds));
         List<AiKnowledgeAgentBindingEntity> knowledgeAgentBinding = new ArrayList<>();
-        for (Long knowledgeBaseId : knowledgeBaseIds) {
-            if (knowledgeBaseId == null) {
+        for (AiKnowledgeBaseEntity knowledgeBase : knowledgeBaseEntities) {
+            if (knowledgeBase == null) {
                 continue;
             }
             AiKnowledgeAgentBindingEntity binding = new AiKnowledgeAgentBindingEntity()
                     .setAgentId(agentId)
                     .setAgentConfigId(agentConfigId)
-                    .setKnowledgeBaseId(knowledgeBaseId)
+                    .setKnowledgeBaseId(knowledgeBase.getId())
                     .setRagMode("AGENTIC")
                     .setRetrieveTopK(5)
                     .setScoreThreshold(new BigDecimal("0.50"))
                     .setRerankEnabled((byte) 0)
-                    .setPriority(priority++)
                     .setStatus((byte) 1);
             knowledgeAgentBinding.add(EntityDefaults.create(binding));
         }
@@ -145,15 +147,18 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
         if (subagentIds == null || subagentIds.isEmpty()) {
             return;
         }
+        List<AiSubagentEntity> aiSubagentEntities = subagentMapper
+                .selectList(new LambdaQueryWrapper<AiSubagentEntity>()
+                .in(AiSubagentEntity::getId, subagentIds));
         List<AiSubagentAgentBindingEntity> subagentAgentBinding = new ArrayList<>();
-        for (Long subagentId : subagentIds) {
-            if (subagentId == null) {
+        for (AiSubagentEntity subagent : aiSubagentEntities) {
+            if (subagent == null) {
                 continue;
             }
             AiSubagentAgentBindingEntity binding = new AiSubagentAgentBindingEntity()
                     .setAgentId(agentId)
                     .setAgentConfigId(agentConfigId)
-                    .setSubagentId(subagentId)
+                    .setSubagentId(subagent.getId())
                     .setEnabled((byte) 1)
                     .setVisibleToParent((byte) 1)
                     .setExposeToUser((byte) 0)
@@ -166,6 +171,31 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
             subagentAgentBinding.add(EntityDefaults.create(binding));
         }
         subagentAgentBindingMapper.insert(subagentAgentBinding);
+    }
+
+    private void createToolBindings(List<Long> toolIds, Long agentId, Long agentConfigId) {
+        if (toolIds == null || toolIds.isEmpty()) {
+            return;
+        }
+        List<AiToolInfoConfigEntity> toolList = toolInfoConfigMapper.selectList(new QueryWrapper<AiToolInfoConfigEntity>()
+                .in("id", toolIds));
+        List<AiAgentToolEntity> AgentToolBinding = new ArrayList<>();
+        for (AiToolInfoConfigEntity toolInfo : toolList) {
+            if (toolInfo == null) {
+                continue;
+            }
+            AiAgentToolEntity binding = new AiAgentToolEntity()
+                    .setAgentId(agentId)
+                    .setAgentConfigId(agentConfigId)
+                    .setToolInfoConfigId(toolInfo.getId())
+                    .setToolName(toolInfo.getToolName())
+                    .setToolAlias(toolInfo.getToolNameExplain())
+                    .setToolDescription(toolInfo.getDescription())
+                    .setToolGroup(toolInfo.getGroupId())
+                    .setStatus((byte) 1);
+            AgentToolBinding.add(EntityDefaults.create(binding));
+        }
+        agentToolMapper.insert(AgentToolBinding);
     }
 
 

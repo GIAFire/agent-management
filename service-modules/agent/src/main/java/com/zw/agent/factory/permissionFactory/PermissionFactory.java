@@ -53,7 +53,6 @@ public class PermissionFactory {
             List<AiToolRolePermissionEntity> permissionList = toolRolePermissionService.list(new LambdaQueryWrapper<AiToolRolePermissionEntity>()
                     .eq(AiToolRolePermissionEntity::getToolName, toolName)
                     .in(AiToolRolePermissionEntity::getRoleCode, roleCodes)
-                    .eq(AiToolRolePermissionEntity::getTenantId, userInfo.getTenantId())
                     .eq(AiToolRolePermissionEntity::getStatus, (byte) 1));
 
             AiToolRolePermissionEntity toolRolePermission = permissionList.stream()
