@@ -25,13 +25,11 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
     @Autowired
     private AiAgentSessionMapper agentSessionMapper;
     @Override
-    public AiAgentSessionEntity getOrCreateSession(UserInfo userInfo, Long agentId, Long agentConfigId, Long sessionId) {
+    public AiAgentSessionEntity getOrCreateSession(UserInfo userInfo, Long agentId, Long agentConfigId, Long sessionId,String  title) {
         AiAgentSessionEntity sessionEntity = agentSessionMapper.selectOne(new LambdaQueryWrapper<AiAgentSessionEntity>()
                 .eq(AiAgentSessionEntity::getTenantId, userInfo.getTenantId())
                 .eq(AiAgentSessionEntity::getUserId, userInfo.getUserId())
                 .eq(AiAgentSessionEntity::getId, sessionId));
-//                .eq(AiAgentSessionEntity::getAgentId, agentId)
-//                .eq(AiAgentSessionEntity::getAgentConfigId, agentConfigId)
 
         if (sessionEntity != null) {
             return sessionEntity;
@@ -44,7 +42,7 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
         sessionEntity.setUserId(userInfo.getUserId());
         sessionEntity.setAgentId(agentId);
         sessionEntity.setAgentConfigId(agentConfigId);
-        sessionEntity.setTitle("New Session");
+        sessionEntity.setTitle(title.length() >= 10 ? title.substring(0, 15) + "..." : title);
         sessionEntity.setLastMessageAt(LocalDateTime.now());
         agentSessionMapper.insert(sessionEntity);
         return sessionEntity;

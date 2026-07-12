@@ -49,7 +49,8 @@ public class AgentChatController {
                 userInfo,
                 request.getAgentId(),
                 agentConfig.getAgentConfigId(),
-                request.getSessionId()
+                request.getSessionId(),
+                request.getContent()
         );
 
         AiAgentMessageLogEntity userMessage = agentMessageService.saveUserMessage(
