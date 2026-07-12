@@ -43,18 +43,17 @@ public class AiAgentModelController {
         return Result.ok(aiAgentModelService.getById(id));
     }
 
-    @PostMapping("/save")
-    public Result<Boolean> save(@RequestBody AiAgentModelEntity entity) {
-//        BeanUtils.copyProperties(entity, modelConfigEntity);
-        return Result.ok(aiAgentModelService.save(EntityDefaults.create(entity)));
+    @PostMapping("/create")
+    public Result<Boolean> create(@RequestBody AiAgentModelEntity entity) {
+        return Result.ok(aiAgentModelService.save(entity));
     }
 
-    @PutMapping
+    @PostMapping("/update")
     public Result<Boolean> update(@RequestBody AiAgentModelEntity entity) {
         return Result.ok(aiAgentModelService.updateById(EntityDefaults.update(entity)));
     }
 
-    @DeleteMapping("/{id}")
+    @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiAgentModelService.removeById(id));
     }

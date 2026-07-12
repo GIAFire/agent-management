@@ -1,9 +1,9 @@
-package com.zw.agent.factory.ragFactory;
+package com.zw.agent.factory.RAGFactory;
 
 import com.zw.agent.entity.AiKnowledgeBackendConfigEntity;
-import com.zw.agent.factory.ragFactory.backendImpl.KnowledgeBackend;
-import com.zw.agent.factory.ragFactory.backendImpl.SelfManagedKnowledgeBackend;
-import com.zw.agent.factory.ragFactory.entity.KnowledgeBase;
+import com.zw.agent.factory.RAGFactory.backendImpl.KnowledgeBackend;
+import com.zw.agent.factory.RAGFactory.backendImpl.SelfManagedKnowledgeBackend;
+import com.zw.agent.factory.RAGFactory.entity.KnowledgeBase;
 import com.zw.common.utils.AESUtil;
 import dev.langchain4j.community.model.dashscope.QwenEmbeddingModel;
 import dev.langchain4j.community.model.zhipu.ZhipuAiEmbeddingModel;

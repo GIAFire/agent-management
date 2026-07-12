@@ -49,12 +49,12 @@ public class AiAgentController {
         return Result.ok(aiAgentService.save(EntityDefaults.create(entity)));
     }
 
-    @PutMapping("/update")
+    @PostMapping("/update")
     public Result<Boolean> update(@RequestBody AiAgentEntity entity) {
         return Result.ok(aiAgentService.updateById(EntityDefaults.update(entity)));
     }
 
-    @DeleteMapping("/{id}")
+    @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiAgentService.removeById(id));
     }

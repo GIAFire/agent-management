@@ -2,9 +2,9 @@ package com.zw.agent.tools.testCustomer;
 
 import com.zw.agent.entity.AiKnowledgeBackendConfigEntity;
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
-import com.zw.agent.factory.ragFactory.RagBackendFactory;
-import com.zw.agent.factory.ragFactory.backendImpl.KnowledgeBackend;
-import com.zw.agent.factory.ragFactory.entity.KnowledgeBase;
+import com.zw.agent.factory.RAGFactory.RagBackendFactory;
+import com.zw.agent.factory.RAGFactory.backendImpl.KnowledgeBackend;
+import com.zw.agent.factory.RAGFactory.entity.KnowledgeBase;
 import com.zw.agent.service.AiKnowledgeBackendConfigService;
 import com.zw.agent.service.AiKnowledgeBaseService;
 import com.zw.agent.tools.ToolResponse;

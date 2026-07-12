@@ -1,4 +1,4 @@
-package com.zw.agent.factory.ragFactory.entity;
+package com.zw.agent.factory.RAGFactory.entity;
 
 import lombok.Data;
 

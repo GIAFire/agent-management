@@ -41,17 +41,17 @@ public class AiAgentRunEventLogController {
         return Result.ok(aiAgentRunEventLogService.getById(id));
     }
 
-    @PostMapping
+    @PostMapping("/create")
     public Result<Boolean> create(@RequestBody AiAgentRunEventLogEntity entity) {
         return Result.ok(aiAgentRunEventLogService.save(entity));
     }
 
-    @PutMapping
+    @PostMapping("/update")
     public Result<Boolean> update(@RequestBody AiAgentRunEventLogEntity entity) {
         return Result.ok(aiAgentRunEventLogService.updateById(entity));
     }
 
-    @DeleteMapping("/{id}")
+    @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiAgentRunEventLogService.removeById(id));
     }

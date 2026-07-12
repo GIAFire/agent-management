@@ -1,8 +1,8 @@
-package com.zw.agent.factory.ragFactory.backendImpl;
+package com.zw.agent.factory.RAGFactory.backendImpl;
 
-import com.zw.agent.factory.ragFactory.entity.ChunkResult;
-import com.zw.agent.factory.ragFactory.entity.KnowledgeBase;
-import com.zw.agent.factory.ragFactory.enumeration.BackendStoreType;
+import com.zw.agent.factory.RAGFactory.entity.ChunkResult;
+import com.zw.agent.factory.RAGFactory.entity.KnowledgeBase;
+import com.zw.agent.factory.RAGFactory.enumeration.BackendStoreType;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;

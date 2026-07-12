@@ -56,7 +56,6 @@
             agent.agent_key AS agentKey,
             agent.agent_name AS agentName,
             agent.description AS agentDescription,
-            agent.avatar_url AS agentAvatarUrl,
             agent.agent_type AS agentType,
             agent.STATUS AS agentStatus,
 

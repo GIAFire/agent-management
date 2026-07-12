@@ -41,17 +41,17 @@ public class AiAgentMessageLogController {
         return Result.ok(aiAgentMessageLogService.getById(id));
     }
 
-    @PostMapping
+    @PostMapping("/create")
     public Result<Boolean> create(@RequestBody AiAgentMessageLogEntity entity) {
         return Result.ok(aiAgentMessageLogService.save(entity));
     }
 
-    @PutMapping
+    @PostMapping("/update")
     public Result<Boolean> update(@RequestBody AiAgentMessageLogEntity entity) {
         return Result.ok(aiAgentMessageLogService.updateById(entity));
     }
 
-    @DeleteMapping("/{id}")
+    @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiAgentMessageLogService.removeById(id));
     }

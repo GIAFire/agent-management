@@ -41,17 +41,17 @@ public class AiAgentRunLogController {
         return Result.ok(aiAgentRunLogService.getById(id));
     }
 
-    @PostMapping
+    @PostMapping("/create")
     public Result<Boolean> create(@RequestBody AiAgentRunLogEntity entity) {
         return Result.ok(aiAgentRunLogService.save(entity));
     }
 
-    @PutMapping
+    @PostMapping("/update")
     public Result<Boolean> update(@RequestBody AiAgentRunLogEntity entity) {
         return Result.ok(aiAgentRunLogService.updateById(entity));
     }
 
-    @DeleteMapping("/{id}")
+    @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiAgentRunLogService.removeById(id));
     }

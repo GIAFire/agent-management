@@ -41,17 +41,17 @@ public class AiAgentSessionController {
         return Result.ok(aiAgentSessionService.getById(id));
     }
 
-    @PostMapping
+    @PostMapping("/create")
     public Result<Boolean> create(@RequestBody AiAgentSessionEntity entity) {
         return Result.ok(aiAgentSessionService.save(entity));
     }
 
-    @PutMapping
+    @PostMapping("/update")
     public Result<Boolean> update(@RequestBody AiAgentSessionEntity entity) {
         return Result.ok(aiAgentSessionService.updateById(entity));
     }
 
-    @DeleteMapping("/{id}")
+    @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiAgentSessionService.removeById(id));
     }

@@ -1,7 +1,15 @@
 package com.zw.agent.controller;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zw.agent.entity.AiSubagentAgentBindingEntity;
+import com.zw.agent.service.AiSubagentAgentBindingService;
+import com.zw.common.entity.Result;
+import com.zw.common.support.EntityDefaults;
+import lombok.AllArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * <p>
@@ -12,7 +20,42 @@ import org.springframework.web.bind.annotation.RestController;
  * @since 2026-07-11
  */
 @RestController
-@RequestMapping("/ai-subagent-agent-binding-entity")
+@RequestMapping("/subagentAgentBinding")
+@AllArgsConstructor
 public class AiSubagentAgentBindingController {
+    private final AiSubagentAgentBindingService aiSubagentAgentBindingService;
+
+    @GetMapping("/list")
+    public Result<List<AiSubagentAgentBindingEntity>> list() {
+        return Result.ok(aiSubagentAgentBindingService.list());
+    }
+
+    @GetMapping("/page")
+    public Result<IPage<AiSubagentAgentBindingEntity>> page(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size
+    ) {
+        return Result.ok(aiSubagentAgentBindingService.page(new Page<>(current, size)));
+    }
+
+    @GetMapping("/{id}")
+    public Result<AiSubagentAgentBindingEntity> getById(@PathVariable Long id) {
+        return Result.ok(aiSubagentAgentBindingService.getById(id));
+    }
+
+    @PostMapping("/create")
+    public Result<Boolean> create(@RequestBody AiSubagentAgentBindingEntity entity) {
+        return Result.ok(aiSubagentAgentBindingService.save(EntityDefaults.create(entity)));
+    }
+
+    @PostMapping("/update")
+    public Result<Boolean> update(@RequestBody AiSubagentAgentBindingEntity entity) {
+        return Result.ok(aiSubagentAgentBindingService.updateById(EntityDefaults.update(entity)));
+    }
+
+    @GetMapping("/delete/{id}")
+    public Result<Boolean> delete(@PathVariable Long id) {
+        return Result.ok(aiSubagentAgentBindingService.removeById(id));
+    }
 
 }

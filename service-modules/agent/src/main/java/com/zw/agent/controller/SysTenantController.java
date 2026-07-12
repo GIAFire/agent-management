@@ -41,17 +41,17 @@ public class SysTenantController {
         return Result.ok(aiTenantService.getById(id));
     }
 
-    @PostMapping
+    @PostMapping("/create")
     public Result<Boolean> create(@RequestBody SysTenantEntity entity) {
         return Result.ok(aiTenantService.save(entity));
     }
 
-    @PutMapping
+    @PostMapping("/update")
     public Result<Boolean> update(@RequestBody SysTenantEntity entity) {
         return Result.ok(aiTenantService.updateById(entity));
     }
 
-    @DeleteMapping("/{id}")
+    @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiTenantService.removeById(id));
     }

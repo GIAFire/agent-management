@@ -1,4 +1,4 @@
-package com.zw.agent.factory.ragFactory.enumeration;
+package com.zw.agent.factory.RAGFactory.enumeration;
 
 public enum BackendStoreType {
 

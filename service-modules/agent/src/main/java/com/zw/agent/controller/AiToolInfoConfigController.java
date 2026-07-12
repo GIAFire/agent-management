@@ -63,7 +63,7 @@ public class AiToolInfoConfigController {
     /**
      * 更新工具配置
      */
-    @PutMapping("/update")
+    @PostMapping("/update")
     public Result<Boolean> update(@RequestBody AiToolInfoConfigEntity entity) {
         return Result.ok(aiToolInfoConfigService.updateById(EntityDefaults.update(entity)));
     }
@@ -71,7 +71,7 @@ public class AiToolInfoConfigController {
     /**
      * 根据ID删除工具配置
      */
-    @DeleteMapping("/delete/{id}")
+    @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiToolInfoConfigService.removeById(id));
     }

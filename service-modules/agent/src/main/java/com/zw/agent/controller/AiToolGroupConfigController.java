@@ -73,7 +73,7 @@ public class AiToolGroupConfigController {
     /**
      * 更新工具组配置
      */
-    @PutMapping("/update")
+    @PostMapping("/update")
     public Result<Boolean> update(@RequestBody AiToolGroupConfigEntity entity) {
         return Result.ok(aiToolGroupConfigMapper.updateGroupById(EntityDefaults.update(entity)) > 0);
     }
@@ -81,7 +81,7 @@ public class AiToolGroupConfigController {
     /**
      * 根据ID删除工具组配置
      */
-    @DeleteMapping("/delete/{id}")
+    @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiToolGroupConfigService.removeById(id));
     }

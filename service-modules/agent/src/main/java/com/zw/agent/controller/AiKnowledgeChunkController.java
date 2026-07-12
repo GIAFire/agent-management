@@ -1,14 +1,16 @@
 package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiKnowledgeBackendConfigEntity;
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.zw.agent.entity.AiKnowledgeChunkEntity;
 import com.zw.agent.entity.AiKnowledgeDocumentEntity;
-import com.zw.agent.factory.ragFactory.RagBackendFactory;
-import com.zw.agent.factory.ragFactory.backendImpl.KnowledgeBackend;
-import com.zw.agent.factory.ragFactory.entity.ChunkResult;
-import com.zw.agent.factory.ragFactory.entity.KnowledgeBase;
+import com.zw.agent.factory.RAGFactory.RagBackendFactory;
+import com.zw.agent.factory.RAGFactory.backendImpl.KnowledgeBackend;
+import com.zw.agent.factory.RAGFactory.entity.ChunkResult;
+import com.zw.agent.factory.RAGFactory.entity.KnowledgeBase;
 import com.zw.agent.service.AiKnowledgeBackendConfigService;
 import com.zw.agent.service.AiKnowledgeBaseService;
 import com.zw.agent.service.AiKnowledgeChunkService;
@@ -19,12 +21,7 @@ import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.segment.TextSegment;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -140,6 +137,39 @@ public class AiKnowledgeChunkController {
             updateDocument(document, "FAILED", null, null, e.getMessage());
             return Result.fail("Chunk index failed: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/list")
+    public Result<List<AiKnowledgeChunkEntity>> list() {
+        return Result.ok(aiKnowledgeChunkService.list());
+    }
+
+    @GetMapping("/page")
+    public Result<IPage<AiKnowledgeChunkEntity>> page(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size
+    ) {
+        return Result.ok(aiKnowledgeChunkService.page(new Page<>(current, size)));
+    }
+
+    @GetMapping("/{id}")
+    public Result<AiKnowledgeChunkEntity> getById(@PathVariable Long id) {
+        return Result.ok(aiKnowledgeChunkService.getById(id));
+    }
+
+    @PostMapping("/create")
+    public Result<Boolean> create(@RequestBody AiKnowledgeChunkEntity entity) {
+        return Result.ok(aiKnowledgeChunkService.save(EntityDefaults.create(entity)));
+    }
+
+    @PostMapping("/update")
+    public Result<Boolean> update(@RequestBody AiKnowledgeChunkEntity entity) {
+        return Result.ok(aiKnowledgeChunkService.updateById(EntityDefaults.update(entity)));
+    }
+
+    @GetMapping("/delete/{id}")
+    public Result<Boolean> delete(@PathVariable Long id) {
+        return Result.ok(aiKnowledgeChunkService.removeById(id));
     }
 
     private Long resolveBackendConfigId(ChunkIndexRequest request, AiKnowledgeBaseEntity knowledgeBaseEntity) {

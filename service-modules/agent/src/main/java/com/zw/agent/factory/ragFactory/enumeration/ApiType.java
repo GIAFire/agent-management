@@ -1,4 +1,4 @@
-package com.zw.agent.factory.ragFactory.enumeration;
+package com.zw.agent.factory.RAGFactory.enumeration;
 
 import com.baomidou.mybatisplus.annotation.IEnum;
 import com.zw.agent.factory.modelFactory.ModelType;
