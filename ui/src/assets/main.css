@@ -1024,12 +1024,8 @@
 }
 
 .capability-card {
-  display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
   min-height: 92px;
-  padding: 16px;
+  padding: 0;
 }
 
 .capability-card h5,
@@ -1054,12 +1050,78 @@
 }
 
 .knowledge-card {
+  min-height: 76px;
+  padding: 0;
+}
+
+.resource-card {
+  overflow: hidden;
+}
+
+.resource-card-head {
   display: grid;
+  width: 100%;
   grid-template-columns: 42px minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
-  min-height: 76px;
   padding: 16px;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.resource-card-head em {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #1266ff;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.resource-card.expanded {
+  border-color: #9ec1ff;
+  box-shadow: 0 0 0 1px rgba(91, 140, 255, 0.2) inset;
+}
+
+.resource-list {
+  display: grid;
+  gap: 8px;
+  padding: 0 16px 16px 72px;
+}
+
+.resource-option {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #d8e6f7;
+  border-radius: 9px;
+  background: #f8fbff;
+}
+
+.resource-option strong,
+.resource-option small {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-option strong {
+  color: #0a2547;
+  font-size: 13px;
+}
+
+.resource-option small {
+  margin-top: 4px;
+  color: #6d819b;
+  font-size: 12px;
 }
 
 .advanced-section {

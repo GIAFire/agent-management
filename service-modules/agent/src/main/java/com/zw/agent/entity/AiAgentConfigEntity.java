@@ -47,7 +47,7 @@ public class AiAgentConfigEntity extends BaseEntity {
      * 系统提示词，关联 ai_agent_sys_prompt.id
      */
     @TableField("sys_prompt_id")
-    private String sysPromptId;
+    private Long sysPromptId;
 
     /**
      * 关联 ai_agent_model.id
@@ -62,16 +62,10 @@ public class AiAgentConfigEntity extends BaseEntity {
     private Integer maxIters;
 
     /**
-     * 上下文压缩配置JSON，例如 triggerMessages、keepMessages
+     * 工作区目录，例如/local
      */
-    @TableField("compaction_config_json")
-    private String compactionConfigJson;
-
-    /**
-     * 工作区配置JSON，例如 workspace path、隔离级别
-     */
-    @TableField("workspace_config_json")
-    private String workspaceConfigJson;
+    @TableField("workspace_path")
+    private String workspacePath;
 
     /**
      * 全局默认权限模式：ALLOW(全部放行)/ASK(询问用户)/DENY(全部拒绝)
@@ -86,10 +80,52 @@ public class AiAgentConfigEntity extends BaseEntity {
     private String visualSchemaJson;
 
     /**
+     * agent全局权限策略id
+     */
+    @TableField("agent_permission_policy_id")
+    private Long agentPermissionPolicyId;
+
+    /**
      * 发布状态：0草稿，1已发布，2已废弃
      */
     @TableField("publish_status")
     private Integer publishStatus;
+
+    @TableField("context_enabled")
+    private Integer contextEnabled;
+
+    @TableField("trigger_messages")
+    private Integer triggerMessages;
+
+    @TableField("keep_messages")
+    private Integer keepMessages;
+
+    @TableField("trigger_tokens")
+    private Integer triggerTokens;
+
+    @TableField("keep_tokens")
+    private Integer keepTokens;
+
+    @TableField("flush_before_compact")
+    private Integer flushBeforeCompact;
+
+    @TableField("offload_before_compact")
+    private Integer offloadBeforeCompact;
+
+    @TableField("compaction_model_config_id")
+    private Long compactionModelConfigId;
+
+    @TableField("truncate_args_enabled")
+    private Integer truncateArgsEnabled;
+
+    @TableField("truncate_args_max_chars")
+    private Integer truncateArgsMaxChars;
+
+    @TableField("tool_result_eviction_enabled")
+    private Integer toolResultEvictionEnabled;
+
+    @TableField("tool_result_max_chars")
+    private Integer toolResultMaxChars;
 
     /**
      * 是否启用记忆：1启用,0禁用
@@ -107,7 +143,7 @@ public class AiAgentConfigEntity extends BaseEntity {
      * 计划文件目录，相对workspace_path，例如plans
      */
     @TableField("plan_file_directory")
-    private Integer planFileDirectory;
+    private String planFileDirectory;
 
     /**
      * 是否启用todo_write任务列表：1启用，0关闭
@@ -143,7 +179,7 @@ public class AiAgentConfigEntity extends BaseEntity {
      * Plan Mode额外提示词，用于约束计划格式、风险说明和验收标准
      */
     @TableField("plan_prompt")
-    private Integer planPrompt;
+    private String planPrompt;
 
 
     /**

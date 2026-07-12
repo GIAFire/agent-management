@@ -18,6 +18,10 @@ export const addAgent = (data) => {
   return post(`${baseUrl}/agent/create`, data)
 }
 
+export const createAgentFull = (data) => {
+  return post(`${baseUrl}/agent/createAgent`, data)
+}
+
 export const updateAgent = (data) => {
   return put(baseUrl, data)
 }

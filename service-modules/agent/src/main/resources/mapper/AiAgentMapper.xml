@@ -21,18 +21,40 @@
 
         <!-- AgentConfig 字段映射 -->
         <result property="agentConfigId" column="agent_config_id"/>
+        <result property="versionNo" column="version_no"/>
+        <result property="sysPromptId" column="sys_prompt_id"/>
         <result property="sysPrompt" column="sys_prompt"/>
         <result property="modelId" column="model_id"/>
         <result property="maxIters" column="max_iters"/>
+        <result property="workspacePath" column="workspace_path"/>
         <result property="permissionMode" column="permission_mode"/>
+        <result property="visualSchemaJson" column="visual_schema_json"/>
+        <result property="agentPermissionPolicyId" column="agent_permission_policy_id"/>
+        <result property="publishStatus" column="publish_status"/>
+        <result property="publishedAt" column="published_at"/>
         <result property="contextEnabled" column="context_enabled"/>
         <result property="triggerMessages" column="trigger_messages"/>
         <result property="keepMessages" column="keep_messages"/>
         <result property="triggerTokens" column="trigger_tokens"/>
         <result property="keepTokens" column="keep_tokens"/>
+        <result property="flushBeforeCompact" column="flush_before_compact"/>
+        <result property="offloadBeforeCompact" column="offload_before_compact"/>
+        <result property="compactionModelConfigId" column="compaction_model_config_id"/>
         <result property="truncateArgsEnabled" column="truncate_args_enabled"/>
+        <result property="truncateArgsMaxChars" column="truncate_args_max_chars"/>
         <result property="toolResultEvictionEnabled" column="tool_result_eviction_enabled"/>
+        <result property="toolResultMaxChars" column="tool_result_max_chars"/>
         <result property="memoryEnable" column="memory_enable"/>
+        <result property="planModeEnabled" column="plan_mode_enabled"/>
+        <result property="planFileDirectory" column="plan_file_directory"/>
+        <result property="taskListEnabled" column="task_list_enabled"/>
+        <result property="allowShellInPlanMode" column="allow_shell_in_plan_mode"/>
+        <result property="planExitApprovalRequired" column="plan_exit_approval_required"/>
+        <result property="planMaxSteps" column="plan_max_steps"/>
+        <result property="planAutoEnterEnabled" column="plan_auto_enter_enabled"/>
+        <result property="planPrompt" column="plan_prompt"/>
+        <result property="sandboxEnabled" column="sandbox_enabled"/>
+        <result property="sandboxConfigId" column="sandbox_config_id"/>
 
         <!-- ModelConfig 字段映射 -->
         <result property="modelId" column="model_id"/>
@@ -69,21 +91,28 @@
             tenant.nacos_namespace_id AS tenantNacosNamespaceId,
             tenant.remark AS tenantRemark,
             ac.id AS agentConfigId,
+            ac.version_no AS versionNo,
+            ac.sys_prompt_id AS sysPromptId,
             ac.model_id AS modelId,
             ac.max_iters AS maxIters,
             ac.workspace_path AS workspacePath,
             ac.permission_mode AS permissionMode,
             ac.visual_schema_json AS visualSchemaJson,
+            ac.agent_permission_policy_id AS agentPermissionPolicyId,
             ac.publish_status AS publishStatus,
             ac.published_at AS publishedAt,
-            ac.tool_result_eviction_enabled AS toolResultEvictionEnabled,
             ac.context_enabled AS contextEnabled,
             ac.trigger_messages AS triggerMessages,
             ac.keep_messages AS keepMessages,
             ac.trigger_tokens AS triggerTokens,
             ac.keep_tokens AS keepTokens,
+            ac.flush_before_compact AS flushBeforeCompact,
+            ac.offload_before_compact AS offloadBeforeCompact,
+            ac.compaction_model_config_id AS compactionModelConfigId,
             ac.truncate_args_enabled AS truncateArgsEnabled,
+            ac.truncate_args_max_chars AS truncateArgsMaxChars,
             ac.tool_result_eviction_enabled AS toolResultEvictionEnabled,
+            ac.tool_result_max_chars AS toolResultMaxChars,
             ac.memory_enable AS memoryEnable,
             ac.plan_mode_enabled AS planModeEnabled,
             ac.plan_file_directory AS planFileDirectory,
@@ -93,6 +122,8 @@
             ac.plan_max_steps AS planMaxSteps,
             ac.plan_auto_enter_enabled AS planAutoEnterEnabled,
             ac.plan_prompt AS planPrompt,
+            ac.sandbox_enabled AS sandboxEnabled,
+            ac.sandbox_config_id AS sandboxConfigId,
             model.id AS modelId,
             model.provider AS provider,
             model.base_URL AS baseUrl,

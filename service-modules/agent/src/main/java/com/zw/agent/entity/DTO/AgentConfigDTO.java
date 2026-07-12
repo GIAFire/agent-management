@@ -3,6 +3,8 @@ package com.zw.agent.entity.DTO;
 import com.zw.agent.factory.modelFactory.ModelType;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class AgentConfigDTO {
 
@@ -21,11 +23,20 @@ public class AgentConfigDTO {
     private String tenantRemark;
 
     private Long agentConfigId;
+    private String versionNo;
+    private Long sysPromptId;
     private String permissionMode;
     private Integer maxIters;
     private String workspacePath;
-    private String contextEnabled;
+    private String visualSchemaJson;
+    private Long agentPermissionPolicyId;
+    private Integer publishStatus;
+    private String publishedAt;
+    private Integer contextEnabled;
     private String triggerMode;
+    private Integer flushBeforeCompact;
+    private Integer offloadBeforeCompact;
+    private Long compactionModelConfigId;
     private Integer memoryEnable;
     private Integer planModeEnabled;
     private String planFileDirectory;
@@ -40,8 +51,12 @@ public class AgentConfigDTO {
     private Integer keepMessages;
     private Integer triggerTokens;
     private Integer keepTokens;
-    private  Boolean truncateArgsEnabled;
-    private  Boolean toolResultEvictionEnabled;
+    private Boolean truncateArgsEnabled;
+    private Integer truncateArgsMaxChars;
+    private Boolean toolResultEvictionEnabled;
+    private Integer toolResultMaxChars;
+    private Integer sandboxEnabled;
+    private Long sandboxConfigId;
 
     private Long modelId;
     private ModelType provider;
@@ -61,5 +76,9 @@ public class AgentConfigDTO {
 
     private String promptName;
     private String sysPrompt;
+
+    private List<Long> selectedToolIds;
+    private List<Long> selectedKnowledgeBaseIds;
+    private List<Long> selectedSubagentIds;
 
 }

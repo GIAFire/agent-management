@@ -20,19 +20,32 @@ import {
   SetUp,
   Tools
 } from '@element-plus/icons-vue'
-import { addAgent, deleteAgent, getAgent, listAgent, updateAgent } from '@/axios/agent'
-import { addAgentConfig } from '@/axios/agentConfig'
+import { createAgentFull, deleteAgent, getAgent, listAgent, updateAgent } from '@/axios/agent'
+import {
+  listWizardKnowledgeBases,
+  listWizardModels,
+  listWizardPrompts,
+  listWizardSubagents,
+  listWizardTools
+} from '@/axios/agentWizard'
 
 const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
 const submitting = ref(false)
+const wizardLoading = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('创建智能体')
 const wizardStep = ref(1)
 const formRef = ref()
 const agentRows = ref([])
 const activeFilter = ref('全部')
+const expandedResource = ref('')
+const modelRows = ref([])
+const promptRows = ref([])
+const toolRows = ref([])
+const knowledgeRows = ref([])
+const subagentRows = ref([])
 
 const sampleRows = []
 
@@ -54,10 +67,10 @@ const configForm = reactive({
   sysPrompt: '你是一名专业、可靠的企业智能助手。请先理解用户目标，再合理使用工具完成任务。',
   maxIters: 10,
   workspacePath: '.agentscope/workspace',
-  permissionMode: 'ASK',
+  permissionMode: 'ACCEPT_EDITS',
   visualSchemaJson: '',
   agentPermissionPolicyId: null,
-  publishStatus: 0,
+  publishStatus: 1,
   contextEnabled: 1,
   triggerMessages: 30,
   keepMessages: 10,
@@ -84,9 +97,13 @@ const configForm = reactive({
 })
 
 const selections = reactive({
-  tools: ['订单查询', '文件检索', '数据库访问'],
-  skills: ['数据分析', '报告生成'],
-  knowledge: ['产品手册', '合同法规库'],
+  toolIds: [],
+  skillIds: [],
+  knowledgeBaseIds: [],
+  subagentIds: [],
+  tools: [],
+  skills: [],
+  knowledge: [],
   mcp: [],
   subAgents: []
 })
@@ -129,25 +146,29 @@ const agentTypes = [
   }
 ]
 
-const capabilityCards = [
-  { title: '工具', desc: '查询订单、文件读写、数据库访问', count: '8 个已选择', icon: Tools },
-  { title: '技能包', desc: '组合提示词、脚本和资源', count: '3 个已选择', icon: Lightning },
-]
+const capabilityCards = computed(() => [
+  { key: 'tools', title: '工具', desc: '查询订单、文件读写、数据库访问', count: `${selections.toolIds.length} 个已选择`, icon: Tools },
+  { key: 'skills', title: '技能包', desc: '组合提示词、脚本和资源', count: `${selections.skillIds.length} 个已选择`, icon: Lightning }
+])
 
-const knowledgeCards = [
-  { title: '知识库', desc: '产品手册、合同法规库', action: '已选择 2 个', icon: Collection },
-  { title: 'MCP 服务器', desc: '数据库查询、GitHub、内部工单', action: '配置连接', icon: Connection },
-  { title: '子智能体', desc: '将任务委派给编程、检索或审查 Agent', action: '选择子 Agent', icon: Briefcase }
-]
+const knowledgeCards = computed(() => [
+  { key: 'knowledge', title: '知识库', desc: '产品手册、合同法规库', action: `已选择 ${selections.knowledgeBaseIds.length} 个`, icon: Collection },
+  { key: 'mcp', title: 'MCP 服务器', desc: '数据库查询、GitHub、内部工单', action: '配置连接', icon: Connection },
+  { key: 'subagents', title: '子智能体', desc: '将任务委派给编程、检索或审查 Agent', action: `已选择 ${selections.subagentIds.length} 个`, icon: Briefcase }
+])
 
-const modelOptions = [
-  { label: 'Qwen3-235B', value: 1, name: 'Qwen3-235B' },
-  { label: 'DeepSeek-V3', value: 2, name: 'DeepSeek-V3' },
-  { label: 'Qwen3-32B', value: 3, name: 'Qwen3-32B' }
-]
+const modelOptions = computed(() => modelRows.value.map((item) => ({
+  label: [item.modelName, item.description].filter(Boolean).join(' - ') || `模型 #${item.id}`,
+  value: item.id,
+  name: item.modelName || `模型 #${item.id}`
+})))
 
-const promptTemplates = ['企业通用助手', '合同审查助手', '数据分析助手', '客服应答助手']
-const permissionOptions = ['ASK', 'ALLOW', 'DENY', 'EXPLORE']
+const promptOptions = computed(() => promptRows.value.map((item) => ({
+  label: item.promptName || `提示词 #${item.id}`,
+  value: item.id,
+  sysPrompt: item.sysPrompt || ''
+})))
+const permissionOptions = ['DEFAULT', 'ACCEPT_EDITS', 'EXPLORE', 'BYPASS','DONT_ASK']
 const publishOptions = [
   { label: '草稿', value: 0 },
   { label: '已发布', value: 1 },
@@ -180,8 +201,8 @@ const configProgress = computed(() => {
   let score = 20
   if (form.agentName && form.agentKey) score += 15
   if (configForm.modelId && configForm.sysPrompt) score += 15
-  if (selections.tools.length || selections.skills.length) score += 15
-  if (selections.knowledge.length || selections.mcp.length) score += 10
+  if (selections.toolIds.length || selections.skillIds.length) score += 15
+  if (selections.knowledgeBaseIds.length || selections.subagentIds.length || selections.mcp.length) score += 10
   if (configForm.contextEnabled) score += 10
   if (configForm.memoryEnable) score += 7
   if (configForm.sandboxEnabled) score += 8
@@ -209,10 +230,10 @@ const resetConfigForm = () => {
     sysPrompt: '你是一名专业、可靠的企业智能助手。请先理解用户目标，再合理使用工具完成任务。',
     maxIters: 10,
     workspacePath: '.agentscope/workspace',
-    permissionMode: 'ASK',
+    permissionMode: 'ACCEPT_EDITS',
     visualSchemaJson: '',
     agentPermissionPolicyId: null,
-    publishStatus: 0,
+    publishStatus: 1,
     contextEnabled: 1,
     triggerMessages: 30,
     keepMessages: 10,
@@ -249,6 +270,16 @@ const resetForm = () => {
     status: 1
   })
   resetConfigForm()
+  selections.toolIds.splice(0)
+  selections.skillIds.splice(0)
+  selections.knowledgeBaseIds.splice(0)
+  selections.subagentIds.splice(0)
+  selections.tools.splice(0)
+  selections.skills.splice(0)
+  selections.knowledge.splice(0)
+  selections.mcp.splice(0)
+  selections.subAgents.splice(0)
+  expandedResource.value = ''
 }
 
 const normalizeId = (value) => {
@@ -260,6 +291,24 @@ const normalizeNumber = (value) => {
 }
 
 const toSwitchValue = (value) => Number(value) === 1 ? 1 : 0
+
+const toggleId = (list, id) => {
+  const normalized = normalizeId(id)
+  if (!normalized) {
+    return
+  }
+  const index = list.findIndex((item) => normalizeId(item) === normalized)
+  if (index >= 0) {
+    list.splice(index, 1)
+    return
+  }
+  list.push(id)
+}
+
+const isSelected = (list, id) => {
+  const normalized = normalizeId(id)
+  return list.some((item) => normalizeId(item) === normalized)
+}
 
 const loadAgentList = async () => {
   loading.value = true
@@ -273,6 +322,74 @@ const loadAgentList = async () => {
   }
 }
 
+const loadModelAndPrompts = async () => {
+  if (modelRows.value.length && promptRows.value.length) {
+    return
+  }
+  wizardLoading.value = true
+  try {
+    const [models, prompts] = await Promise.all([
+      listWizardModels(),
+      listWizardPrompts()
+    ])
+    modelRows.value = Array.isArray(models) ? models : []
+    promptRows.value = Array.isArray(prompts) ? prompts : []
+    if ((!configForm.modelId || !modelRows.value.some((item) => normalizeId(item.id) === normalizeId(configForm.modelId))) && modelRows.value[0]?.id) {
+      configForm.modelId = modelRows.value[0].id
+      configForm.modelName = modelRows.value[0].modelName || ''
+    }
+    if (!configForm.sysPromptId && promptRows.value[0]?.id) {
+      configForm.sysPromptId = promptRows.value[0].id
+      configForm.promptTemplate = promptRows.value[0].promptName || ''
+      configForm.sysPrompt = promptRows.value[0].sysPrompt || configForm.sysPrompt
+    }
+  } finally {
+    wizardLoading.value = false
+  }
+}
+
+const loadTools = async () => {
+  if (toolRows.value.length) {
+    return
+  }
+  wizardLoading.value = true
+  try {
+    const data = await listWizardTools()
+    toolRows.value = Array.isArray(data) ? data : []
+  } finally {
+    wizardLoading.value = false
+  }
+}
+
+const loadKnowledgeAndSubagents = async () => {
+  if (knowledgeRows.value.length && subagentRows.value.length) {
+    return
+  }
+  wizardLoading.value = true
+  try {
+    const [knowledgeBases, subagents] = await Promise.all([
+      listWizardKnowledgeBases(),
+      listWizardSubagents()
+    ])
+    knowledgeRows.value = Array.isArray(knowledgeBases) ? knowledgeBases : []
+    subagentRows.value = Array.isArray(subagents) ? subagents : []
+  } finally {
+    wizardLoading.value = false
+  }
+}
+
+const ensureStepData = async (step) => {
+  if (step === 3) {
+    await loadModelAndPrompts()
+  }
+  if (step === 4) {
+    await loadTools()
+  }
+  if (step === 5) {
+    await loadKnowledgeAndSubagents()
+  }
+}
+
 const handleAdd = async () => {
   dialogTitle.value = '创建智能体'
   wizardStep.value = 1
@@ -280,6 +397,7 @@ const handleAdd = async () => {
   dialogVisible.value = true
   await nextTick()
   formRef.value?.clearValidate()
+  await ensureStepData(3)
 }
 
 const handleEdit = async (row) => {
@@ -323,8 +441,9 @@ const buildVisualSchema = () => {
   return JSON.stringify({
     nodes: [
       { id: 'model', type: 'model', label: configForm.modelName },
-      { id: 'tools', type: 'tools', label: `${selections.tools.length} tools` },
-      { id: 'knowledge', type: 'knowledge', label: `${selections.knowledge.length} knowledge bases` }
+      { id: 'tools', type: 'tools', label: `${selections.toolIds.length} tools`, toolIds: selections.toolIds },
+      { id: 'knowledge', type: 'knowledge', label: `${selections.knowledgeBaseIds.length} knowledge bases`, knowledgeBaseIds: selections.knowledgeBaseIds },
+      { id: 'subagents', type: 'subagents', label: `${selections.subagentIds.length} subagents`, subagentIds: selections.subagentIds }
     ],
     edges: [
       { source: 'model', target: 'tools' },
@@ -333,14 +452,19 @@ const buildVisualSchema = () => {
   })
 }
 
-const buildConfigPayload = (agentId) => ({
-  agentId: normalizeId(agentId),
+const buildCreateAgentPayload = () => ({
+  ...buildAgentPayload(),
+  agentDescription: form.description,
+  agentStatus: form.status,
+  tenantId: 1,
   versionNo: configForm.versionNo,
   sysPromptId: normalizeId(configForm.sysPromptId),
+  sysPrompt: configForm.sysPrompt,
+  promptName: promptOptions.value.find((item) => normalizeId(item.value) === normalizeId(configForm.sysPromptId))?.label || configForm.promptTemplate,
   modelId: normalizeId(configForm.modelId),
+  modelName: configForm.modelName,
   maxIters: normalizeNumber(configForm.maxIters),
   workspacePath: configForm.workspacePath,
-  workspaceConfigJson: JSON.stringify({ path: configForm.workspacePath }),
   permissionMode: configForm.permissionMode,
   visualSchemaJson: buildVisualSchema(),
   agentPermissionPolicyId: normalizeId(configForm.agentPermissionPolicyId),
@@ -353,19 +477,9 @@ const buildConfigPayload = (agentId) => ({
   flushBeforeCompact: toSwitchValue(configForm.flushBeforeCompact),
   offloadBeforeCompact: toSwitchValue(configForm.offloadBeforeCompact),
   compactionModelConfigId: normalizeId(configForm.compactionModelConfigId),
-  compactionConfigJson: JSON.stringify({
-    enabled: toSwitchValue(configForm.contextEnabled),
-    triggerMessages: normalizeNumber(configForm.triggerMessages),
-    keepMessages: normalizeNumber(configForm.keepMessages),
-    triggerTokens: normalizeNumber(configForm.triggerTokens),
-    keepTokens: normalizeNumber(configForm.keepTokens),
-    flushBeforeCompact: toSwitchValue(configForm.flushBeforeCompact),
-    offloadBeforeCompact: toSwitchValue(configForm.offloadBeforeCompact),
-    compactionModelConfigId: normalizeId(configForm.compactionModelConfigId)
-  }),
-  truncateArgsEnabled: toSwitchValue(configForm.truncateArgsEnabled),
+  truncateArgsEnabled: toSwitchValue(configForm.truncateArgsEnabled) === 1,
   truncateArgsMaxChars: normalizeNumber(configForm.truncateArgsMaxChars),
-  toolResultEvictionEnabled: toSwitchValue(configForm.toolResultEvictionEnabled),
+  toolResultEvictionEnabled: toSwitchValue(configForm.toolResultEvictionEnabled) === 1,
   toolResultMaxChars: normalizeNumber(configForm.toolResultMaxChars),
   memoryEnable: toSwitchValue(configForm.memoryEnable),
   planModeEnabled: toSwitchValue(configForm.planModeEnabled),
@@ -377,7 +491,10 @@ const buildConfigPayload = (agentId) => ({
   planAutoEnterEnabled: toSwitchValue(configForm.planAutoEnterEnabled),
   planPrompt: configForm.planPrompt,
   sandboxEnabled: toSwitchValue(configForm.sandboxEnabled),
-  sandboxConfigId: normalizeId(configForm.sandboxConfigId)
+  sandboxConfigId: normalizeId(configForm.sandboxConfigId),
+  selectedToolIds: selections.toolIds.map(normalizeId).filter(Boolean),
+  selectedKnowledgeBaseIds: selections.knowledgeBaseIds.map(normalizeId).filter(Boolean),
+  selectedSubagentIds: selections.subagentIds.map(normalizeId).filter(Boolean)
 })
 
 const validateCurrentStep = async () => {
@@ -392,19 +509,13 @@ const validateCurrentStep = async () => {
 
 const nextStep = async () => {
   await validateCurrentStep()
-  wizardStep.value = Math.min(wizardStep.value + 1, wizardSteps.length)
+  const next = Math.min(wizardStep.value + 1, wizardSteps.length)
+  await ensureStepData(next)
+  wizardStep.value = next
 }
 
 const prevStep = () => {
   wizardStep.value = Math.max(wizardStep.value - 1, 1)
-}
-
-const findCreatedAgent = async () => {
-  const data = await listAgent()
-  agentRows.value = Array.isArray(data) ? data : []
-  return agentRows.value.find((row) => {
-    return row.agentCode === form.agentKey || row.agentKey === form.agentKey || row.agentName === form.agentName
-  })
 }
 
 const submitForm = async () => {
@@ -420,14 +531,8 @@ const submitForm = async () => {
       await updateAgent(buildAgentPayload())
       ElMessage.success('智能体更新成功')
     } else {
-      const createResult = await addAgent(buildAgentPayload())
-      const createdAgent = createResult?.id ? createResult : await findCreatedAgent()
-      if (!createdAgent?.id) {
-        ElMessage.warning('智能体已创建，但未能获取 agentId，版本配置暂未保存')
-      } else {
-        await addAgentConfig(buildConfigPayload(createdAgent.id))
-        ElMessage.success('智能体与版本配置创建成功')
-      }
+      await createAgentFull(buildCreateAgentPayload())
+      ElMessage.success('智能体与完整配置创建成功')
     }
     dialogVisible.value = false
     await loadAgentList()
@@ -600,7 +705,7 @@ onMounted(async () => {
       </div>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-        <div class="agent-wizard-body" :class="{ 'with-summary': wizardStep === 6 }">
+        <div v-loading="wizardLoading" class="agent-wizard-body" :class="{ 'with-summary': wizardStep === 6 }">
           <div class="agent-wizard-main">
             <section v-if="wizardStep === 1" class="wizard-section agent-type-step">
               <h4>选择智能体类型</h4>
@@ -653,7 +758,12 @@ onMounted(async () => {
               <p>选择主模型并定义智能体的角色、目标、边界与回复风格。</p>
               <div class="agent-form-grid">
                 <el-form-item label="默认模型">
-                  <el-select v-model="configForm.modelId" @change="(value) => configForm.modelName = modelOptions.find((item) => item.value === value)?.name || ''">
+                  <el-select
+                    v-model="configForm.modelId"
+                    filterable
+                    placeholder="请选择模型"
+                    @change="(value) => configForm.modelName = modelOptions.find((item) => item.value === value)?.name || ''"
+                  >
                     <el-option
                       v-for="model in modelOptions"
                       :key="model.value"
@@ -663,12 +773,21 @@ onMounted(async () => {
                   </el-select>
                 </el-form-item>
                 <el-form-item label="提示词模板">
-                  <el-select v-model="configForm.promptTemplate">
+                  <el-select
+                    v-model="configForm.sysPromptId"
+                    filterable
+                    placeholder="请选择提示词"
+                    @change="(value) => {
+                      const prompt = promptOptions.find((item) => item.value === value)
+                      configForm.promptTemplate = prompt?.label || ''
+                      configForm.sysPrompt = prompt?.sysPrompt || configForm.sysPrompt
+                    }"
+                  >
                     <el-option
-                      v-for="item in promptTemplates"
-                      :key="item"
-                      :label="item"
-                      :value="item"
+                      v-for="item in promptOptions"
+                      :key="item.value"
+                      :label="item.label"
+                      :value="item.value"
                     />
                   </el-select>
                 </el-form-item>
@@ -688,15 +807,35 @@ onMounted(async () => {
               <h4>工具与能力</h4>
               <p>按需装配执行能力，权限仍会在运行时按租户和角色校验。</p>
               <div class="capability-grid">
-                <article v-for="card in capabilityCards" :key="card.title" class="capability-card">
-                  <span class="type-icon">
-                    <el-icon><component :is="card.icon" /></el-icon>
-                  </span>
-                  <div>
-                    <h5>{{ card.title }}</h5>
-                    <p>{{ card.desc }}</p>
+                <article
+                  v-for="card in capabilityCards"
+                  :key="card.title"
+                  class="capability-card resource-card"
+                  :class="{ expanded: expandedResource === card.key }"
+                >
+                  <button class="resource-card-head" type="button" @click="expandedResource = expandedResource === card.key ? '' : card.key">
+                    <span class="type-icon">
+                      <el-icon><component :is="card.icon" /></el-icon>
+                    </span>
+                    <span>
+                      <h5>{{ card.title }}</h5>
+                      <p>{{ card.desc }}</p>
+                    </span>
+                    <em>{{ card.count }} <el-icon><ArrowRight /></el-icon></em>
+                  </button>
+                  <div v-if="card.key === 'tools' && expandedResource === 'tools'" class="resource-list">
+                    <label v-for="tool in toolRows" :key="tool.id" class="resource-option">
+                      <el-checkbox
+                        :model-value="isSelected(selections.toolIds, tool.id)"
+                        @change="() => toggleId(selections.toolIds, tool.id)"
+                      />
+                      <span>
+                        <strong>{{ tool.toolNameExplain || tool.toolName || tool.toolKey }}</strong>
+                        <small>{{ tool.description || tool.permissionCode || tool.toolType }}</small>
+                      </span>
+                    </label>
+                    <el-empty v-if="!toolRows.length" description="暂无工具" :image-size="72" />
                   </div>
-                  <el-button link type="primary">{{ card.count }} <el-icon><ArrowRight /></el-icon></el-button>
                 </article>
               </div>
             </section>
@@ -705,15 +844,48 @@ onMounted(async () => {
               <h4>知识库与 MCP</h4>
               <p>为智能体连接企业知识、外部 MCP 服务和协作子智能体。</p>
               <div class="knowledge-list">
-                <article v-for="card in knowledgeCards" :key="card.title" class="knowledge-card">
-                  <span class="type-icon">
-                    <el-icon><component :is="card.icon" /></el-icon>
-                  </span>
-                  <div>
-                    <h5>{{ card.title }}</h5>
-                    <p>{{ card.desc }}</p>
+                <article
+                  v-for="card in knowledgeCards"
+                  :key="card.title"
+                  class="knowledge-card resource-card"
+                  :class="{ expanded: expandedResource === card.key }"
+                >
+                  <button class="resource-card-head" type="button" @click="expandedResource = expandedResource === card.key ? '' : card.key">
+                    <span class="type-icon">
+                      <el-icon><component :is="card.icon" /></el-icon>
+                    </span>
+                    <span>
+                      <h5>{{ card.title }}</h5>
+                      <p>{{ card.desc }}</p>
+                    </span>
+                    <em>{{ card.action }} <el-icon><ArrowRight /></el-icon></em>
+                  </button>
+                  <div v-if="card.key === 'knowledge' && expandedResource === 'knowledge'" class="resource-list">
+                    <label v-for="item in knowledgeRows" :key="item.id" class="resource-option">
+                      <el-checkbox
+                        :model-value="isSelected(selections.knowledgeBaseIds, item.id)"
+                        @change="() => toggleId(selections.knowledgeBaseIds, item.id)"
+                      />
+                      <span>
+                        <strong>{{ item.knowledgeName || item.name || `知识库 #${item.id}` }}</strong>
+                        <small>{{ item.description || item.collectionName || item.chunkStrategy }}</small>
+                      </span>
+                    </label>
+                    <el-empty v-if="!knowledgeRows.length" description="暂无知识库" :image-size="72" />
                   </div>
-                  <el-button>{{ card.action }}</el-button>
+                  <div v-if="card.key === 'subagents' && expandedResource === 'subagents'" class="resource-list">
+                    <label v-for="item in subagentRows" :key="item.id" class="resource-option">
+                      <el-checkbox
+                        :model-value="isSelected(selections.subagentIds, item.id)"
+                        @change="() => toggleId(selections.subagentIds, item.id)"
+                      />
+                      <span>
+                        <strong>{{ item.subagentName || item.subagentKey || `子智能体 #${item.id}` }}</strong>
+                        <small>{{ item.description || item.workspacePath || item.modelId }}</small>
+                      </span>
+                    </label>
+                    <el-empty v-if="!subagentRows.length" description="暂无子智能体" :image-size="72" />
+                  </div>
                 </article>
               </div>
             </section>

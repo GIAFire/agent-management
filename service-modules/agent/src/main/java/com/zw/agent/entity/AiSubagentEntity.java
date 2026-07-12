@@ -21,7 +21,7 @@ import lombok.experimental.Accessors;
 @Getter
 @Setter
 @Accessors(chain = true)
-@TableName("ai_subagent_definition")
+@TableName("ai_subagent")
 public class AiSubagentEntity extends BaseEntity {
 
     private static final long serialVersionUID = 1L;
