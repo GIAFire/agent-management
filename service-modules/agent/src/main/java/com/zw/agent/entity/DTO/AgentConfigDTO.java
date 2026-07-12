@@ -7,7 +7,7 @@ import lombok.Data;
 public class AgentConfigDTO {
 
     private Long agentId;
-    private String agentKey;
+    private String agentCode;
     private String agentName;
     private String agentDescription;
     private String agentAvatarUrl;

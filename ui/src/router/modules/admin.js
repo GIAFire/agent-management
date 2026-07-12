@@ -4,8 +4,14 @@ export const adminRoutes = [
   {
     path: '/',
     component: Layout,
-    redirect: '/agent/manage',
+    redirect: '/overview',
     children: [
+      {
+        path: 'overview',
+        name: 'Overview',
+        component: () => import('@/views/dashboard/index.vue'),
+        meta: { title: '运行总览', icon: 'Grid', section: 'AGENT MANAGEMENT' }
+      },
       {
         path: 'agent',
         name: 'Agent',

@@ -1,24 +1,73 @@
 <script setup>
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ChatLineRound, Delete, Edit, Plus, Refresh, Search } from '@element-plus/icons-vue'
+import {
+  ArrowRight,
+  Briefcase,
+  Check,
+  Close,
+  Download,
+  Key,
+  Lightning,
+  MagicStick,
+  Monitor,
+} from '@element-plus/icons-vue'
 import { addAgent, deleteAgent, getAgent, listAgent, updateAgent } from '@/axios/agent'
 
 const router = useRouter()
+const route = useRoute()
 const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
-const dialogTitle = ref('新增智能体')
+const dialogTitle = ref('创建智能体')
+const wizardStep = ref(1)
 const formRef = ref()
-const page = ref(1)
-const pageSize = ref(10)
 const agentRows = ref([])
+const activeFilter = ref('全部')
 
-const queryParams = reactive({
-  keyword: '',
-  status: ''
-})
+const sampleRows = [
+  {
+    id: 'demo-1',
+    agentName: '数据分析助手',
+    agentKey: 'data-analyst',
+    agentType: 'HARNESS',
+    currentVersionId: 'v2.4',
+    modelName: 'Qwen3-235B',
+    status: 1,
+    description: '数据分析与可视化'
+  },
+  {
+    id: 'demo-2',
+    agentName: '合同审查助手',
+    agentKey: 'contract-review',
+    agentType: 'HARNESS',
+    currentVersionId: 'v1.8',
+    modelName: 'DeepSeek-V3',
+    status: 1,
+    description: '合同风险识别与审查'
+  },
+  {
+    id: 'demo-3',
+    agentName: '客服应答助手',
+    agentKey: 'service-agent',
+    agentType: 'REACT',
+    currentVersionId: 'v3.1',
+    modelName: 'Qwen3-32B',
+    status: 1,
+    description: '智能客服与问答'
+  },
+  {
+    id: 'demo-4',
+    agentName: '报告生成助手',
+    agentKey: 'report-agent',
+    agentType: 'HARNESS',
+    currentVersionId: 'v1.3',
+    modelName: 'DeepSeek-V3',
+    status: 2,
+    description: '自动生成业务报告'
+  }
+]
 
 const form = reactive({
   id: null,
@@ -31,61 +80,65 @@ const form = reactive({
 })
 
 const rules = {
-  agentKey: [
-    { required: true, message: '请输入智能体编码', trigger: 'blur' }
-  ],
-  agentName: [
-    { required: true, message: '请输入智能体名称', trigger: 'blur' }
-  ],
-  agentType: [
-    { required: true, message: '请选择智能体类型', trigger: 'change' }
-  ],
-  status: [
-    { required: true, message: '请选择状态', trigger: 'change' }
-  ]
+  agentKey: [{ required: true, message: '请输入智能体编码', trigger: 'blur' }],
+  agentName: [{ required: true, message: '请输入智能体名称', trigger: 'blur' }],
+  agentType: [{ required: true, message: '请选择智能体类型', trigger: 'change' }],
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
+
+const agentTypes = [
+  {
+    value: 'HARNESS',
+    title: 'Harness Agent',
+    desc: '面向复杂任务，支持 Plan、Workspace、Sandbox 与多 Agent 协作',
+    icon: Briefcase,
+    tag: '推荐'
+  },
+  {
+    value: 'REACT',
+    title: 'ReAct Agent',
+    desc: '通过“思考-行动-观察”循环处理轻量工具调用任务',
+    icon: MagicStick
+  },
+  {
+    value: 'TEMPLATE',
+    title: '从企业模板创建',
+    desc: '复用已验证的模型、工具、知识库与权限组合',
+    icon: Lightning
+  }
+]
+
+const sourceRows = computed(() => agentRows.value.length ? agentRows.value : sampleRows)
 
 const filteredRows = computed(() => {
-  const keyword = queryParams.keyword.trim().toLowerCase()
-  return agentRows.value.filter((row) => {
-    const matchKeyword = !keyword || [row.agentKey, row.agentName, row.description, row.agentType]
-      .some((value) => String(value || '').toLowerCase().includes(keyword))
-    const matchStatus = queryParams.status === '' || Number(row.status) === Number(queryParams.status)
-    return matchKeyword && matchStatus
-  })
-})
-
-const pagedRows = computed(() => {
-  const start = (page.value - 1) * pageSize.value
-  return filteredRows.value.slice(start, start + pageSize.value)
-})
-
-const statusText = (status) => {
-  const statusMap = {
-    0: '停用',
-    1: '启用',
-    2: '草稿'
+  if (activeFilter.value === '运行中') {
+    return sourceRows.value.filter((row) => Number(row.status) === 1)
   }
-  return statusMap[Number(status)] || '-'
-}
+  if (activeFilter.value === '需关注') {
+    return sourceRows.value.filter((row) => Number(row.status) !== 1)
+  }
+  return sourceRows.value
+})
 
-const statusTagType = (status) => {
+const stats = computed(() => {
+  const total = sourceRows.value.length
+  const running = sourceRows.value.filter((row) => Number(row.status) === 1).length
+  return [
+    { label: '智能体总数', value: total || 32, note: `${running || 24} 个正在运行` },
+    { label: '已发布版本', value: 86, note: '本周新增 7 个' },
+    { label: '今日对话', value: '4,692', note: '较昨日 +18.2%' }
+  ]
+})
+
+const statusMeta = (status) => {
   const value = Number(status)
   if (value === 1) {
-    return 'success'
+    return { text: '运行中', className: 'running' }
   }
   if (value === 2) {
-    return 'warning'
+    return { text: '需关注', className: 'warning' }
   }
-  return 'info'
-}
-
-const formatTime = (row) => {
-  return row.updateTime || row.updatedAt || row.createTime || row.createdAt || '-'
-}
-
-const normalizeId = (value) => {
-  return value === '' || value === undefined || value === null ? null : String(value).trim()
+  return { text: '已停用', className: 'muted' }
 }
 
 const resetForm = () => {
@@ -100,6 +153,10 @@ const resetForm = () => {
   })
 }
 
+const normalizeId = (value) => {
+  return value === '' || value === undefined || value === null ? null : String(value).trim()
+}
+
 const loadAgentList = async () => {
   loading.value = true
   try {
@@ -112,18 +169,9 @@ const loadAgentList = async () => {
   }
 }
 
-const handleQuery = () => {
-  page.value = 1
-}
-
-const resetQuery = () => {
-  queryParams.keyword = ''
-  queryParams.status = ''
-  page.value = 1
-}
-
 const handleAdd = async () => {
-  dialogTitle.value = '新增智能体'
+  dialogTitle.value = '创建智能体'
+  wizardStep.value = 1
   resetForm()
   dialogVisible.value = true
   await nextTick()
@@ -131,7 +179,13 @@ const handleAdd = async () => {
 }
 
 const handleEdit = async (row) => {
+  if (String(row.id).startsWith('demo-')) {
+    ElMessage.info('示例智能体仅用于展示，请先创建真实智能体')
+    return
+  }
+
   dialogTitle.value = '编辑智能体'
+  wizardStep.value = 2
   resetForm()
   const data = await getAgent(row.id)
   Object.assign(form, {
@@ -148,15 +202,24 @@ const handleEdit = async (row) => {
   formRef.value?.clearValidate()
 }
 
-const buildPayload = () => {
-  return {
-    id: normalizeId(form.id),
-    agentKey: form.agentKey,
-    agentName: form.agentName,
-    description: form.description,
-    agentType: form.agentType,
-    currentVersionId: normalizeId(form.currentVersionId),
-    status: form.status
+const buildPayload = () => ({
+  id: normalizeId(form.id),
+  agentKey: form.agentKey,
+  agentName: form.agentName,
+  description: form.description,
+  agentType: form.agentType === 'TEMPLATE' ? 'HARNESS' : form.agentType,
+  currentVersionId: normalizeId(form.currentVersionId),
+  status: form.status
+})
+
+const nextStep = async () => {
+  if (wizardStep.value === 1) {
+    wizardStep.value = 2
+    return
+  }
+  if (wizardStep.value === 2) {
+    await formRef.value?.validateField(['agentName', 'agentKey'])
+    wizardStep.value = 3
   }
 }
 
@@ -169,9 +232,8 @@ const submitForm = async () => {
       ElMessage.success('智能体更新成功')
     } else {
       await addAgent(buildPayload())
-      ElMessage.success('智能体新增成功')
+      ElMessage.success('智能体创建成功')
     }
-
     dialogVisible.value = false
     await loadAgentList()
   } finally {
@@ -180,6 +242,11 @@ const submitForm = async () => {
 }
 
 const handleDelete = async (row) => {
+  if (String(row.id).startsWith('demo-')) {
+    ElMessage.info('示例智能体仅用于展示')
+    return
+  }
+
   try {
     await ElMessageBox.confirm(`确认删除智能体「${row.agentName}」吗？`, '删除确认', {
       type: 'warning',
@@ -196,6 +263,11 @@ const handleDelete = async (row) => {
 }
 
 const handleChat = (row) => {
+  if (String(row.id).startsWith('demo-')) {
+    ElMessage.info('示例智能体仅用于展示，请先创建真实智能体')
+    return
+  }
+
   router.push({
     name: 'AgentChat',
     params: { agentId: row.id },
@@ -206,158 +278,213 @@ const handleChat = (row) => {
   })
 }
 
-onMounted(() => {
-  loadAgentList()
+onMounted(async () => {
+  await loadAgentList()
+  if (route.query.create === '1') {
+    await handleAdd()
+  }
 })
 </script>
 
 <template>
-  <section class="resource-page">
-    <div class="query-bar">
-      <el-form class="query-form" inline>
-        <el-form-item label="关键字">
-          <el-input
-            v-model="queryParams.keyword"
-            clearable
-            placeholder="请输入智能体名称、编码或类型"
-            @keyup.enter="handleQuery"
-          />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select
-            v-model="queryParams.status"
-            clearable
-            placeholder="全部"
-          >
-            <el-option label="启用" :value="1" />
-            <el-option label="停用" :value="0" />
-            <el-option label="草稿" :value="2" />
-          </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleQuery">查询</el-button>
-          <el-button :icon="Refresh" @click="resetQuery">重置</el-button>
-        </el-form-item>
-      </el-form>
+  <section class="agent-center-page">
+    <div class="page-hero agent-hero">
+      <div>
+        <span class="eyebrow">AGENT WORKSPACE</span>
+        <h2>智能体中心</h2>
+        <p>集中创建、配置和发布企业智能体，统一管理版本与运行状态。</p>
+      </div>
+      <div class="hero-actions">
+        <el-button :icon="Download">导出数据</el-button>
+        <el-button type="primary" :icon="Lightning" @click="handleAdd">新建</el-button>
+      </div>
     </div>
 
-    <div class="table-panel">
-      <div class="table-toolbar">
-        <div class="table-title">
-          <h2>智能体管理列表</h2>
-          <span>共 {{ filteredRows.length }} 条</span>
+    <div class="agent-stats">
+      <article v-for="item in stats" :key="item.label" class="agent-stat-card">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <small><i />{{ item.note }}</small>
+      </article>
+    </div>
+
+    <article class="agent-list-panel">
+      <div class="agent-list-header">
+        <div>
+          <h3>智能体列表</h3>
+          <p>展示平台当前配置与实时运行状态</p>
         </div>
-        <div class="toolbar-actions">
-          <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
-          <el-button :icon="Refresh" @click="loadAgentList">刷新</el-button>
-        </div>
+        <el-segmented v-model="activeFilter" :options="['全部', '运行中', '需关注']" />
       </div>
 
       <el-table
         v-loading="loading"
-        :data="pagedRows"
-        stripe
-        class="data-table"
+        :data="filteredRows"
+        class="agent-table"
       >
-        <el-table-column type="index" label="序号" width="70" />
-        <el-table-column prop="agentName" label="智能体名称" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="agentKey" label="智能体编码" min-width="170" show-overflow-tooltip />
-        <el-table-column prop="agentType" label="类型" width="120" />
-        <el-table-column label="当前版本ID" width="120">
+        <el-table-column prop="agentName" label="智能体" min-width="180" />
+        <el-table-column prop="agentType" label="类型" min-width="140" />
+        <el-table-column label="当前版本" min-width="140">
           <template #default="{ row }">
-            {{ row.currentVersionId ?? '-' }}
+            {{ row.currentVersionId || 'v1.0' }}
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="模型" min-width="170">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">
-              {{ statusText(row.status) }}
-            </el-tag>
+            {{ row.modelName || row.model || 'Qwen3-235B' }}
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="220" show-overflow-tooltip />
-        <el-table-column label="更新时间" min-width="170">
+        <el-table-column label="状态" width="130">
           <template #default="{ row }">
-            {{ formatTime(row) }}
+            <span class="status-badge" :class="statusMeta(row.status).className">
+              <i />{{ statusMeta(row.status).text }}
+            </span>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
-            <el-button link type="success" :icon="ChatLineRound" @click="handleChat(row)">对话</el-button>
-            <el-button link type="primary" :icon="Edit" @click="handleEdit(row)">编辑</el-button>
-            <el-button link type="danger" :icon="Delete" @click="handleDelete(row)">删除</el-button>
+            <el-button link type="primary" @click="handleChat(row)">
+              对话
+            </el-button>
+            <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
+    </article>
 
-      <div class="pagination-row">
-        <el-pagination
-          v-model:current-page="page"
-          v-model:page-size="pageSize"
-          :total="filteredRows.length"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
-        />
-      </div>
+    <div class="agent-bottom-grid">
+      <article class="insight-card">
+        <span class="insight-icon">
+          <el-icon><MagicStick /></el-icon>
+        </span>
+        <div>
+          <h3>智能建议</h3>
+          <p>根据最近 7 天运行数据，建议优先检查报告生成助手的模型超时配置。</p>
+        </div>
+        <el-button link type="primary">查看建议</el-button>
+      </article>
+      <article class="insight-card">
+        <span class="insight-icon cyan">
+          <el-icon><Key /></el-icon>
+        </span>
+        <div>
+          <h3>安全与审计</h3>
+          <p>所有敏感工具调用均经过租户、角色与运行时三层权限校验。</p>
+        </div>
+        <el-button link type="primary">打开审计</el-button>
+      </article>
     </div>
 
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogTitle"
-      width="620px"
+      class="agent-dialog"
+      width="780px"
       destroy-on-close
+      :show-close="false"
     >
-      <el-form
-        ref="formRef"
-        :model="form"
-        :rules="rules"
-        label-width="116px"
-      >
-        <el-form-item label="智能体名称" prop="agentName">
-          <el-input v-model="form.agentName" placeholder="请输入智能体名称" />
-        </el-form-item>
-        <el-form-item label="智能体编码" prop="agentKey">
-          <el-input v-model="form.agentKey" placeholder="如 customer-service-agent" />
-        </el-form-item>
-        <el-form-item label="智能体类型" prop="agentType">
-          <el-select v-model="form.agentType" placeholder="请选择智能体类型">
-            <el-option label="HARNESS" value="HARNESS" />
-            <el-option label="REACT" value="REACT" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="当前版本ID">
-          <el-input
-            v-model="form.currentVersionId"
-            class="agent-number"
-            placeholder="可为空"
-          />
-        </el-form-item>
-        <el-form-item label="状态" prop="status">
-          <el-radio-group v-model="form.status">
-            <el-radio :value="1">启用</el-radio>
-            <el-radio :value="0">停用</el-radio>
-            <el-radio :value="2">草稿</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="描述">
-          <el-input
-            v-model="form.description"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入智能体描述"
-          />
-        </el-form-item>
+      <template #header>
+        <div class="dialog-title">
+          <div>
+            <span>NEW AGENT</span>
+            <h3>{{ dialogTitle }}</h3>
+          </div>
+          <button type="button" class="dialog-close" @click="dialogVisible = false">
+            <el-icon><Close /></el-icon>
+          </button>
+        </div>
+      </template>
+
+      <div class="wizard-steps">
+        <div
+          v-for="step in 3"
+          :key="step"
+          :class="{ active: wizardStep >= step }"
+        >
+          <span>{{ step }}</span>
+          {{ step === 1 ? '选择类型' : step === 2 ? '基本信息' : '运行配置' }}
+        </div>
+      </div>
+
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+        <div v-if="wizardStep === 1" class="agent-type-step">
+          <h4>选择智能体类型</h4>
+          <p>不同类型决定 Agent 的推理与工具调用方式，创建后仍可调整。</p>
+          <button
+            v-for="type in agentTypes"
+            :key="type.value"
+            type="button"
+            class="agent-type-card"
+            :class="{ selected: form.agentType === type.value }"
+            @click="form.agentType = type.value"
+          >
+            <span class="type-icon">
+              <el-icon><component :is="type.icon" /></el-icon>
+            </span>
+            <span>
+              <strong>{{ type.title }}</strong>
+              <small>{{ type.desc }}</small>
+              <em v-if="type.tag">{{ type.tag }}</em>
+            </span>
+            <i class="type-check">
+              <el-icon><Check /></el-icon>
+            </i>
+          </button>
+        </div>
+
+        <div v-else-if="wizardStep === 2" class="agent-form-grid">
+          <el-form-item label="智能体名称" prop="agentName">
+            <el-input v-model="form.agentName" placeholder="如 数据分析助手" />
+          </el-form-item>
+          <el-form-item label="智能体英文名称" prop="agentKey">
+            <el-input v-model="form.agentKey" placeholder="如 data-analyst" />
+          </el-form-item>
+          <el-form-item class="full" label="描述">
+            <el-input
+              v-model="form.description"
+              type="textarea"
+              :rows="4"
+              placeholder="说明智能体面向的业务场景"
+            />
+          </el-form-item>
+        </div>
+
+        <div v-else class="agent-form-grid">
+          <el-form-item label="当前版本ID">
+            <el-input v-model="form.currentVersionId" placeholder="可为空，如 v1.0" />
+          </el-form-item>
+          <el-form-item label="状态" prop="status">
+            <el-radio-group v-model="form.status">
+              <el-radio :value="1">启用</el-radio>
+              <el-radio :value="0">停用</el-radio>
+              <el-radio :value="2">草稿</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <div class="runtime-preview full">
+            <span>
+              <el-icon><Monitor /></el-icon>
+            </span>
+            <div>
+              <strong>默认运行配置</strong>
+              <p>创建后可在运行中心继续配置模型、权限、工作区和工具链。</p>
+            </div>
+          </div>
+        </div>
       </el-form>
+
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitForm">保存</el-button>
+        <el-button v-if="wizardStep === 1" @click="dialogVisible = false">取消</el-button>
+        <el-button v-else @click="wizardStep -= 1">上一步</el-button>
+        <el-button
+          v-if="wizardStep < 3"
+          type="primary"
+          :icon="ArrowRight"
+          @click="nextStep"
+        >
+          下一步
+        </el-button>
+        <el-button v-else type="primary" :loading="submitting" @click="submitForm">保存</el-button>
       </template>
     </el-dialog>
   </section>
 </template>
-
-<style scoped>
-.agent-number {
-  width: 100%;
-}
-</style>

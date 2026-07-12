@@ -32,8 +32,8 @@ public class AiAgentEntity extends BaseEntity {
     /**
      * Agent 业务唯一编码，例如 customer-service-agent
      */
-    @TableField("agent_key")
-    private String agentKey;
+    @TableField("agent_code")
+    private String agentCode;
 
     /**
      * Agent 显示名称

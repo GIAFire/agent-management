@@ -3,105 +3,70 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Box,
-  Collection,
-  Connection,
-  Cpu,
-  Document,
-  Link,
-  OfficeBuilding,
-  Share,
+  Briefcase,
+  Grid,
+  Monitor,
+  Operation,
+  Reading,
   Tools,
-  User,
-  Warning
+  User
 } from '@element-plus/icons-vue'
-import { adminRoutes } from '@/router/modules/admin'
 
 const route = useRoute()
-const menus = computed(() => {
-  return adminRoutes[0].children
-    .filter((item) => !item.meta?.hidden)
-    .map((item) => ({
-      ...item,
-      children: item.children?.filter((child) => !child.meta?.hidden)
-    }))
-})
-const activeMenu = computed(() => route.meta.activeMenu || route.path)
-const defaultOpeneds = computed(() => route.matched.map((item) => item.path).filter(Boolean))
 
-const iconMap = {
-  Box,
-  Collection,
-  Connection,
-  Cpu,
-  Document,
-  Link,
-  OfficeBuilding,
-  Share,
-  Tools,
-  User,
-  Warning
-}
+const navItems = [
+  { title: '总览', path: '/overview', icon: Grid },
+  { title: '智能体', path: '/agent/manage', icon: Briefcase },
+  { title: '配置中心', path: '/agent/agent-config', icon: Operation },
+  { title: '知识库', path: '/agent/knowledge', icon: Reading },
+  { title: '工具与技能', path: '/agent/tool', icon: Tools, match: ['/agent/tool', '/agent/skill-package'] },
+  { title: '模型', path: '/agent/model', icon: Box },
+  { title: '沙箱', path: '/agent/mcp', icon: Monitor, match: ['/agent/mcp', '/agent/hook', '/agent/sensitive-word'] },
+  { title: '租户与权限', path: '/user/manage', icon: User, match: ['/user/manage', '/user/tenant'] }
+]
 
-const resolvePath = (parentPath, childPath = '') => {
-  const path = [parentPath, childPath].filter(Boolean).join('/')
-  return path.startsWith('/') ? path : `/${path}`
+const activePath = computed(() => route.meta.activeMenu || route.path)
+
+const isActive = (item) => {
+  const matches = item.match || [item.path]
+  return matches.some((path) => activePath.value.startsWith(path))
 }
 </script>
 
 <template>
   <aside class="sidebar-container">
-    <div class="sidebar-logo">
-      <div class="logo-mark">A</div>
-      <div>
-        <strong>Agent Admin</strong>
-        <span>管理控制台</span>
+    <RouterLink class="sidebar-logo" to="/overview">
+      <div class="logo-symbol" aria-hidden="true">
+        <span />
+        <span />
+        <span />
       </div>
-    </div>
+      <strong>Agent<span>OS</span></strong>
+    </RouterLink>
 
-    <el-scrollbar class="sidebar-scrollbar">
-      <el-menu
-        :default-active="activeMenu"
-        :default-openeds="defaultOpeneds"
-        class="sidebar-menu"
-        router
+    <nav class="sidebar-nav" aria-label="主导航">
+      <RouterLink
+        v-for="item in navItems"
+        :key="item.path"
+        class="sidebar-nav-item"
+        :class="{ active: isActive(item) }"
+        :to="item.path"
       >
-        <template
-          v-for="item in menus"
-          :key="item.path"
-        >
-          <el-sub-menu
-            v-if="item.children?.length"
-            :index="resolvePath(item.path)"
-          >
-            <template #title>
-              <el-icon>
-                <component :is="iconMap[item.meta.icon]" />
-              </el-icon>
-              <span>{{ item.meta.title }}</span>
-            </template>
-            <el-menu-item
-              v-for="child in item.children"
-              :key="child.path"
-              :index="resolvePath(item.path, child.path)"
-            >
-              <el-icon>
-                <component :is="iconMap[child.meta.icon]" />
-              </el-icon>
-              <span>{{ child.meta.title }}</span>
-            </el-menu-item>
-          </el-sub-menu>
+        <el-icon>
+          <component :is="item.icon" />
+        </el-icon>
+        <span>{{ item.title }}</span>
+      </RouterLink>
+    </nav>
 
-          <el-menu-item
-            v-else
-            :index="resolvePath(item.path)"
-          >
-            <el-icon>
-              <component :is="iconMap[item.meta.icon]" />
-            </el-icon>
-            <span>{{ item.meta.title }}</span>
-          </el-menu-item>
-        </template>
-      </el-menu>
-    </el-scrollbar>
+    <div class="sidebar-footer">
+      <div class="status-pill">
+        <span />
+        全部服务运行正常
+      </div>
+      <button class="collapse-button" type="button" aria-label="收起侧栏">
+        ‹
+      </button>
+    </div>
   </aside>
 </template>

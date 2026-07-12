@@ -12,7 +12,7 @@ const routes = [
   ...adminRoutes,
   {
     path: '/:pathMatch(.*)*',
-    redirect: '/agent/manage'
+    redirect: '/overview'
   }
 ]
 
@@ -23,7 +23,7 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   if (to.meta.public) {
-    return isLoggedIn() && to.path === '/login' ? '/agent/manage' : true
+    return isLoggedIn() && to.path === '/login' ? '/overview' : true
   }
   if (!isLoggedIn()) {
     return {

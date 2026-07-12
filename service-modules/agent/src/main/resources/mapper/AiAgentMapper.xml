@@ -5,7 +5,7 @@
     <resultMap id="AgentFullResultMap" type="com.zw.agent.entity.DTO.AgentConfigDTO">
         <!-- Agent 字段映射 -->
         <result property="agentId" column="agent_id"/>
-        <result property="agentKey" column="agent_key"/>
+        <result property="agentCode" column="agent_code"/>
         <result property="agentName" column="agent_name"/>
         <result property="agentDescription" column="agent_description"/>
         <result property="agentAvatarUrl" column="agent_avatar_url"/>
@@ -53,7 +53,7 @@
     <select id="getAgentFullInfo" resultType="com.zw.agent.entity.DTO.AgentConfigDTO" parameterType="Long">
         SELECT
             agent.id AS agentId,
-            agent.agent_key AS agentKey,
+            agent.agent_code AS agentCode,
             agent.agent_name AS agentName,
             agent.description AS agentDescription,
             agent.agent_type AS agentType,
