@@ -21,7 +21,6 @@ public class AgentConfigDTO {
     private String tenantRemark;
 
     private Long agentConfigId;
-    private String sysPrompt;
     private String permissionMode;
     private Integer maxIters;
     private String workspacePath;
@@ -57,5 +56,8 @@ public class AgentConfigDTO {
     private Integer maxAttempts;
     private Long fallbackModelConfigId;
     private Integer modelStatus;
+
+    private String promptName;
+    private String sysPrompt;
 
 }

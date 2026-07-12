@@ -44,10 +44,10 @@ public class AiAgentConfigEntity extends BaseEntity {
     private String versionNo;
 
     /**
-     * 系统提示词，对应 AgentScope builder 的 sysPrompt
+     * 系统提示词，关联 ai_agent_sys_prompt.id
      */
-    @TableField("sys_prompt")
-    private String sysPrompt;
+    @TableField("sys_prompt_id")
+    private String sysPromptId;
 
     /**
      * 关联 ai_agent_model.id

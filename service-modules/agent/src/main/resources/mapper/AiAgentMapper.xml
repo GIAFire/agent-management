@@ -48,6 +48,9 @@
         <result property="maxAttempts" column="max_attempts"/>
         <result property="fallbackModelConfigId" column="fallback_model_config_id"/>
         <result property="modelStatus" column="model_status"/>
+
+        <result property="promptName" column="prompt_name"/>
+        <result property="sysPrompt" column="sys_prompt"/>
     </resultMap>
 
     <select id="getAgentFullInfo" resultType="com.zw.agent.entity.DTO.AgentConfigDTO" parameterType="Long">
@@ -58,15 +61,12 @@
             agent.description AS agentDescription,
             agent.agent_type AS agentType,
             agent.STATUS AS agentStatus,
-
             tenant.id AS tenantId,
             tenant.tenant_name AS tenantName,
             tenant.STATUS AS tenantStatus,
             tenant.nacos_namespace_id AS tenantNacosNamespaceId,
             tenant.remark AS tenantRemark,
-
             ac.id AS agentConfigId,
-            ac.sys_prompt AS sysPrompt,
             ac.model_id AS modelId,
             ac.max_iters AS maxIters,
             ac.workspace_path AS workspacePath,
@@ -91,7 +91,6 @@
             ac.plan_max_steps AS planMaxSteps,
             ac.plan_auto_enter_enabled AS planAutoEnterEnabled,
             ac.plan_prompt AS planPrompt,
-
             model.id AS modelId,
             model.provider AS provider,
             model.base_URL AS baseUrl,
@@ -104,15 +103,20 @@
             model.timeout_ms AS timeoutMs,
             model.max_attempts AS maxAttempts,
             model.fallback_model_config_id AS fallbackModelConfigId,
-            model.STATUS AS modelStatus
-        FROM ai_agent agent
-                 LEFT JOIN sys_tenant tenant ON agent.tenant_id = tenant.id
-                 LEFT JOIN ai_agent_config ac ON ac.agent_id = agent.id
-                    AND ac.deleted = 0
-                    AND ac.publish_status = 1
-                 LEFT JOIN ai_agent_model model ON model.id = ac.model_id
-                    AND model.deleted = 0
-        WHERE agent.id = #{agentId}
+            model.STATUS AS modelStatus,
+            sp.prompt_name promptName,
+            sp.sys_prompt sysPrompt
+        FROM
+            ai_agent agent
+                LEFT JOIN sys_tenant tenant ON agent.tenant_id = tenant.id
+                LEFT JOIN ai_agent_config ac ON ac.agent_id = agent.id
+                AND ac.deleted = 0
+                AND ac.publish_status = 1
+                LEFT JOIN ai_agent_model model ON model.id = ac.model_id
+                AND model.deleted = 0
+                LEFT JOIN ai_agent_sys_prompt sp ON sp.id = ac.sys_prompt_id
+        WHERE
+          agent.id = #{agentId}
           AND agent.tenant_id = #{tenantId}
           AND agent.deleted = 0
         ORDER BY ac.published_at DESC, ac.id DESC
