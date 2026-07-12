@@ -132,8 +132,6 @@ const agentTypes = [
 const capabilityCards = [
   { title: '工具', desc: '查询订单、文件读写、数据库访问', count: '8 个已选择', icon: Tools },
   { title: '技能包', desc: '组合提示词、脚本和资源', count: '3 个已选择', icon: Lightning },
-  { title: '生命周期钩子', desc: '运行前后注入校验与审计', count: '2 个已选择', icon: SetUp },
-  { title: '敏感词策略', desc: '输入输出内容安全检测', count: '企业默认', icon: Monitor }
 ]
 
 const knowledgeCards = [
@@ -638,13 +636,6 @@ onMounted(async () => {
                 </el-form-item>
                 <el-form-item label="智能体英文名称" prop="agentKey">
                   <el-input v-model="form.agentKey" placeholder="如 data-analyst" />
-                </el-form-item>
-                <el-form-item label="智能体状态" prop="status">
-                  <el-radio-group v-model="form.status">
-                    <el-radio :value="1">启用</el-radio>
-                    <el-radio :value="0">停用</el-radio>
-                    <el-radio :value="2">草稿</el-radio>
-                  </el-radio-group>
                 </el-form-item>
                 <el-form-item class="full" label="描述">
                   <el-input

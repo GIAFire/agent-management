@@ -59,6 +59,12 @@ public class AiAgentModelEntity extends BaseEntity {
 
 
     /**
+     * 模型介绍
+     */
+    @TableField("description")
+    private String description;
+
+    /**
      * 真实模型名称，例如 qwen-plus、gpt-4.1、claude-sonnet-4-5
      */
     @TableField("model_name")
@@ -66,10 +72,22 @@ public class AiAgentModelEntity extends BaseEntity {
 
 
     /**
-     * 是否流式输出:1是,0否
+     * 模型类型: CHAT、IMAGE、VIDEO、AUDIO
      */
-    @TableField("is_stream")
-    private Integer isStream;
+    @TableField("model_type")
+    private String modelType;
+
+    /**
+     * 是否支持流式输出:1是,0否
+     */
+    @TableField("streaming")
+    private Integer streaming;
+
+    /**
+     * 是否支持思考:1是,0否
+     */
+    @TableField("thinking")
+    private Integer thinking;
 
     /**
      * 采样温度，控制随机性

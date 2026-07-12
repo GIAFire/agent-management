@@ -29,7 +29,7 @@ public class ModelFactory {
                     .apiKey(config.getApiKey())
                     .modelName(config.getModelName())
                     .baseUrl(config.getBaseUrl())
-                    .stream(config.getIsStream())
+                    .stream(config.getStreaming())
                     .formatter(new OpenAIChatFormatter())
                     .build();
         } else if (ModelType.DASH_SCOPE.getCode().equals(config.getProvider().getCode())) {
@@ -37,7 +37,7 @@ public class ModelFactory {
                     .apiKey(config.getApiKey())
                     .modelName(config.getModelName())
                     .baseUrl(config.getBaseUrl())
-                    .stream(config.getIsStream())
+                    .stream(config.getStreaming())
                     .formatter(new DashScopeChatFormatter())
                     .build();
         } else if (ModelType.OLLAMA.getCode().equals(config.getProvider().getCode())) {
@@ -51,7 +51,7 @@ public class ModelFactory {
                     .apiKey(config.getApiKey())
                     .modelName(config.getModelName())
                     .baseUrl(config.getBaseUrl())
-                    .stream(config.getIsStream())
+                    .stream(config.getStreaming())
                     .formatter(new AnthropicChatFormatter())
                     .build();
         }

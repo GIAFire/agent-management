@@ -48,7 +48,9 @@ public class AgentConfigDTO {
     private String baseUrl;
     private String apiKey;
     private String modelName;
-    private Boolean isStream;
+    private String modelType;
+    private Boolean streaming;
+    private Boolean thinking;
     private Double temperature;
     private Double topP;
     private Integer maxTokens;

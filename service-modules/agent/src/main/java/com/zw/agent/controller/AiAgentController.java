@@ -3,6 +3,7 @@ package com.zw.agent.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiAgentEntity;
+import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.service.AiAgentService;
 import com.zw.common.entity.Result;
 
@@ -25,6 +26,11 @@ import org.springframework.web.bind.annotation.*;
 @AllArgsConstructor
 public class AiAgentController {
     private final AiAgentService aiAgentService;
+
+    @PostMapping("/createAgent")
+    public Result<Boolean> createAgent(@RequestBody AgentConfigDTO agentVO) {
+        return Result.ok(aiAgentService.createAgent(agentVO));
+    }
 
     @GetMapping("/list")
     public Result<List<AiAgentEntity>> list() {

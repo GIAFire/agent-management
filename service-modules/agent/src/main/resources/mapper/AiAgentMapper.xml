@@ -40,7 +40,9 @@
         <result property="baseUrl" column="base_url"/>
         <result property="apiKey" column="api_key"/>
         <result property="modelName" column="model_name"/>
-        <result property="isStream" column="is_stream"/>
+        <result property="modelType" column="model_type"/>
+        <result property="streaming" column="streaming"/>
+        <result property="thinking" column="thinking"/>
         <result property="temperature" column="temperature"/>
         <result property="topP" column="top_p"/>
         <result property="maxTokens" column="max_tokens"/>
@@ -96,7 +98,9 @@
             model.base_URL AS baseUrl,
             model.api_key AS apiKey,
             model.model_name AS modelName,
-            model.is_stream AS isStream,
+            model.model_type AS modelType,
+            model.streaming AS streaming,
+            model.thinking AS thinking,
             model.temperature AS temperature,
             model.top_p AS topP,
             model.max_tokens AS maxTokens,

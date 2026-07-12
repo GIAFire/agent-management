@@ -19,7 +19,7 @@ import java.util.List;
  * @since 2026-06-27
  */
 @RestController
-@RequestMapping("/toolConfig")
+@RequestMapping("/toolInfoConfig")
 @AllArgsConstructor
 public class AiToolInfoConfigController {
 
