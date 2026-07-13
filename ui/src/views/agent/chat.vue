@@ -2529,17 +2529,11 @@ onBeforeUnmount(() => {
     <section class="chat-window">
       <header class="chat-header">
         <div class="chat-agent-title">
-          <span class="chat-agent-icon">
-            <el-icon><ChatLineRound /></el-icon>
-          </span>
-          <div>
-            <h2>{{ agentInfo.name }}</h2>
-            <span>{{ agentInfo.key || 'Agent Chat' }}</span>
-          </div>
+          <h2>{{ agentInfo.name }}</h2>
+          <el-tag class="agent-state-tag" :type="streaming ? 'warning' : 'success'">
+            {{ streaming ? '生成中' : '就绪' }}
+          </el-tag>
         </div>
-        <el-tag :type="streaming ? 'warning' : 'success'">
-          {{ streaming ? '生成中' : '就绪' }}
-        </el-tag>
       </header>
 
       <div
@@ -2568,9 +2562,9 @@ onBeforeUnmount(() => {
                   type="button"
                   @click="toggleAuxiliaryPanel(message, block)"
                 >
-                  <span>{{ auxiliaryBlockTitle(block) }}</span>
-                  <small v-if="auxiliaryBlockTimeText(block)">耗时 {{ auxiliaryBlockTimeText(block) }}</small>
-                  <small>{{ block.expanded ? '收起' : '展开' }}</small>
+                  <span class="auxiliary-title">{{ auxiliaryBlockTitle(block) }}</span>
+                  <small class="auxiliary-action">{{ block.expanded ? '收起' : '展开' }}</small>
+                  <small v-if="auxiliaryBlockTimeText(block)" class="auxiliary-time">耗时 {{ auxiliaryBlockTimeText(block) }}</small>
                 </button>
                 <div
                   v-show="block.expanded"
@@ -2662,14 +2656,13 @@ onBeforeUnmount(() => {
 
       <footer class="chat-input-panel">
         <div class="chat-input-shortcuts">
-          <el-button size="small">知识库</el-button>
-          <el-button size="small">工具</el-button>
+          <el-button size="small">使用工具</el-button>
         </div>
         <el-input
           v-model="inputMessage"
           class="chat-input"
           type="textarea"
-          :rows="3"
+          :autosize="{ minRows: 1, maxRows: 3 }"
           resize="none"
           :placeholder="`给${agentInfo.name || '智能体'}发送消息，输入 / 使用快捷指令...`"
           @keydown.enter.exact.prevent="sendMessage"
@@ -2791,15 +2784,16 @@ onBeforeUnmount(() => {
   position: relative;
   height: calc(100vh - 80px);
   min-height: 560px;
-  grid-template-columns: 230px minmax(0, 1fr);
+  grid-template-columns: 230px minmax(0, 1fr) 0;
   padding: 5px;
   margin: -30px;  /* 反向偏移，抵消父元素的 padding */
   gap: 5px;
   overflow: hidden;
+  transition: grid-template-columns 180ms ease;
 }
 
-.agent-chat-page.with-execution-plan {
-  grid-template-columns: 230px minmax(0, 1fr);
+.agent-chat-page.is-plan-drawer-open {
+  grid-template-columns: 230px minmax(0, 1fr) 230px;
 }
 
 .chat-session-panel,
@@ -2957,11 +2951,14 @@ onBeforeUnmount(() => {
 
 .chat-header {
   display: flex;
-  min-height: 76px;
+  height: 40px;
+  min-height: 40px;
+  flex: 0 0 40px;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 0 28px;
+  justify-content: flex-start;
+  gap: 20px;
+  box-sizing: border-box;
+  padding: 0 20px;
   border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(247, 251, 255, 0.96), rgba(255, 255, 255, 0.9));
 }
@@ -2970,38 +2967,24 @@ onBeforeUnmount(() => {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 12px;
+  gap: 20px;
 }
 
 .chat-agent-title h2 {
   margin: 0;
   color: #0f1f3a;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   letter-spacing: 0;
+  line-height: 22px;
 }
 
-.chat-agent-title span {
-  display: block;
-  margin-top: 4px;
-  overflow: hidden;
-  color: #6b7890;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chat-agent-icon {
-  display: grid;
-  width: 46px;
-  height: 46px;
+.agent-state-tag {
   flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid #d8e6ff;
-  border-radius: 50%;
-  color: #1d6ff2;
-  background: linear-gradient(180deg, #f5f9ff, #e7f1ff);
-  font-size: 22px;
+  height: 24px;
+  margin: 0;
+  border-radius: 6px;
+  font-weight: 700;
 }
 
 .message-list {
@@ -3193,24 +3176,21 @@ onBeforeUnmount(() => {
 
 .auxiliary-output {
   display: grid;
-  gap: 8px;
-  margin-bottom: 10px;
+  gap: 6px;
+  margin-bottom: 8px;
 }
 
 .auxiliary-panel {
-  overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.26);
-  border-radius: 8px;
-  background: rgba(248, 250, 252, 0.78);
+  min-width: 0;
 }
 
 .auxiliary-toggle {
-  display: grid;
-  width: 100%;
-  min-height: 32px;
+  display: inline-flex;
+  width: auto;
+  max-width: 100%;
+  min-height: 22px;
   align-items: center;
-  grid-template-columns: minmax(0, 1fr) max-content max-content;
-  gap: 10px;
+  padding: 0;
   border: 0;
   cursor: pointer;
   background: transparent;
@@ -3220,10 +3200,11 @@ onBeforeUnmount(() => {
 }
 
 .auxiliary-toggle:hover {
-  background: rgba(226, 232, 240, 0.48);
+  color: #2563eb;
 }
 
-.auxiliary-toggle span {
+.auxiliary-title {
+  min-width: 0;
   overflow: hidden;
   font-size: 13px;
   font-weight: 700;
@@ -3237,14 +3218,18 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.auxiliary-toggle span + small:not(:last-child) {
+.auxiliary-action {
   margin-left: 20px;
 }
 
+.auxiliary-time {
+  margin-left: 12px;
+}
+
 .auxiliary-content {
-  padding: 0 10px 10px;
-  color: #4b5563;
-  font-size: 13px;
+  padding: 2px 0 4px;
+  color: #8b9bb0;
+  font-size: 12px;
   line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
@@ -3385,22 +3370,23 @@ onBeforeUnmount(() => {
 
 .tool-call {
   display: grid;
-  gap: 8px;
+  gap: 6px;
+  color: #8b9bb0;
+  font-size: 12px;
   white-space: normal;
 }
 
 .tool-call + .tool-call {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  margin-top: 8px;
+  padding-top: 8px;
 }
 
 .tool-call-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 10px;
-  color: #374151;
+  color: #8b9bb0;
   white-space: normal;
 }
 
@@ -3412,7 +3398,7 @@ onBeforeUnmount(() => {
 
 .tool-call-header small {
   flex: 0 0 auto;
-  color: #64748b;
+  color: #8b9bb0;
   font-size: 12px;
 }
 
@@ -3422,13 +3408,14 @@ onBeforeUnmount(() => {
 }
 
 .tool-call-section-title {
-  color: #64748b;
+  color: #8b9bb0;
   font-size: 12px;
   font-weight: 700;
 }
 
 .tool-call-text {
-  color: #4b5563;
+  color: #8b9bb0;
+  font-size: 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -3536,22 +3523,23 @@ onBeforeUnmount(() => {
 
 .execution-plan-panel {
   display: flex;
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  bottom: 5px;
+  position: relative;
   z-index: 9;
+  grid-column: 3;
+  grid-row: 1;
   flex-direction: column;
   width: 230px;
-  height: auto;
+  height: 100%;
   padding: 16px 12px;
   overflow-y: auto;
-  transform: translateX(calc(100% + 12px));
-  transition: transform 180ms ease;
+  opacity: 0;
+  transform: translateX(calc(100% + 5px));
+  transition: transform 180ms ease, opacity 180ms ease;
   pointer-events: none;
 }
 
 .execution-plan-panel.open {
+  opacity: 1;
   transform: translateX(0);
   pointer-events: auto;
 }
@@ -3955,9 +3943,10 @@ onBeforeUnmount(() => {
     "shortcuts shortcuts"
     "input actions";
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px 16px;
+  align-items: end;
+  gap: 8px 12px;
   margin: 0 32px 8px;
-  padding: 14px 16px;
+  padding: 10px 12px;
   border: 1px solid #d8e4f5;
   border-radius: 14px;
   background: #ffffff;
@@ -3975,25 +3964,26 @@ onBeforeUnmount(() => {
 }
 
 .chat-input :deep(.el-textarea__inner) {
-  min-height: 70px !important;
-  padding: 6px 0;
+  min-height: 38px !important;
+  max-height: 96px !important;
+  padding: 8px 0;
   border: 0;
   box-shadow: none;
   color: #17233c;
   font-size: 14px;
-  line-height: 1.7;
+  line-height: 22px;
 }
 
 .chat-actions {
   display: flex;
   grid-area: actions;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
 }
 
 .chat-actions .el-button {
-  min-width: 88px;
-  height: 40px;
+  min-width: 76px;
+  height: 38px;
   border-radius: 999px;
   font-weight: 760;
 }
@@ -4007,7 +3997,7 @@ onBeforeUnmount(() => {
 
 @media (max-width: 960px) {
   .agent-chat-page,
-  .agent-chat-page.with-execution-plan {
+  .agent-chat-page.is-plan-drawer-open {
     height: auto;
     min-height: 0;
     grid-template-columns: 1fr;
@@ -4022,7 +4012,13 @@ onBeforeUnmount(() => {
   }
 
   .execution-plan-panel {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    bottom: 5px;
+    grid-column: auto;
     width: min(280px, calc(100% - 20px));
+    height: auto;
     min-height: 360px;
   }
 
@@ -4033,9 +4029,8 @@ onBeforeUnmount(() => {
   .chat-input-panel {
     grid-template-areas:
       "shortcuts"
-      "input"
-      "actions";
-    grid-template-columns: 1fr;
+      "input actions";
+    grid-template-columns: minmax(0, 1fr) auto;
     margin: 0 16px 8px;
   }
 

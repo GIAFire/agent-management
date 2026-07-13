@@ -94,12 +94,6 @@ public class AiToolCallLogEntity extends BaseEntity {
     private String permissionBehavior;
 
     /**
-     * 命中的平台权限规则ID
-     */
-    @TableField("permission_rule_id")
-    private Long permissionRuleId;
-
-    /**
      * 工具入参JSON，敏感字段需要脱敏
      */
     @TableField(value = "tool_input_json",typeHandler = JacksonTypeHandler.class)
@@ -155,7 +149,6 @@ public class AiToolCallLogEntity extends BaseEntity {
                 ", toolName='" + toolName + '\'' +
                 ", toolCallId='" + toolCallId + '\'' +
                 ", permissionBehavior='" + permissionBehavior + '\'' +
-                ", permissionRuleId=" + permissionRuleId +
                 ", toolInputJson='" + toolInputJson + '\'' +
                 ", toolOutputJson='" + toolOutputJson + '\'' +
                 ", successStatus='" + successStatus + '\'' +

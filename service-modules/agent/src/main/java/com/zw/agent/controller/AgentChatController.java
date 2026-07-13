@@ -26,7 +26,6 @@ import reactor.core.publisher.Mono;
 @RequestMapping("/chat")
 public class AgentChatController {
 
-    private final AgentRuntimeFactory agentRuntimeFactory;
     private final AgentFullConfigService agentFullConfigService;
     private final AiAgentSessionService agentSessionService;
     private final AiAgentMessageLogService agentMessageService;
