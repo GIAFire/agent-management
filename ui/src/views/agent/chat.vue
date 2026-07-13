@@ -123,6 +123,42 @@ const STREAM_EVENT_LABELS = {
   ERROR: '执行异常'
 }
 
+const SSE_EVENT_LABELS = {
+  agent_start: '智能体开始',
+  agent_end: '智能体结束',
+  model_call_start: '模型调用开始',
+  model_call_end: '模型调用结束',
+  message_start: '文本块开始',
+  message_delta: '文本增量',
+  message_end: '文本块结束',
+  thinking_start: '思考开始',
+  thinking_delta: '思考增量',
+  thinking_end: '思考结束',
+  tool_call_start: '工具调用开始',
+  tool_call_delta: '工具参数增量',
+  tool_call_end: '工具调用结束',
+  tool_result_start: '工具执行开始',
+  tool_result_text_delta: '工具文本结果',
+  tool_result_data_delta: '工具数据结果',
+  tool_result_end: '工具执行完成',
+  require_user_confirm: '等待用户确认',
+  require_external_execution: '等待外部执行',
+  user_confirm_result: '用户确认结果',
+  external_execution_result: '外部执行结果',
+  subagent_exposed: '子智能体暴露',
+  subagent_agent_start: '子智能体开始',
+  subagent_agent_end: '子智能体结束',
+  subagent_message_start: '子智能体文本开始',
+  subagent_message_delta: '子智能体文本增量',
+  subagent_message_end: '子智能体文本结束',
+  subagent_thinking_start: '子智能体思考开始',
+  subagent_thinking_delta: '子智能体思考增量',
+  subagent_thinking_end: '子智能体思考结束',
+  request_stop: '请求停止',
+  exceed_max_iters: '达到最大迭代',
+  error: '执行异常'
+}
+
 const PLAN_STATUS_META = {
   DRAFT: { label: '草稿', type: 'info' },
   WAITING_APPROVAL: { label: '待确认', type: 'warning' },
@@ -169,43 +205,46 @@ const TASK_STATE_ALIAS = {
 
 const PLAN_TOOL_NAMES = new Set(['plan_enter', 'plan_write', 'plan_exit', 'todo_write'])
 
-const getStageKey = (eventType = '') => {
-  const normalizedType = String(eventType || '').toUpperCase()
+const getStageKey = (sseEvent = '') => {
+  const normalizedEvent = String(sseEvent || '').toLowerCase()
 
-  if (normalizedType.startsWith('SUBAGENT_')) {
+  if (normalizedEvent.startsWith('subagent_')) {
     return 'subagent'
   }
-  if (normalizedType.startsWith('THINKING_BLOCK_') || normalizedType.startsWith('THINKING_')) {
+  if (normalizedEvent.startsWith('thinking_')) {
     return 'reasoning'
   }
-  if (normalizedType.startsWith('TOOL_CALL_') || normalizedType.startsWith('TOOL_RESULT_')) {
+  if (normalizedEvent.startsWith('tool_call_') || normalizedEvent.startsWith('tool_result_')) {
     return 'tool'
   }
-  if (normalizedType === 'REQUIRE_USER_CONFIRM' ||
-    normalizedType === 'REQUIRE_EXTERNAL_EXECUTION' ||
-    normalizedType === 'USER_CONFIRM_RESULT' ||
-    normalizedType === 'EXTERNAL_EXECUTION_RESULT') {
+  if (normalizedEvent === 'require_user_confirm' ||
+    normalizedEvent === 'require_external_execution' ||
+    normalizedEvent === 'user_confirm_result' ||
+    normalizedEvent === 'external_execution_result') {
     return 'tool'
   }
-  if (normalizedType.startsWith('TEXT_BLOCK_') || normalizedType.startsWith('MESSAGE_')) {
+  if (normalizedEvent.startsWith('message_')) {
     return 'message'
   }
 
   return null
 }
 
-const isStageEndEvent = (eventType = '') => {
-  const normalizedType = String(eventType || '').toUpperCase()
-  return normalizedType === 'DONE' ||
-    normalizedType === 'ERROR' ||
-    normalizedType === 'THINKING_BLOCK_END' ||
-    normalizedType === 'TOOL_RESULT_END' ||
-    normalizedType === 'TEXT_BLOCK_END' ||
-    normalizedType === 'MESSAGE_END'
+const isStageEndEvent = (sseEvent = '') => {
+  const normalizedEvent = String(sseEvent || '').toLowerCase()
+  return normalizedEvent === 'error' ||
+    normalizedEvent === 'thinking_end' ||
+    normalizedEvent === 'tool_result_end' ||
+    normalizedEvent === 'message_end' ||
+    normalizedEvent === 'agent_end' ||
+    normalizedEvent === 'request_stop' ||
+    normalizedEvent === 'exceed_max_iters' ||
+    normalizedEvent === 'require_user_confirm' ||
+    normalizedEvent === 'require_external_execution'
 }
 
-const eventLabel = (eventType = '') => {
-  return STREAM_EVENT_LABELS[eventType] || eventType || '未知事件'
+const eventLabel = (eventName = '') => {
+  return SSE_EVENT_LABELS[eventName] || STREAM_EVENT_LABELS[eventName] || eventName || '未知事件'
 }
 
 const formatDuration = (duration = 0) => {
@@ -800,23 +839,18 @@ const toggleAuxiliaryPanel = (message, key) => {
   saveSessions()
 }
 
-const normalizedEventType = (streamEvent) => String(streamEvent?.eventType || '').toUpperCase()
-
 const normalizedSseEvent = (streamEvent) => String(streamEvent?.sseEvent || '').toLowerCase()
 
 const isReasoningStartEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'THINKING_BLOCK_START' ||
-    normalizedSseEvent(streamEvent) === 'thinking_start'
+  return normalizedSseEvent(streamEvent) === 'thinking_start'
 }
 
 const isReasoningDeltaEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'THINKING_BLOCK_DELTA' ||
-    normalizedSseEvent(streamEvent) === 'thinking_delta'
+  return normalizedSseEvent(streamEvent) === 'thinking_delta'
 }
 
 const isReasoningEndEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'THINKING_BLOCK_END' ||
-    normalizedSseEvent(streamEvent) === 'thinking_end'
+  return normalizedSseEvent(streamEvent) === 'thinking_end'
 }
 
 const isReasoningStreamEvent = (streamEvent) => {
@@ -826,57 +860,45 @@ const isReasoningStreamEvent = (streamEvent) => {
 }
 
 const isToolStreamEvent = (streamEvent) => {
-  const eventType = normalizedEventType(streamEvent)
   const sseEvent = normalizedSseEvent(streamEvent)
-  return eventType.startsWith('TOOL_CALL_') ||
-    eventType.startsWith('TOOL_RESULT_') ||
-    sseEvent.startsWith('tool_call_') ||
+  return sseEvent.startsWith('tool_call_') ||
     sseEvent.startsWith('tool_result_')
 }
 
 const isToolCallStartEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'TOOL_CALL_START' ||
-    normalizedSseEvent(streamEvent) === 'tool_call_start'
+  return normalizedSseEvent(streamEvent) === 'tool_call_start'
 }
 
 const isToolCallDeltaEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'TOOL_CALL_DELTA' ||
-    normalizedSseEvent(streamEvent) === 'tool_call_delta'
+  return normalizedSseEvent(streamEvent) === 'tool_call_delta'
 }
 
 const isToolCallEndEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'TOOL_CALL_END' ||
-    normalizedSseEvent(streamEvent) === 'tool_call_end'
+  return normalizedSseEvent(streamEvent) === 'tool_call_end'
 }
 
 const isToolResultStartEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'TOOL_RESULT_START' ||
-    normalizedSseEvent(streamEvent) === 'tool_result_start'
+  return normalizedSseEvent(streamEvent) === 'tool_result_start'
 }
 
 const isToolResultTextDeltaEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'TOOL_RESULT_TEXT_DELTA' ||
-    normalizedSseEvent(streamEvent) === 'tool_result_text_delta'
+  return normalizedSseEvent(streamEvent) === 'tool_result_text_delta'
 }
 
 const isToolResultDataDeltaEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'TOOL_RESULT_DATA_DELTA' ||
-    normalizedSseEvent(streamEvent) === 'tool_result_data_delta'
+  return normalizedSseEvent(streamEvent) === 'tool_result_data_delta'
 }
 
 const isToolResultEndEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'TOOL_RESULT_END' ||
-    normalizedSseEvent(streamEvent) === 'tool_result_end'
+  return normalizedSseEvent(streamEvent) === 'tool_result_end'
 }
 
 const isRequireUserConfirmEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'REQUIRE_USER_CONFIRM' ||
-    normalizedSseEvent(streamEvent) === 'require_user_confirm'
+  return normalizedSseEvent(streamEvent) === 'require_user_confirm'
 }
 
 const isRequireExternalExecutionEvent = (streamEvent) => {
-  return normalizedEventType(streamEvent) === 'REQUIRE_EXTERNAL_EXECUTION' ||
-    normalizedSseEvent(streamEvent) === 'require_external_execution'
+  return normalizedSseEvent(streamEvent) === 'require_external_execution'
 }
 
 const isInterventionEvent = (streamEvent) => {
@@ -900,34 +922,23 @@ const getSubAgentName = (streamEvent) => {
 
 const isSubAgentStreamEvent = (streamEvent) => {
   const sseEvent = normalizedSseEvent(streamEvent)
-  const eventType = normalizedEventType(streamEvent)
-  return Boolean(getSubAgentName(streamEvent)) ||
-    sseEvent.startsWith('subagent_') ||
-    eventType === 'SUBAGENT_EXPOSED'
+  return sseEvent.startsWith('subagent_')
 }
 
 const isSubAgentTextDeltaEvent = (streamEvent) => {
-  return isSubAgentStreamEvent(streamEvent) &&
-    (normalizedEventType(streamEvent) === 'TEXT_BLOCK_DELTA' ||
-      normalizedSseEvent(streamEvent) === 'subagent_message_delta')
+  return normalizedSseEvent(streamEvent) === 'subagent_message_delta'
 }
 
 const isSubAgentThinkingDeltaEvent = (streamEvent) => {
-  return isSubAgentStreamEvent(streamEvent) &&
-    (normalizedEventType(streamEvent) === 'THINKING_BLOCK_DELTA' ||
-      normalizedSseEvent(streamEvent) === 'subagent_thinking_delta')
+  return normalizedSseEvent(streamEvent) === 'subagent_thinking_delta'
 }
 
 const isSubAgentStartEvent = (streamEvent) => {
   if (!isSubAgentStreamEvent(streamEvent)) {
     return false
   }
-  const eventType = normalizedEventType(streamEvent)
   const sseEvent = normalizedSseEvent(streamEvent)
-  return eventType === 'AGENT_START' ||
-    eventType === 'TEXT_BLOCK_START' ||
-    eventType === 'SUBAGENT_EXPOSED' ||
-    sseEvent === 'subagent_agent_start' ||
+  return sseEvent === 'subagent_agent_start' ||
     sseEvent === 'subagent_message_start'
 }
 
@@ -935,12 +946,10 @@ const isSubAgentEndEvent = (streamEvent) => {
   if (!isSubAgentStreamEvent(streamEvent)) {
     return false
   }
-  const eventType = normalizedEventType(streamEvent)
   const sseEvent = normalizedSseEvent(streamEvent)
-  return eventType === 'AGENT_END' ||
-    eventType === 'TEXT_BLOCK_END' ||
-    sseEvent === 'subagent_agent_end' ||
-    sseEvent === 'subagent_message_end'
+  return sseEvent === 'subagent_agent_end' ||
+    sseEvent === 'subagent_message_end' ||
+    sseEvent === 'subagent_thinking_end'
 }
 
 const hasAuxiliaryOutput = (message) => {
@@ -1681,7 +1690,7 @@ const appendSubAgentEvent = (message, streamEvent) => {
     isSubAgentTextDeltaEvent(streamEvent) ||
     isSubAgentThinkingDeltaEvent(streamEvent)
   const shouldFinish = isSubAgentEndEvent(streamEvent)
-  const shouldShowExposed = normalizedEventType(streamEvent) === 'SUBAGENT_EXPOSED'
+  const shouldShowExposed = normalizedSseEvent(streamEvent) === 'subagent_exposed'
   if (!shouldCreate && !shouldFinish && !shouldShowExposed) {
     return false
   }
@@ -1823,8 +1832,8 @@ const recordStreamEvent = (message, streamEvent) => {
 
   const timing = ensureStreamTiming(message)
   const now = getNowMs()
-  const eventType = streamEvent.eventType || streamEvent.sseEvent || 'UNKNOWN'
-  const stageKey = isSubAgentStreamEvent(streamEvent) ? 'subagent' : getStageKey(eventType)
+  const eventName = streamEvent.sseEvent || 'unknown'
+  const stageKey = getStageKey(eventName)
   if (!stageKey) {
     return
   }
@@ -1857,11 +1866,11 @@ const recordStreamEvent = (message, streamEvent) => {
 
   const gapMs = timing.eventCount > 0 ? now - timing.lastAt : 0
   stage.eventCount += 1
-  stage.lastEventType = eventType
-  stage.lastEventLabel = eventLabel(eventType)
+  stage.lastEventType = eventName
+  stage.lastEventLabel = eventLabel(eventName)
   stage.gapMs = gapMs
   stage.durationMs = now - stage.startedAt
-  stage.status = eventType === 'ERROR' ? 'error' : isStageEndEvent(eventType) ? 'done' : 'running'
+  stage.status = eventName === 'error' ? 'error' : isStageEndEvent(eventName) ? 'done' : 'running'
 
   if (stage.status !== 'running') {
     stage.endedAt = now
@@ -1871,7 +1880,7 @@ const recordStreamEvent = (message, streamEvent) => {
   timing.lastAt = now
   timing.eventCount += 1
   timing.totalMs = now - timing.startedAt
-  message.streamStatus = eventType === 'ERROR' ? 'error' : 'running'
+  message.streamStatus = eventName === 'error' ? 'error' : 'running'
 
   scheduleScrollToBottom()
 }
@@ -2414,10 +2423,71 @@ const stopStream = () => {
 }
 
 const formatInterventionToolCalls = (toolCalls = []) => {
-  return toolCalls.map((toolCall, index) => {
-    const inputText = formatToolInput(toolCall.input)
-    return `${index + 1}. ${toolCall.name || '工具调用'}${inputText ? `\n参数：${inputText}` : ''}`
-  }).join('\n\n')
+  const calls = toolCalls.length ? toolCalls : [normalizeToolCallPayload()]
+  return `
+    <div style="display:grid;gap:12px;min-width:260px;max-width:min(560px, calc(100vw - 96px));">
+      ${calls.map((toolCall, index) => formatInterventionToolCall(toolCall, index)).join('')}
+    </div>
+  `
+}
+
+const formatInterventionToolCall = (toolCall = {}, index = 0) => {
+  const name = escapeHtml(toolCall.name || '工具调用')
+  const params = toolInputEntries(toolCall.input)
+  const titlePrefix = index > 0 ? `${index + 1}. ` : ''
+  const paramHtml = params.length
+    ? params.map(([key, value]) => `
+        <div style="display:grid;grid-template-columns:max-content minmax(0, 1fr);gap:8px;align-items:start;padding:6px 0;border-top:1px solid #eef2f7;">
+          <span style="color:#64748b;font-weight:700;white-space:nowrap;">${escapeHtml(key)}参数：</span>
+          <span style="min-width:0;color:#1f2937;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere;">${escapeHtml(formatToolParamValue(value))}</span>
+        </div>
+      `).join('')
+    : '<div style="padding-top:6px;color:#94a3b8;">无参数</div>'
+
+  return `
+    <section style="display:grid;gap:8px;padding:2px 0;">
+      <div style="display:flex;align-items:center;gap:8px;color:#111827;font-weight:800;">
+        <span style="color:#2563eb;">工具名称：</span>
+        <span style="overflow-wrap:anywhere;">${titlePrefix}${name}</span>
+      </div>
+      <div style="display:grid;gap:0;border:1px solid #e5eaf3;border-radius:8px;padding:2px 10px;background:#f8fafc;">
+        ${paramHtml}
+      </div>
+    </section>
+  `
+}
+
+const toolInputEntries = (input) => {
+  if (input == null || input === '') {
+    return []
+  }
+  if (typeof input === 'object' && !Array.isArray(input)) {
+    return Object.entries(input)
+  }
+  return [['输入', input]]
+}
+
+const formatToolParamValue = (value) => {
+  if (value == null) {
+    return ''
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+const escapeHtml = (value = '') => {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }
 
 const markInterventionDecision = (message, intervention, confirmed) => {
@@ -2510,6 +2580,7 @@ const handleUserConfirmIntervention = async (assistantMessage, session, backendS
         type: 'warning',
         confirmButtonText: '允许执行',
         cancelButtonText: '拒绝执行',
+        dangerouslyUseHTMLString: true,
         distinguishCancelAndClose: false
       }
     )
@@ -3286,6 +3357,7 @@ onBeforeUnmount(() => {
 }
 
 .message-content {
+  margin: 40px 0px 40px 0px;
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.7;
@@ -3426,6 +3498,7 @@ onBeforeUnmount(() => {
 
 .auxiliary-panel {
   min-width: 0;
+  margin: 5px 0px 5px 0px;
 }
 
 .auxiliary-toggle {
@@ -3439,7 +3512,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   background: transparent;
   color: #64748b;
-  font: inherit;
+  //font: inherit;
   text-align: left;
 }
 
@@ -3471,6 +3544,8 @@ onBeforeUnmount(() => {
 }
 
 .auxiliary-content {
+  margin-top: 20px;
+  margin-left: 20px;
   padding: 2px 0 4px;
   color: #8b9bb0;
   font-size: 12px;

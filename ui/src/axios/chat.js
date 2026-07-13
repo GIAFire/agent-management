@@ -74,26 +74,15 @@ const normalizeStreamEvent = (eventName, eventId, parsedData, rawData) => {
 }
 
 const isTextDeltaEvent = (streamEvent) => {
-  const sourcePath = String(streamEvent.sourcePath || '').trim()
-  if ((sourcePath && sourcePath.toLowerCase() !== 'main') ||
-    streamEvent.subAgentName ||
-    String(streamEvent.sseEvent || '').startsWith('subagent_')) {
-    return false
-  }
-
-  return streamEvent.eventType === 'TEXT_BLOCK_DELTA' ||
-    streamEvent.sseEvent === 'message_delta' ||
-    (!isObject(streamEvent.data) && Boolean(streamEvent.delta))
+  const sseEvent = String(streamEvent.sseEvent || '')
+  return sseEvent === 'message_delta'
 }
 
 const isStreamDoneEvent = (streamEvent) => {
-  return streamEvent.eventType === 'AGENT_END' ||
-    streamEvent.sseEvent === 'agent_end' ||
-    streamEvent.eventType === 'REQUEST_STOP' ||
-    streamEvent.eventType === 'EXCEED_MAX_ITERS' ||
-    streamEvent.eventType === 'REQUIRE_USER_CONFIRM' ||
+  return streamEvent.sseEvent === 'agent_end' ||
+    streamEvent.sseEvent === 'request_stop' ||
+    streamEvent.sseEvent === 'exceed_max_iters' ||
     streamEvent.sseEvent === 'require_user_confirm' ||
-    streamEvent.eventType === 'REQUIRE_EXTERNAL_EXECUTION' ||
     streamEvent.sseEvent === 'require_external_execution'
 }
 
@@ -154,7 +143,7 @@ const dispatchSseBlock = (block, handlers) => {
     return true
   }
 
-  if (eventName === 'error' || streamEvent.eventType === 'ERROR') {
+  if (streamEvent.sseEvent === 'error') {
     handlers.onError?.(content || '对话请求失败', streamEvent)
     return true
   }

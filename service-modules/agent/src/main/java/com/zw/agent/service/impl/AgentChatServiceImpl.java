@@ -184,7 +184,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                             usageTime.set(usage.getTime());
                         }
                     }
-                    if (isTerminalEvent(eventType)) {
+                    if (!isSubAgentRuntimeEvent(runtimeEvent) && isTerminalEvent(eventType)) {
                         terminalEventSeen.set(true);
                     }
 
@@ -591,6 +591,22 @@ public class AgentChatServiceImpl implements AgentChatService {
 
         if (AgentEventType.AGENT_END.getValue().equals(eventType)) {
             return "agent_end";
+        }
+
+        if (AgentEventType.REQUEST_STOP.getValue().equals(eventType)) {
+            return "request_stop";
+        }
+
+        if (AgentEventType.EXCEED_MAX_ITERS.getValue().equals(eventType)) {
+            return "exceed_max_iters";
+        }
+
+        if (AgentEventType.MODEL_CALL_START.getValue().equals(eventType)) {
+            return "model_call_start";
+        }
+
+        if (AgentEventType.MODEL_CALL_END.getValue().equals(eventType)) {
+            return "model_call_end";
         }
 
         if (AgentEventType.TEXT_BLOCK_START.getValue().equals(eventType)) {
