@@ -4,10 +4,12 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.zw.agent.entity.*;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.agent.exception.AgentConfigException;
 import com.zw.agent.mapper.*;
 import com.zw.agent.service.AiAgentService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.support.EntityDefaults;
+import com.zw.common.utils.AESUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,9 +43,20 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
     private final AiAgentToolMapper agentToolMapper;
     private final AiToolInfoConfigMapper toolInfoConfigMapper;
 
-    @Override
-    public AgentConfigDTO getAgentFullInfo(Long agentId) {
-        return aiAgentMapper.getAgentFullInfo(agentId);
+    public AgentConfigDTO getAgentConfigById(Long agentId) {
+        if (agentId == null) {
+            throw new AgentConfigException("agentId 不能为空");
+        }
+        AgentConfigDTO agentConfig = aiAgentMapper.getAgentConfigById(agentId);
+
+        try {
+            String decrypt = AESUtil.decrypt(agentConfig.getApiKey());
+            agentConfig.setApiKey(decrypt);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return agentConfig;
     }
 
     @Override

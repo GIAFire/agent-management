@@ -16,7 +16,7 @@ import java.util.List;
  */
 public interface AiAgentService extends IService<AiAgentEntity> {
 
-    AgentConfigDTO getAgentFullInfo(Long agentId);
+    AgentConfigDTO getAgentConfigById(Long agentId);
 
     List<AgentConfigDTO> getAgentInfoList();
 

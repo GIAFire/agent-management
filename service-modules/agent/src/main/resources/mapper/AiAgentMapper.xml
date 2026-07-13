@@ -77,7 +77,7 @@
         <result property="sysPrompt" column="sys_prompt"/>
     </resultMap>
 
-    <select id="getAgentFullInfo" resultType="com.zw.agent.entity.DTO.AgentConfigDTO" parameterType="Long">
+    <select id="getAgentConfigById" resultType="com.zw.agent.entity.DTO.AgentConfigDTO" parameterType="Long">
         SELECT
             agent.id AS agentId,
             agent.agent_code AS agentCode,

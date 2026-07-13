@@ -19,7 +19,7 @@ import java.util.List;
 @Mapper
 public interface AiAgentMapper extends BaseMapper<AiAgentEntity> {
 
-    AgentConfigDTO getAgentFullInfo(@Param("agentId") Long agentId);
+    AgentConfigDTO getAgentConfigById(@Param("agentId") Long agentId);
 
     List<AgentConfigDTO> getAgentInfoList();
 }

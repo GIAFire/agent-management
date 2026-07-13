@@ -34,6 +34,7 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
     private final AiAgentStateLogMapper agentStateLogMapper;
     private final AiAgentStateOpLogServiceImpl agentStateOpLogService;
 
+    @Async
     @Override
     public CompletableFuture<Boolean> saveStateLog(UserInfo userInfo,
                                                         AgentConfigDTO config,
