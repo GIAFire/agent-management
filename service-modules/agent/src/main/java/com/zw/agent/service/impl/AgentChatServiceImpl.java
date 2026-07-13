@@ -143,6 +143,8 @@ public class AgentChatServiceImpl implements AgentChatService {
         AtomicReference<String> waitingEventType = new AtomicReference<>();
         Map<String, AiToolCallLogEntity> toolAuditMap = new ConcurrentHashMap<>();
         AtomicLong seq = new AtomicLong(0);
+        AtomicBoolean terminalEventSeen = new AtomicBoolean(false);
+        AtomicBoolean completionSaved = new AtomicBoolean(false);
         PlanRuntimeEventTracker planEventTracker = agentPlanRuntimeService.newTracker();
 
         Set<String> loggedEventTypes = ConcurrentHashMap.newKeySet();
@@ -182,6 +184,9 @@ public class AgentChatServiceImpl implements AgentChatService {
                             usageTime.set(usage.getTime());
                         }
                     }
+                    if (isTerminalEvent(eventType)) {
+                        terminalEventSeen.set(true);
+                    }
 
                     toolCallAuditService.handleToolCallAuditEvent(eventType, runtimeEvent, config, userInfo, sessionId, runId, toolAuditMap);
 
@@ -212,53 +217,6 @@ public class AgentChatServiceImpl implements AgentChatService {
                         ))
                         .build();
                 }))
-                .concatWith(Mono.defer(() -> {
-                    List<AiToolCallLogEntity> audits = new ArrayList<>(toolAuditMap.values());
-                    toolAuditMap.clear();
-
-                    Mono.fromRunnable(() -> UserContext.runAs(userInfo, () -> {
-                                agentMessageService.saveAssistantMessage(
-                                        userInfo,
-                                        sessionId,
-                                        runId,
-                                        assistantBuffer.toString(),
-                                        config.getAgentName(),
-                                        usageToken.get(),
-                                        usageTime.get()
-                                );
-                                agentStateLogService.updateState(
-                                        agent,
-                                        runtimeContext,
-                                        config,
-                                        userInfo,
-                                        sessionId,
-                                        runId
-                                );
-
-                                if (waitingEventType.get() != null) {
-                                    agentRunService.markWaiting(runId, waitingRunStatus(waitingEventType.get()));
-                                }
-
-                                if (!audits.isEmpty()) {
-                                    toolCallAuditService.saveBatch(audits);
-                                }
-                            }))
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .subscribe(
-                                    null,
-                                    ex -> log.warn("保存state信息失败, runId={}", runId, ex)
-                            );
-
-                    return Mono.just(ServerSentEvent.<AgentStreamResponse>builder()
-                            .event("done")
-                            .data(new AgentStreamResponse(
-                                    runId,
-                                    "DONE",
-                                    usageToken.get(),
-                                    usageTime.get()
-                            ))
-                            .build());
-                }))
                 .onErrorResume(e -> {
                     Mono.fromRunnable(() -> UserContext.runAs(userInfo, () -> {
                                         agentRunService.markFailed(
@@ -287,6 +245,45 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .build());
                 })
                 .doFinally(signalType -> {
+                    if ((terminalEventSeen.get() || waitingEventType.get() != null)
+                            && completionSaved.compareAndSet(false, true)) {
+                        List<AiToolCallLogEntity> audits = new ArrayList<>(toolAuditMap.values());
+                        toolAuditMap.clear();
+
+                        Mono.fromRunnable(() -> UserContext.runAs(userInfo, () -> {
+                                    agentMessageService.saveAssistantMessage(
+                                            userInfo,
+                                            sessionId,
+                                            runId,
+                                            assistantBuffer.toString(),
+                                            config.getAgentName(),
+                                            usageToken.get(),
+                                            usageTime.get()
+                                    );
+                                    agentStateLogService.updateState(
+                                            agent,
+                                            runtimeContext,
+                                            config,
+                                            userInfo,
+                                            sessionId,
+                                            runId
+                                    );
+
+                                    if (waitingEventType.get() != null) {
+                                        agentRunService.markWaiting(runId, waitingRunStatus(waitingEventType.get()));
+                                    }
+
+                                    if (!audits.isEmpty()) {
+                                        toolCallAuditService.saveBatch(audits);
+                                    }
+                                }))
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .subscribe(
+                                        null,
+                                        ex -> log.warn("保存 agent stream 收尾信息失败, runId={}", runId, ex)
+                                );
+                    }
+
                     String runtimeEventTypes = String.join("-", loggedEventTypes);
 
                     Mono.fromRunnable(() -> UserContext.runAs(userInfo, () ->
@@ -316,6 +313,12 @@ public class AgentChatServiceImpl implements AgentChatService {
     private boolean isWaitingEvent(String eventType) {
         return AgentEventType.REQUIRE_USER_CONFIRM.getValue().equals(eventType)
                 || AgentEventType.REQUIRE_EXTERNAL_EXECUTION.getValue().equals(eventType);
+    }
+
+    private boolean isTerminalEvent(String eventType) {
+        return AgentEventType.AGENT_END.getValue().equals(eventType)
+                || AgentEventType.REQUEST_STOP.getValue().equals(eventType)
+                || AgentEventType.EXCEED_MAX_ITERS.getValue().equals(eventType);
     }
 
     private boolean isSubAgentRuntimeEvent(AgentRuntimeEvent runtimeEvent) {

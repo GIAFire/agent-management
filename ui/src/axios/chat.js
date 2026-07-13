@@ -86,10 +86,21 @@ const isTextDeltaEvent = (streamEvent) => {
     (!isObject(streamEvent.data) && Boolean(streamEvent.delta))
 }
 
+const isStreamDoneEvent = (streamEvent) => {
+  return streamEvent.eventType === 'AGENT_END' ||
+    streamEvent.sseEvent === 'agent_end' ||
+    streamEvent.eventType === 'REQUEST_STOP' ||
+    streamEvent.eventType === 'EXCEED_MAX_ITERS' ||
+    streamEvent.eventType === 'REQUIRE_USER_CONFIRM' ||
+    streamEvent.sseEvent === 'require_user_confirm' ||
+    streamEvent.eventType === 'REQUIRE_EXTERNAL_EXECUTION' ||
+    streamEvent.sseEvent === 'require_external_execution'
+}
+
 // 解析单个 SSE 事件块，后端返回的数据形态是 data: {"eventType":"TEXT_BLOCK_DELTA","delta":"..."}。
 const dispatchSseBlock = (block, handlers) => {
   if (!block.trim()) {
-    return
+    return false
   }
 
   let eventName = 'message'
@@ -121,7 +132,7 @@ const dispatchSseBlock = (block, handlers) => {
   })
 
   if (!dataLines.length) {
-    return
+    return false
   }
 
   const rawData = dataLines.join('\n')
@@ -138,29 +149,37 @@ const dispatchSseBlock = (block, handlers) => {
 
   handlers.onEvent?.(streamEvent)
 
-  if (eventName === 'done' || streamEvent.eventType === 'DONE' || content === '[DONE]') {
+  if (isStreamDoneEvent(streamEvent)) {
     handlers.onDone?.(streamEvent)
-    return
+    return true
   }
 
   if (eventName === 'error' || streamEvent.eventType === 'ERROR') {
     handlers.onError?.(content || '对话请求失败', streamEvent)
-    return
+    return true
   }
 
   if (isTextDeltaEvent(streamEvent)) {
     handlers.onMessage?.(content || '', streamEvent)
   }
+
+  return false
 }
 
 // 网络分片可能把一个 SSE 事件拆开，保留最后一个未完整结束的块等待下次拼接。
 const consumeSseBuffer = (buffer, handlers) => {
   const blocks = buffer.split(/\r?\n\r?\n/)
   const rest = blocks.pop() || ''
+  let completed = false
 
-  blocks.forEach((block) => dispatchSseBlock(block, handlers))
+  for (const block of blocks) {
+    if (dispatchSseBlock(block, handlers)) {
+      completed = true
+      break
+    }
+  }
 
-  return rest
+  return { rest, completed }
 }
 
 const postStream = async (url, data, handlers = {}, options = {}) => {
@@ -206,7 +225,12 @@ const postStream = async (url, data, handlers = {}, options = {}) => {
     }
 
     buffer += decoder.decode(value, { stream: true })
-    buffer = consumeSseBuffer(buffer, handlers)
+    const result = consumeSseBuffer(buffer, handlers)
+    buffer = result.rest
+    if (result.completed) {
+      await reader.cancel()
+      return
+    }
   }
 
   buffer += decoder.decode()
