@@ -435,8 +435,6 @@ const activePlanMessage = computed(() => {
   return message && hasPlanOutput(message) ? message : null
 })
 
-const showExecutionPlan = computed(() => Boolean(activePlanMessage.value))
-
 const executionPlanDurationText = computed(() => {
   const message = activePlanMessage.value
   return message ? (streamUsageTimeText(message) || streamTotalText(message)) : ''
@@ -447,7 +445,6 @@ const executionPlanProgress = computed(() => {
   return message?.planProgress || buildPlanProgress(message?.planTasks || [])
 })
 
-const planDrawerTaskCount = computed(() => activePlanMessage.value?.planTasks?.length || 0)
 
 const executionPlanEventText = computed(() => {
   const event = activePlanMessage.value?.lastPlanEvent
@@ -562,6 +559,15 @@ const planTitleFromEvent = (planEvent = {}) => {
     return labels[normalizePlanToolName(planEvent.toolName)] || '执行计划'
   }
   return '执行计划'
+}
+
+const isPlanExitEvent = (planEvent = {}) => {
+  const toolName = normalizePlanToolName(planEvent.toolName)
+  const type = String(planEvent.type || '').toUpperCase()
+  return toolName === 'plan_exit' ||
+    type === 'PLAN_EXIT' ||
+    type.includes('PLAN_EXIT') ||
+    type.includes('EXIT_REQUEST')
 }
 
 const parseJsonLikeText = (text = '') => {
@@ -700,6 +706,9 @@ const applyPlanEventPayload = (message, streamEvent) => {
     occurredAt: planEvent.occurredAt || ''
   }
   message.planExpanded = message.planExpanded ?? true
+  if (isPlanExitEvent(planEvent)) {
+    planDrawerOpen.value = true
+  }
   return true
 }
 
@@ -751,6 +760,9 @@ const applyPlanFallbackFromTool = (message) => {
       occurredAt: nowText()
     }
     message.planExpanded = true
+    if (toolName === 'plan_exit') {
+      planDrawerOpen.value = true
+    }
     return true
   }
 
@@ -2750,6 +2762,16 @@ onBeforeUnmount(() => {
             {{ streaming ? '生成中' : '就绪' }}
           </el-tag>
         </div>
+        <div class="chat-header-actions">
+          <button
+            class="plan-drawer-toggle"
+            type="button"
+            :aria-expanded="planDrawerOpen"
+            @click="togglePlanDrawer"
+          >
+            <span>{{ planDrawerOpen ? '收起工作区 >' : '< 工作区' }}</span>
+          </button>
+        </div>
       </header>
 
       <div
@@ -2903,16 +2925,6 @@ onBeforeUnmount(() => {
         </div>
       </footer>
     </section>
-
-    <button
-      class="plan-drawer-toggle"
-      type="button"
-      :aria-expanded="planDrawerOpen"
-      @click="togglePlanDrawer"
-    >
-      <span>{{ planDrawerOpen ? '收起计划' : '执行计划' }}</span>
-      <small v-if="planDrawerTaskCount">{{ planDrawerTaskCount }}</small>
-    </button>
 
     <aside
       class="execution-plan-panel"
@@ -3172,12 +3184,19 @@ onBeforeUnmount(() => {
   min-height: 40px;
   flex: 0 0 40px;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 20px;
   box-sizing: border-box;
   padding: 0 20px;
   border-bottom: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(247, 251, 255, 0.96), rgba(255, 255, 255, 0.9));
+}
+
+.chat-header-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .chat-agent-title {
@@ -3212,6 +3231,8 @@ onBeforeUnmount(() => {
 }
 
 .back-bottom-button {
+  border: 1px solid #a0cfff;
+  background: #a0cfff;
   position: absolute;
   right: 24px;
   bottom: 112px;
@@ -3273,8 +3294,8 @@ onBeforeUnmount(() => {
 .message-row.user .message-content {
   padding: 12px 18px;
   border: 1px solid #e5eaf3;
-  border-radius: 8px;
-  background: #ffffff;
+  border-radius: 20px;
+  background: #f3f3f3;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
 }
 
@@ -3701,10 +3722,6 @@ onBeforeUnmount(() => {
 }
 
 .plan-drawer-toggle {
-  position: absolute;
-  top: 88px;
-  right: 12px;
-  z-index: 10;
   display: inline-flex;
   height: 34px;
   align-items: center;
@@ -3713,23 +3730,19 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   padding: 0 10px;
   cursor: pointer;
-  color: #1d6ff2;
-  background: #ffffff;
+  color: #ffffff;
+  background: #1d6ff2;
   box-shadow: 0 10px 24px rgba(42, 87, 143, 0.12);
   font: inherit;
   font-size: 13px;
   font-weight: 800;
-  transition: right 180ms ease, background 180ms ease, color 180ms ease;
+  transition: background 180ms ease, color 180ms ease;
 }
 
 .plan-drawer-toggle:hover,
 .agent-chat-page.is-plan-drawer-open .plan-drawer-toggle {
   color: #ffffff;
-  background: #1d6ff2;
-}
-
-.agent-chat-page.is-plan-drawer-open .plan-drawer-toggle {
-  right: 244px;
+  background: #a0cfff;
 }
 
 .plan-drawer-toggle small {
@@ -4243,10 +4256,6 @@ onBeforeUnmount(() => {
     width: min(280px, calc(100% - 20px));
     height: auto;
     min-height: 360px;
-  }
-
-  .agent-chat-page.is-plan-drawer-open .plan-drawer-toggle {
-    right: min(292px, calc(100% - 86px));
   }
 
   .chat-input-panel {
