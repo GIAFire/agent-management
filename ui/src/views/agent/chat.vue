@@ -970,11 +970,151 @@ const createAuxiliaryBlockId = (kind) => {
   return `${kind}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
 }
 
+const createContentSegmentId = () => {
+  return `content-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
+}
+
 const ensureAuxiliaryBlocks = (message) => {
   if (!Array.isArray(message.auxiliaryBlocks)) {
     message.auxiliaryBlocks = []
   }
   return message.auxiliaryBlocks
+}
+
+const ensureContentSegments = (message) => {
+  if (!Array.isArray(message.contentSegments)) {
+    message.contentSegments = []
+  }
+  return message.contentSegments
+}
+
+const appendContentSegment = (message, delta) => {
+  const text = delta == null ? '' : String(delta)
+  if (!text) {
+    return
+  }
+
+  const segments = ensureContentSegments(message)
+  const lastSegment = segments[segments.length - 1]
+  if (lastSegment?.type === 'content') {
+    lastSegment.content = `${lastSegment.content || ''}${text}`
+    return
+  }
+
+  segments.push({
+    id: createContentSegmentId(),
+    type: 'content',
+    content: text
+  })
+}
+
+const replaceContentSegments = (message, content) => {
+  if (!message) {
+    return
+  }
+
+  message.contentSegments = content ? [{
+    id: createContentSegmentId(),
+    type: 'content',
+    content
+  }] : []
+}
+
+const appendAuxiliaryBlockSegment = (message, block) => {
+  if (!message || !block?.id) {
+    return
+  }
+
+  const segments = ensureContentSegments(message)
+  if (segments.some((segment) => segment.type === 'auxiliary' && segment.blockId === block.id)) {
+    return
+  }
+
+  segments.push({
+    id: `auxiliary-${block.id}`,
+    type: 'auxiliary',
+    blockId: block.id
+  })
+}
+
+const normalizeContentSegments = (message, auxiliaryBlocks = []) => {
+  const blocksById = new Set(auxiliaryBlocks.map((block) => block.id).filter(Boolean))
+  const normalized = []
+
+  if (Array.isArray(message?.contentSegments) && message.contentSegments.length) {
+    message.contentSegments.forEach((segment, index) => {
+      if (segment?.type === 'content') {
+        const content = segment.content == null ? '' : String(segment.content)
+        if (content) {
+          normalized.push({
+            id: segment.id || `content-stored-${index}`,
+            type: 'content',
+            content
+          })
+        }
+        return
+      }
+
+      const blockId = segment?.blockId || segment?.id
+      if (blockId && blocksById.has(blockId)) {
+        normalized.push({
+          id: segment.id || `auxiliary-${blockId}`,
+          type: 'auxiliary',
+          blockId
+        })
+      }
+    })
+
+    const referencedBlocks = new Set(normalized.filter((segment) => segment.type === 'auxiliary').map((segment) => segment.blockId))
+    auxiliaryBlocks.forEach((block) => {
+      if (block?.id && !referencedBlocks.has(block.id)) {
+        normalized.push({
+          id: `auxiliary-${block.id}`,
+          type: 'auxiliary',
+          blockId: block.id
+        })
+      }
+    })
+
+    return normalized
+  }
+
+  if (message?.role === 'assistant') {
+    auxiliaryBlocks.forEach((block) => {
+      if (block?.id) {
+        normalized.push({
+          id: `auxiliary-${block.id}`,
+          type: 'auxiliary',
+          blockId: block.id
+        })
+      }
+    })
+  }
+
+  const content = message?.content ?? message?.displayContent ?? ''
+  if (content) {
+    normalized.push({
+      id: `content-${message?.id || 'message'}-legacy`,
+      type: 'content',
+      content
+    })
+  }
+
+  return normalized
+}
+
+const syncContentSegmentsWithBlocks = (message) => {
+  if (!message || !Array.isArray(message.contentSegments)) {
+    return
+  }
+
+  const blockIds = new Set((message.auxiliaryBlocks || []).map((block) => block.id).filter(Boolean))
+  message.contentSegments = message.contentSegments.filter((segment) => {
+    if (segment?.type === 'content') {
+      return Boolean(segment.content)
+    }
+    return Boolean(segment?.blockId && blockIds.has(segment.blockId))
+  })
 }
 
 const findAuxiliaryBlock = (message, blockId) => {
@@ -1300,6 +1440,7 @@ const getReasoningBlock = (message, shouldCreate = false) => {
       startedAt: message.pendingReasoningStartedAt || getNowMs()
     })
     ensureAuxiliaryBlocks(message).push(block)
+    appendAuxiliaryBlockSegment(message, block)
   }
 
   if (block) {
@@ -1358,6 +1499,7 @@ const getToolBlock = (message, shouldCreate = false, toolName = '') => {
     block = createAuxiliaryBlock(message, 'tool', { toolCall: createToolCall(toolName) })
     ensureAuxiliaryBlocks(message).push(block)
     ensureToolCalls(message).push(block.toolCall)
+    appendAuxiliaryBlockSegment(message, block)
   }
 
   if (block) {
@@ -1499,6 +1641,7 @@ const getSubAgentBlock = (message, streamEvent, shouldCreate = false) => {
       }
     })
     ensureAuxiliaryBlocks(message).push(block)
+    appendAuxiliaryBlockSegment(message, block)
   }
 
   if (!block) {
@@ -1814,6 +1957,7 @@ const finishStreamEvents = (message, status = 'done') => {
 
   if (Array.isArray(message.auxiliaryBlocks)) {
     message.auxiliaryBlocks = compactAuxiliaryBlocks(message.auxiliaryBlocks)
+    syncContentSegmentsWithBlocks(message)
     message.auxiliaryBlocks.forEach((block) => {
       if (block.status === 'running') {
         block.status = status === 'error' ? 'error' : isWaiting ? 'waiting' : 'done'
@@ -1833,6 +1977,64 @@ const finishStreamEvents = (message, status = 'done') => {
   message.pendingReasoningStartedAt = null
 
   scheduleSaveSessions()
+}
+
+const assistantMessageItems = (message) => {
+  if (!message || message.role !== 'assistant') {
+    return []
+  }
+
+  const blocks = Array.isArray(message.auxiliaryBlocks) ? message.auxiliaryBlocks : []
+  const blocksById = new Map(blocks.map((block) => [block.id, block]))
+  const segments = Array.isArray(message.contentSegments) && message.contentSegments.length
+    ? message.contentSegments
+    : normalizeContentSegments(message, blocks)
+  const referencedBlocks = new Set()
+  const items = []
+
+  segments.forEach((segment, index) => {
+    if (segment?.type === 'content') {
+      const content = segment.content == null ? '' : String(segment.content)
+      if (content) {
+        items.push({
+          id: segment.id || `content-${index}`,
+          type: 'content',
+          content
+        })
+      }
+      return
+    }
+
+    const block = blocksById.get(segment?.blockId)
+    if (block) {
+      referencedBlocks.add(block.id)
+      items.push({
+        id: segment.id || `auxiliary-${block.id}`,
+        type: 'auxiliary',
+        block
+      })
+    }
+  })
+
+  blocks.forEach((block) => {
+    if (block?.id && !referencedBlocks.has(block.id)) {
+      items.push({
+        id: `auxiliary-${block.id}`,
+        type: 'auxiliary',
+        block
+      })
+    }
+  })
+
+  if (!items.length && shouldShowMessageContent(message)) {
+    items.push({
+      id: `content-${message.id || 'pending'}`,
+      type: 'content',
+      content: messageDisplayText(message)
+    })
+  }
+
+  return items
 }
 
 const messageText = (message) => {
@@ -2015,6 +2217,7 @@ const appendStreamText = (message, session, delta) => {
 
   message.content = `${message.content || ''}${delta}`
   message.displayContent = message.content
+  appendContentSegment(message, delta)
   message.pending = false
   message.typing = true
   if (session) {
@@ -2075,6 +2278,7 @@ const loadSessions = () => {
           return {
             ...message,
             displayContent: message.displayContent ?? message.content ?? '',
+            contentSegments: normalizeContentSegments(message, auxiliaryBlocks),
             usageToken: Number(message.usageToken) || 0,
             usageTime: Number(message.usageTime) || 0,
             thinkingContent: message.thinkingContent ?? '',
@@ -2170,6 +2374,11 @@ const appendMessage = (role, content, extra = {}, options = {}) => {
     role,
     content,
     displayContent: content,
+    contentSegments: content ? [{
+      id: createContentSegmentId(),
+      type: 'content',
+      content
+    }] : [],
     createdAt: nowText(),
     ...extra
   }
@@ -2248,6 +2457,7 @@ const runAssistantStream = async (streamer, data, assistantMessage, session) => 
         finishStreamEvents(assistantMessage, 'error')
         assistantMessage.content = message
         assistantMessage.displayContent = message
+        replaceContentSegments(assistantMessage, message)
         assistantMessage.pending = false
         assistantMessage.typing = false
         assistantMessage.error = true
@@ -2414,11 +2624,17 @@ const sendMessage = async () => {
     flushStreamText()
     finishStreamEvents(assistantMessage, error.name === 'AbortError' ? 'done' : 'error')
     if (error.name === 'AbortError') {
-      assistantMessage.content = assistantMessage.content || '已停止生成'
-      assistantMessage.displayContent = assistantMessage.displayContent || assistantMessage.content
+      if (!assistantMessage.content) {
+        assistantMessage.content = '已停止生成'
+        assistantMessage.displayContent = assistantMessage.content
+        appendContentSegment(assistantMessage, assistantMessage.content)
+      } else {
+        assistantMessage.displayContent = assistantMessage.displayContent || assistantMessage.content
+      }
     } else {
       assistantMessage.content = error.message || '对话请求失败'
       assistantMessage.displayContent = assistantMessage.content
+      replaceContentSegments(assistantMessage, assistantMessage.content)
       assistantMessage.error = true
     }
     assistantMessage.pending = false
@@ -2548,85 +2764,86 @@ onBeforeUnmount(() => {
           :class="[message.role, { error: message.error, typing: message.typing }]"
         >
           <div class="message-bubble">
-            <div
-              v-if="message.role === 'assistant' && hasAuxiliaryOutput(message)"
-              class="auxiliary-output"
-            >
-              <section
-                v-for="block in message.auxiliaryBlocks || []"
-                :key="block.id"
-                class="auxiliary-panel"
+            <template v-if="message.role === 'assistant'">
+              <template
+                v-for="item in assistantMessageItems(message)"
+                :key="item.id"
               >
+                <div
+                  v-if="item.type === 'content'"
+                  class="message-content markdown-content assistant-content-segment"
+                >
+                  <div
+                    class="markdown-rendered"
+                    v-html="renderMarkdownText(item.content)"
+                  />
+                </div>
+                <section
+                  v-else-if="item.block"
+                  class="auxiliary-panel"
+                >
                 <button
                   class="auxiliary-toggle"
                   type="button"
-                  @click="toggleAuxiliaryPanel(message, block)"
+                  @click="toggleAuxiliaryPanel(message, item.block)"
                 >
-                  <span class="auxiliary-title">{{ auxiliaryBlockTitle(block) }}</span>
-                  <small class="auxiliary-action">{{ block.expanded ? '收起' : '展开' }}</small>
-                  <small v-if="auxiliaryBlockTimeText(block)" class="auxiliary-time">耗时 {{ auxiliaryBlockTimeText(block) }}</small>
+                  <span class="auxiliary-title">{{ auxiliaryBlockTitle(item.block) }}</span>
+                  <small class="auxiliary-action">{{ item.block.expanded ? '收起' : '展开' }}</small>
+                  <small v-if="auxiliaryBlockTimeText(item.block)" class="auxiliary-time">耗时 {{ auxiliaryBlockTimeText(item.block) }}</small>
                 </button>
                 <div
-                  v-show="block.expanded"
+                  v-show="item.block.expanded"
                   class="auxiliary-content"
                 >
-                  <div v-if="block.kind === 'reasoning'">
-                    {{ block.content }}
+                  <div v-if="item.block.kind === 'reasoning'">
+                    {{ item.block.content }}
                   </div>
                   <div
-                    v-else-if="block.kind === 'tool'"
+                    v-else-if="item.block.kind === 'tool'"
                     class="tool-call"
                   >
                     <div class="tool-call-header">
-                      <span class="tool-call-name">{{ block.toolCall?.name || '工具调用' }}</span>
-                      <small>{{ toolStatusText(block.toolCall || block) }}</small>
+                      <span class="tool-call-name">{{ item.block.toolCall?.name || '工具调用' }}</span>
+                      <small>{{ toolStatusText(item.block.toolCall || item.block) }}</small>
                     </div>
                     <div
-                      v-if="block.toolCall?.process"
+                      v-if="item.block.toolCall?.process"
                       class="tool-call-section"
                     >
                       <span class="tool-call-section-title">调用过程</span>
-                      <div class="tool-call-text">{{ block.toolCall.process }}</div>
+                      <div class="tool-call-text">{{ item.block.toolCall.process }}</div>
                     </div>
                     <div
-                      v-if="block.toolCall?.result"
+                      v-if="item.block.toolCall?.result"
                       class="tool-call-section"
                     >
                       <span class="tool-call-section-title">调用结果</span>
-                      <div class="tool-call-text">{{ block.toolCall.result }}</div>
+                      <div class="tool-call-text">{{ item.block.toolCall.result }}</div>
                     </div>
                   </div>
                   <div
-                    v-else-if="block.kind === 'subagent'"
+                    v-else-if="item.block.kind === 'subagent'"
                     class="subagent-call"
                   >
                     <div class="subagent-call-header">
-                      <span class="subagent-call-name">{{ block.subAgent?.name || block.subAgentName || '子智能体' }}</span>
-                      <small>{{ block.status === 'done' ? '完成' : '输出中' }}</small>
+                      <span class="subagent-call-name">{{ item.block.subAgent?.name || item.block.subAgentName || '子智能体' }}</span>
+                      <small>{{ item.block.status === 'done' ? '完成' : '输出中' }}</small>
                     </div>
                     <div
-                      v-if="block.content"
+                      v-if="item.block.content"
                       class="subagent-call-content markdown-rendered"
-                      v-html="renderMarkdownText(block.content)"
+                      v-html="renderMarkdownText(item.block.content)"
                     />
                   </div>
                 </div>
               </section>
-            </div>
-
-            <div
-              v-if="shouldShowMessageContent(message)"
-              class="message-content"
-              :class="{ 'markdown-content': message.role === 'assistant' }"
-            >
-              <div
-                v-if="message.role === 'assistant'"
-                class="markdown-rendered"
-                v-html="renderAssistantMarkdown(message)"
-              />
-              <template v-else>
-                {{ messageDisplayText(message) }}
               </template>
+            </template>
+            <div
+              v-else-if="shouldShowMessageContent(message)"
+              class="message-content"
+            >
+              {{ messageDisplayText(message) }}
             </div>
             <div
               v-if="message.role === 'assistant' && hasStreamSummary(message)"
@@ -3029,6 +3246,8 @@ onBeforeUnmount(() => {
 }
 
 .message-row.assistant .message-bubble {
+  display: grid;
+  gap: 8px;
   max-width: min(920px, 100%);
 }
 
@@ -3062,6 +3281,10 @@ onBeforeUnmount(() => {
 .message-row.assistant .message-content {
   color: #17233c;
   font-size: 15px;
+}
+
+.assistant-content-segment {
+  min-width: 0;
 }
 
 .message-content.markdown-content {
