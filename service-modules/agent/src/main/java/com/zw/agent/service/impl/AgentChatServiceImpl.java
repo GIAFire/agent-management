@@ -11,6 +11,7 @@ import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.*;
 import com.zw.agent.service.plan.PlanRuntimeEventTracker;
+import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
@@ -172,7 +173,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                             (nowNs - requestStartNs) / 1_000_000
                     );
                 })
-                .doOnNext(runtimeEvent -> {
+                .doOnNext(runtimeEvent -> UserContext.runAs(userInfo, () -> {
                     if (firstEventLogged.compareAndSet(false, true)) {
                         log.warn("从接口入口到doOnNext当前点总耗时, runId={}, costFromRequestStartMs={}, costFromSubscribeMs={}",
                                 runId,
@@ -181,7 +182,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                         );
                     }
                     if (stateLoadOpLogged.compareAndSet(false, true)) {
-                        Mono.fromRunnable(() ->
+                        Mono.fromRunnable(() -> UserContext.runAs(userInfo, () ->
                                         agentStateOpLogService.recordLoad(
                                                 agent,
                                                 userInfo,
@@ -190,7 +191,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                                                 sessionId,
                                                 runId
                                         )
-                                )
+                                ))
                                 .subscribeOn(Schedulers.boundedElastic())
                                 .subscribe(
                                         null,
@@ -219,8 +220,8 @@ public class AgentChatServiceImpl implements AgentChatService {
                         waitingEventType.set(eventType);
                     }
                     loggedEventTypes.add(eventType);
-                })
-                .map(runtimeEvent -> {
+                }))
+                .map(runtimeEvent -> UserContext.callAs(userInfo, () -> {
                     // Plan 事件快照随原始事件一起下发，前端无需额外轮询计划和任务表。
                     Map<String, Object> planPayload = agentPlanRuntimeService.handleRuntimeEvent(
                             agent,
@@ -241,7 +242,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                                 mergePayload(toPayload(runtimeEvent), planPayload)
                         ))
                         .build();
-                })
+                }))
                 .concatWith(Mono.defer(() -> {
                     long doneNs = System.nanoTime();
                     log.warn("服务端准备返回最终done事件的时间, runId={}, totalCostMs={}, streamCostMs={}",
@@ -253,7 +254,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                     List<AiToolCallLogEntity> audits = new ArrayList<>(toolAuditMap.values());
                     toolAuditMap.clear();
 
-                    Mono.fromRunnable(() -> {
+                    Mono.fromRunnable(() -> UserContext.runAs(userInfo, () -> {
                                 agentMessageService.saveAssistantMessage(
                                         userInfo,
                                         sessionId,
@@ -279,7 +280,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                                 if (!audits.isEmpty()) {
                                     toolCallAuditService.saveBatch(audits);
                                 }
-                            })
+                            }))
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe(
                                     null,
@@ -308,7 +309,7 @@ public class AgentChatServiceImpl implements AgentChatService {
 
                     log.warn("Agent stream failed, runId={}", runId, e);
 
-                    Mono.fromRunnable(() -> {
+                    Mono.fromRunnable(() -> UserContext.runAs(userInfo, () -> {
                                         agentRunService.markFailed(
                                                 runId,
                                                 "FAILED",
@@ -320,7 +321,7 @@ public class AgentChatServiceImpl implements AgentChatService {
                                                 runId,
                                                 e.getMessage()
                                         );
-                                    })
+                                    }))
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe(null,ex -> log.error("Mark agent run failed failed, runId={}", runId, ex));
 
@@ -348,14 +349,14 @@ public class AgentChatServiceImpl implements AgentChatService {
 
                     String runtimeEventTypes = String.join("-", loggedEventTypes);
 
-                    Mono.fromRunnable(() ->
+                    Mono.fromRunnable(() -> UserContext.runAs(userInfo, () ->
                                     agentRunEventService.saveEvent(
                                             userInfo,
                                             runId,
                                             sessionId,
                                             runtimeEventTypes
                                     )
-                            )
+                            ))
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe(
                                     null,

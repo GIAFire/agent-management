@@ -1,6 +1,8 @@
 package com.zw.common.context;
 
 
+import java.util.function.Supplier;
+
 public class UserContext {
 
     private static final ThreadLocal<UserInfo> USER_THREAD_LOCAL = new ThreadLocal<>();
@@ -28,5 +30,33 @@ public class UserContext {
 
     public static void clear() {
         USER_THREAD_LOCAL.remove();
+    }
+
+    public static void runAs(UserInfo userInfo, Runnable runnable) {
+        UserInfo previous = get();
+        try {
+            set(userInfo);
+            runnable.run();
+        } finally {
+            restore(previous);
+        }
+    }
+
+    public static <T> T callAs(UserInfo userInfo, Supplier<T> supplier) {
+        UserInfo previous = get();
+        try {
+            set(userInfo);
+            return supplier.get();
+        } finally {
+            restore(previous);
+        }
+    }
+
+    private static void restore(UserInfo previous) {
+        if (previous == null) {
+            clear();
+            return;
+        }
+        set(previous);
     }
 }

@@ -28,7 +28,7 @@ public class MybatisPlusConfig {
                     public Expression getTenantId() {
                         // 从当前上下文中获取租户ID
                         UserInfo userInfo = UserContext.get();
-                        return new LongValue(userInfo != null ? userInfo.getTenantId() : 0L);
+                        return new LongValue(userInfo.getTenantId());
                     }
 
                     @Override
