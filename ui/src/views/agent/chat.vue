@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Bottom, ChatLineRound, Close, Delete, Plus, Promotion } from '@element-plus/icons-vue'
+import { Bottom, ChatLineRound, Close, Delete, MoreFilled, Plus, Promotion, Search } from '@element-plus/icons-vue'
 import MarkdownIt from 'markdown-it'
 import { chatStream, userConfirmStream } from '@/axios/chat'
 
@@ -23,6 +23,7 @@ markdownRenderer.renderer.rules.link_open = (tokens, index, options, env, self) 
 const sessions = ref([])
 const activeSessionId = ref('')
 const inputMessage = ref('')
+const sessionKeyword = ref('')
 const streaming = ref(false)
 const autoScrollEnabled = ref(true)
 const messageListRef = ref()
@@ -76,6 +77,16 @@ const activeSession = computed(() => {
 
 const activeMessages = computed(() => {
   return activeSession.value?.messages || []
+})
+
+const filteredSessions = computed(() => {
+  const keyword = sessionKeyword.value.trim().toLowerCase()
+  if (!keyword) {
+    return sessions.value
+  }
+  return sessions.value.filter((session) => {
+    return `${session.title || ''} ${session.updatedAt || ''}`.toLowerCase().includes(keyword)
+  })
 })
 
 const canSend = computed(() => {
@@ -365,6 +376,48 @@ const planPanelTitle = (message) => {
 const planProgressText = (message) => {
   const progress = message?.planProgress || buildPlanProgress(message?.planTasks || [])
   return progress.total ? `${progress.completed}/${progress.total}` : ''
+}
+
+const latestAssistantMessage = computed(() => {
+  const messages = activeMessages.value
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === 'assistant') {
+      return messages[index]
+    }
+  }
+  return null
+})
+
+const activePlanMessage = computed(() => {
+  const message = latestAssistantMessage.value
+  return message && hasPlanOutput(message) ? message : null
+})
+
+const showExecutionPlan = computed(() => Boolean(activePlanMessage.value))
+
+const executionPlanDurationText = computed(() => {
+  const message = activePlanMessage.value
+  return message ? (streamUsageTimeText(message) || streamTotalText(message)) : ''
+})
+
+const executionTaskStateClass = (state) => normalizeTaskState(state).toLowerCase()
+
+const isExecutionTaskDone = (task) => normalizeTaskState(task?.state) === 'COMPLETED'
+
+const executionTaskToolLabel = (task = {}) => {
+  const block = (task.blocks || []).find((item) => item?.toolCall?.name || item?.toolName || item?.name)
+  const toolName = block?.toolCall?.name || block?.toolName || block?.name || ''
+  const labels = {
+    sql_query: 'SQL Query',
+    query_order: 'SQL Query',
+    knowledge_search: 'Knowledge Search',
+    search_knowledge: 'Knowledge Search',
+    web_search: 'Web Search',
+    plan_write: 'Plan Write',
+    workspace_write: 'Workspace Write',
+    database_query: 'Database Query'
+  }
+  return labels[String(toolName).toLowerCase()] || toolName
 }
 
 // 将 SSE 中的 planEvent 快照合并到当前 assistant 消息，驱动计划面板实时刷新。
@@ -1850,6 +1903,26 @@ const removeSession = async (session) => {
   saveSessions()
 }
 
+const clearSessions = async () => {
+  if (!sessions.value.length) {
+    return
+  }
+
+  try {
+    await ElMessageBox.confirm('确认清空所有历史对话吗？', '清空确认', {
+      type: 'warning',
+      confirmButtonText: '清空',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    return
+  }
+
+  sessions.value = []
+  sessionKeyword.value = ''
+  createSession()
+}
+
 const appendMessage = (role, content, extra = {}, options = {}) => {
   const session = activeSession.value || createSession()
   const message = {
@@ -2150,27 +2223,46 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="agent-chat-page">
+  <section
+    class="agent-chat-page"
+    :class="{ 'with-execution-plan': showExecutionPlan }"
+  >
     <aside class="chat-session-panel">
       <div class="session-panel-header">
-        <div>
-          <h2>会话列表</h2>
-          <span>{{ agentInfo.name }}</span>
-        </div>
-        <el-tooltip content="新建会话" placement="right">
-          <el-button type="primary" :icon="Plus" circle @click="createSession" />
-        </el-tooltip>
+        <h2>对话</h2>
       </div>
 
+      <el-button
+        class="new-session-button"
+        type="primary"
+        plain
+        :icon="Plus"
+        @click="createSession"
+      >
+        新建对话
+      </el-button>
+
+      <el-input
+        v-model="sessionKeyword"
+        class="session-search"
+        :prefix-icon="Search"
+        clearable
+        placeholder="搜索历史对话"
+      />
+
       <div class="session-list">
+        <div class="session-group-title">
+          {{ sessionKeyword ? '搜索结果' : '今天' }}
+        </div>
         <button
-          v-for="session in sessions"
+          v-for="session in filteredSessions"
           :key="session.id"
           class="session-item"
           :class="{ active: session.id === activeSessionId }"
           type="button"
           @click="selectSession(session)"
         >
+          <el-icon class="session-chat-icon"><ChatLineRound /></el-icon>
           <span class="session-main">
             <strong>{{ session.title }}</strong>
             <small>{{ session.updatedAt }}</small>
@@ -2178,14 +2270,28 @@ onBeforeUnmount(() => {
           <el-tooltip content="删除会话" placement="right">
             <el-button
               class="session-delete"
-              :icon="Delete"
+              :icon="MoreFilled"
               link
-              type="danger"
               @click.stop="removeSession(session)"
             />
           </el-tooltip>
         </button>
+        <div
+          v-if="!filteredSessions.length"
+          class="session-empty"
+        >
+          未找到相关对话
+        </div>
       </div>
+
+      <button
+        class="clear-session-button"
+        type="button"
+        @click="clearSessions"
+      >
+        <el-icon><Delete /></el-icon>
+        <span>清空历史记录</span>
+      </button>
     </aside>
 
     <section class="chat-window">
@@ -2216,10 +2322,6 @@ onBeforeUnmount(() => {
           :class="[message.role, { error: message.error, typing: message.typing }]"
         >
           <div class="message-bubble">
-            <div class="message-meta">
-              <span>{{ message.role === 'user' ? '我' : agentInfo.name }}</span>
-              <time>{{ message.createdAt }}</time>
-            </div>
             <div
               v-if="message.role === 'assistant' && hasAuxiliaryOutput(message)"
               class="auxiliary-output"
@@ -2286,67 +2388,6 @@ onBeforeUnmount(() => {
               </section>
             </div>
 
-            <section
-              v-if="message.role === 'assistant' && hasPlanOutput(message)"
-              class="plan-progress-panel"
-            >
-              <button
-                class="plan-progress-toggle"
-                type="button"
-                @click="togglePlanPanel(message)"
-              >
-                <span class="plan-progress-title">{{ planPanelTitle(message) }}</span>
-                <el-tag
-                  size="small"
-                  :type="planStatusType(message.planState?.status)"
-                >
-                  {{ planStatusText(message.planState?.status) }}
-                </el-tag>
-                <small v-if="planProgressText(message)">{{ planProgressText(message) }}</small>
-                <small>{{ message.planExpanded ? '收起' : '展开' }}</small>
-              </button>
-              <div
-                v-show="message.planExpanded"
-                class="plan-progress-body"
-              >
-                <div class="plan-progress-meta">
-                  <span v-if="message.planState?.planFilePath">{{ message.planState.planFilePath }}</span>
-                  <span v-if="message.lastPlanEvent?.occurredAt">{{ message.lastPlanEvent.occurredAt }}</span>
-                </div>
-                <div
-                  v-if="message.planProgress?.total"
-                  class="plan-progress-bar"
-                >
-                  <span :style="{ width: `${message.planProgress.percent || 0}%` }" />
-                </div>
-                <ol
-                  v-if="message.planTasks?.length"
-                  class="plan-task-list"
-                >
-                  <li
-                    v-for="task in message.planTasks"
-                    :key="task.id"
-                    class="plan-task-item"
-                    :class="normalizeTaskState(task.state).toLowerCase()"
-                  >
-                    <div class="plan-task-main">
-                      <span class="plan-task-index">{{ task.taskIndex }}</span>
-                      <div>
-                        <strong>{{ task.subject }}</strong>
-                        <p v-if="task.detail">{{ task.detail }}</p>
-                      </div>
-                    </div>
-                    <el-tag
-                      size="small"
-                      :type="taskStateType(task.state)"
-                    >
-                      {{ taskStateText(task.state) }}
-                    </el-tag>
-                  </li>
-                </ol>
-              </div>
-            </section>
-
             <div
               v-if="shouldShowMessageContent(message)"
               class="message-content"
@@ -2388,13 +2429,17 @@ onBeforeUnmount(() => {
       />
 
       <footer class="chat-input-panel">
+        <div class="chat-input-shortcuts">
+          <el-button size="small">知识库</el-button>
+          <el-button size="small">工具</el-button>
+        </div>
         <el-input
           v-model="inputMessage"
           class="chat-input"
           type="textarea"
           :rows="3"
           resize="none"
-          placeholder="输入消息"
+          :placeholder="`给${agentInfo.name || '智能体'}发送消息，输入 / 使用快捷指令...`"
           @keydown.enter.exact.prevent="sendMessage"
         />
         <div class="chat-actions">
@@ -2415,79 +2460,182 @@ onBeforeUnmount(() => {
           </el-button>
         </div>
       </footer>
+      <div class="chat-disclaimer">
+        Agent 生成的内容可能存在误差，请核实重要信息
+      </div>
     </section>
+
+    <aside
+      v-if="showExecutionPlan"
+      class="execution-plan-panel"
+    >
+      <header class="execution-plan-header">
+        <div>
+          <h3>执行计划</h3>
+          <p v-if="activePlanMessage?.planState?.title || activePlanMessage?.planState?.planNo">
+            {{ planPanelTitle(activePlanMessage) }}
+          </p>
+        </div>
+        <div class="execution-plan-actions">
+          <el-tag
+            size="small"
+            :type="planStatusType(activePlanMessage?.planState?.status)"
+          >
+            {{ planStatusText(activePlanMessage?.planState?.status) }}
+          </el-tag>
+          <span
+            class="execution-plan-icon"
+            aria-hidden="true"
+          >
+            ^
+          </span>
+          <span
+            class="execution-plan-icon"
+            aria-hidden="true"
+          >
+            ...
+          </span>
+        </div>
+      </header>
+
+      <div class="execution-plan-meta">
+        <span>本次任务</span>
+        <span v-if="executionPlanDurationText">用时 {{ executionPlanDurationText }}</span>
+        <span v-if="planProgressText(activePlanMessage)">进度 {{ planProgressText(activePlanMessage) }}</span>
+      </div>
+
+      <ol
+        v-if="activePlanMessage?.planTasks?.length"
+        class="execution-task-list"
+      >
+        <li
+          v-for="(task, taskIndex) in activePlanMessage.planTasks"
+          :key="task.id"
+          class="execution-task-item"
+          :class="executionTaskStateClass(task.state)"
+        >
+          <div class="execution-task-rail">
+            <span class="execution-task-index">{{ task.taskIndex || taskIndex + 1 }}</span>
+            <span
+              v-if="isExecutionTaskDone(task)"
+              class="execution-task-check"
+            >
+              ✓
+            </span>
+          </div>
+          <div class="execution-task-content">
+            <strong>{{ task.subject }}</strong>
+            <el-tag
+              v-if="executionTaskToolLabel(task)"
+              class="execution-task-tool"
+              size="small"
+              effect="plain"
+            >
+              {{ executionTaskToolLabel(task) }}
+            </el-tag>
+            <p v-if="task.detail">{{ task.detail }}</p>
+          </div>
+        </li>
+      </ol>
+      <div
+        v-else
+        class="execution-task-empty"
+      >
+        计划生成中...
+      </div>
+    </aside>
   </section>
 </template>
 
 <style scoped>
+.app-main{
+  padding: 5px;
+}
 .agent-chat-page {
   display: grid;
   height: calc(100vh - 142px);
   min-height: 560px;
-  grid-template-columns: 288px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  padding: 5px;
+  margin: -30px;  /* 反向偏移，抵消父元素的 padding */
+  gap: 5px;
+}
+
+.agent-chat-page.with-execution-plan {
+  grid-template-columns: 300px minmax(0, 1fr) 320px;
 }
 
 .chat-session-panel,
-.chat-window {
+.chat-window,
+.execution-plan-panel {
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
 }
 
 .chat-session-panel {
   display: flex;
   flex-direction: column;
+  padding: 20px 12px 14px;
 }
 
 .session-panel-header {
   display: flex;
-  min-height: 68px;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 0 14px;
-  border-bottom: 1px solid var(--border);
+  justify-content: flex-start;
+  margin-bottom: 22px;
 }
 
-.session-panel-header h2,
-.chat-agent-title h2 {
+.session-panel-header h2 {
   margin: 0;
-  color: var(--ink);
-  font-size: 16px;
-  font-weight: 760;
+  color: #0f1f3a;
+  font-size: 22px;
+  font-weight: 800;
   letter-spacing: 0;
 }
 
-.session-panel-header span,
-.chat-agent-title span {
-  display: block;
-  margin-top: 4px;
-  overflow: hidden;
-  color: var(--subtle);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.new-session-button {
+  width: 100%;
+  height: 44px;
+  margin-bottom: 14px;
+  border-radius: 8px;
+  font-weight: 760;
+}
+
+.session-search {
+  margin-bottom: 20px;
+}
+
+.session-search :deep(.el-input__wrapper) {
+  min-height: 44px;
+  border-radius: 8px;
+}
+
+.session-group-title {
+  margin: 0 0 10px;
+  color: #74839b;
+  font-size: 13px;
+  font-weight: 760;
 }
 
 .session-list {
   flex: 1;
   overflow-y: auto;
-  padding: 10px;
+  padding: 0 0 12px;
 }
 
 .session-item {
-  display: flex;
+  display: grid;
   width: 100%;
-  min-height: 58px;
+  min-height: 52px;
   align-items: center;
-  justify-content: space-between;
+  grid-template-columns: 24px minmax(0, 1fr) 28px;
   gap: 10px;
   margin: 0 0 8px;
-  padding: 10px 8px 10px 12px;
+  padding: 10px 8px;
   border: 1px solid transparent;
   border-radius: 8px;
   cursor: pointer;
@@ -2496,12 +2644,17 @@ onBeforeUnmount(() => {
 }
 
 .session-item:hover {
-  background: var(--surface-muted);
+  background: #f3f7ff;
 }
 
 .session-item.active {
-  border-color: var(--primary);
-  background: var(--primary-soft);
+  border-color: #d8e6ff;
+  background: #eaf2ff;
+}
+
+.session-chat-icon {
+  color: #1d6ff2;
+  font-size: 18px;
 }
 
 .session-main {
@@ -2517,19 +2670,46 @@ onBeforeUnmount(() => {
 }
 
 .session-main strong {
-  color: var(--ink);
+  color: #15243d;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 760;
 }
 
 .session-main small {
   margin-top: 5px;
-  color: var(--subtle);
+  color: #7d8aa0;
   font-size: 12px;
 }
 
 .session-delete {
   flex: 0 0 auto;
+  color: #5f6f89;
+}
+
+.session-empty {
+  display: grid;
+  min-height: 80px;
+  place-items: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.clear-session-button {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 8px;
+  border: 0;
+  cursor: pointer;
+  background: transparent;
+  color: #1d6ff2;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 760;
+}
+
+.clear-session-button:hover {
+  color: #1257c8;
 }
 
 .chat-window {
@@ -2540,12 +2720,13 @@ onBeforeUnmount(() => {
 
 .chat-header {
   display: flex;
-  min-height: 68px;
+  min-height: 76px;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 0 18px;
+  padding: 0 28px;
   border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(247, 251, 255, 0.96), rgba(255, 255, 255, 0.9));
 }
 
 .chat-agent-title {
@@ -2555,23 +2736,42 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
+.chat-agent-title h2 {
+  margin: 0;
+  color: #0f1f3a;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.chat-agent-title span {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #6b7890;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .chat-agent-icon {
   display: grid;
-  width: 38px;
-  height: 38px;
+  width: 46px;
+  height: 46px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 8px;
-  color: #ffffff;
-  background: var(--primary);
-  font-size: 18px;
+  border: 1px solid #d8e6ff;
+  border-radius: 50%;
+  color: #1d6ff2;
+  background: linear-gradient(180deg, #f5f9ff, #e7f1ff);
+  font-size: 22px;
 }
 
 .message-list {
   flex: 1;
   overflow-y: auto;
-  padding: 18px;
-  background: var(--page-bg);
+  padding: 28px 34px 22px;
+  background: linear-gradient(180deg, #f7fbff 0%, #ffffff 38%, #f8fbff 100%);
 }
 
 .back-bottom-button {
@@ -2584,7 +2784,7 @@ onBeforeUnmount(() => {
 
 .message-row {
   display: flex;
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .message-row.user {
@@ -2597,19 +2797,24 @@ onBeforeUnmount(() => {
 
 .message-row.user + .message-row.assistant,
 .message-row.assistant + .message-row.user {
-  padding-top: 100px;
+  padding-top: 26px;
 }
 
 .message-bubble {
-  max-width: min(720px, 78%);
+  max-width: min(860px, 88%);
   border: 0;
   padding: 0;
   background: transparent;
   box-shadow: none;
 }
 
+.message-row.assistant .message-bubble {
+  max-width: min(920px, 100%);
+}
+
 .message-row.user .message-bubble {
-  color: var(--ink);
+  max-width: min(680px, 76%);
+  color: #17233c;
 }
 
 .message-row.error .message-bubble {
@@ -2617,30 +2822,26 @@ onBeforeUnmount(() => {
 }
 
 .message-meta {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 30px;
-  margin-bottom: 8px;
-  font-size: 12px;
-}
-
-.message-meta span {
-  font-weight: 700;
-}
-
-.message-meta time {
-  color: var(--subtle);
-}
-
-.message-row.user .message-meta time {
-  color: var(--subtle);
+  display: none;
 }
 
 .message-content {
   white-space: pre-wrap;
   word-break: break-word;
   line-height: 1.7;
+}
+
+.message-row.user .message-content {
+  padding: 12px 18px;
+  border: 1px solid #e5eaf3;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+}
+
+.message-row.assistant .message-content {
+  color: #17233c;
+  font-size: 15px;
 }
 
 .message-content.markdown-content {
@@ -3052,6 +3253,192 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
+.execution-plan-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 24px 22px;
+  overflow-y: auto;
+}
+
+.execution-plan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.execution-plan-header h3 {
+  margin: 0;
+  color: #0f1f3a;
+  font-size: 20px;
+  font-weight: 820;
+  letter-spacing: 0;
+}
+
+.execution-plan-header p {
+  margin: 8px 0 0;
+  color: #6c7890;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.execution-plan-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.execution-plan-icon {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border: 0;
+  cursor: default;
+  background: transparent;
+  color: #42516a;
+  font: inherit;
+  font-size: 15px;
+  line-height: 1;
+}
+
+.execution-plan-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 28px;
+  color: #1f2f49;
+  font-size: 14px;
+  font-weight: 760;
+}
+
+.execution-plan-meta span + span::before {
+  margin-right: 8px;
+  color: #8da0ba;
+  content: '·';
+}
+
+.execution-task-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.execution-task-item {
+  display: grid;
+  position: relative;
+  min-height: 120px;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 14px;
+  padding-bottom: 28px;
+}
+
+.execution-task-item:last-child {
+  min-height: 72px;
+  padding-bottom: 0;
+}
+
+.execution-task-rail {
+  display: flex;
+  position: relative;
+  justify-content: center;
+}
+
+.execution-task-item:not(:last-child) .execution-task-rail::after {
+  position: absolute;
+  top: 38px;
+  bottom: -24px;
+  left: 50%;
+  border-left: 2px dashed #d9e5f5;
+  content: '';
+  transform: translateX(-50%);
+}
+
+.execution-task-index {
+  display: grid;
+  position: relative;
+  z-index: 1;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  background: #eaf4ff;
+  color: #1d6ff2;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.execution-task-check {
+  display: grid;
+  position: absolute;
+  top: 5px;
+  right: 0;
+  z-index: 2;
+  width: 20px;
+  height: 20px;
+  place-items: center;
+  border-radius: 50%;
+  background: #18bf63;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.execution-task-content {
+  min-width: 0;
+  padding-top: 4px;
+}
+
+.execution-task-content strong {
+  display: block;
+  color: #1d2c45;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.execution-task-content p {
+  margin: 8px 0 0;
+  color: #79869b;
+  font-size: 13px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.execution-task-tool {
+  margin-top: 8px;
+  color: #1d6ff2;
+}
+
+.execution-task-item.in_progress .execution-task-index {
+  background: #fff4db;
+  color: #d98909;
+}
+
+.execution-task-item.failed .execution-task-index,
+.execution-task-item.blocked .execution-task-index {
+  background: #fff0f2;
+  color: #e5485d;
+}
+
+.execution-task-item.cancelled .execution-task-index {
+  background: #eef2f7;
+  color: #64748b;
+}
+
+.execution-task-empty {
+  display: grid;
+  min-height: 120px;
+  place-items: center;
+  color: #8b9ab0;
+  font-size: 14px;
+}
+
 .stream-stage {
   display: grid;
   min-height: 28px;
@@ -3171,25 +3558,63 @@ onBeforeUnmount(() => {
 
 .chat-input-panel {
   display: grid;
+  grid-template-areas:
+    "shortcuts shortcuts"
+    "input actions";
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  padding: 14px;
-  border-top: 1px solid var(--border);
-  background: var(--surface);
+  gap: 12px 16px;
+  margin: 0 32px 8px;
+  padding: 14px 16px;
+  border: 1px solid #d8e4f5;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.06);
+}
+
+.chat-input-shortcuts {
+  display: flex;
+  grid-area: shortcuts;
+  gap: 8px;
+}
+
+.chat-input {
+  grid-area: input;
 }
 
 .chat-input :deep(.el-textarea__inner) {
-  min-height: 76px !important;
+  min-height: 70px !important;
+  padding: 6px 0;
+  border: 0;
+  box-shadow: none;
+  color: #17233c;
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 .chat-actions {
   display: flex;
+  grid-area: actions;
   align-items: flex-end;
   gap: 8px;
 }
 
+.chat-actions .el-button {
+  min-width: 88px;
+  height: 40px;
+  border-radius: 999px;
+  font-weight: 760;
+}
+
+.chat-disclaimer {
+  padding: 4px 16px 14px;
+  color: #8a96aa;
+  font-size: 12px;
+  text-align: center;
+}
+
 @media (max-width: 960px) {
-  .agent-chat-page {
+  .agent-chat-page,
+  .agent-chat-page.with-execution-plan {
     height: auto;
     min-height: 0;
     grid-template-columns: 1fr;
@@ -3203,8 +3628,18 @@ onBeforeUnmount(() => {
     min-height: 560px;
   }
 
+  .execution-plan-panel {
+    height: auto;
+    min-height: 360px;
+  }
+
   .chat-input-panel {
+    grid-template-areas:
+      "shortcuts"
+      "input"
+      "actions";
     grid-template-columns: 1fr;
+    margin: 0 16px 8px;
   }
 
   .chat-actions {

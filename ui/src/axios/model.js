@@ -1,4 +1,4 @@
-import { del, get, post, put, stringifyId } from '@/axios/request'
+import { get, post, stringifyId } from '@/axios/request'
 
 const baseUrl = '/agent'
 
@@ -15,13 +15,13 @@ export const getModelConfig = (id) => {
 }
 
 export const addModelConfig = (data) => {
-  return post(`${baseUrl}/modelConfig/save`, data)
+  return post(`${baseUrl}/modelConfig/create`, data)
 }
 
 export const updateModelConfig = (data) => {
-  return put(baseUrl, data)
+  return post(`${baseUrl}/modelConfig/update`, data)
 }
 
 export const deleteModelConfig = (id) => {
-  return del(`${baseUrl}/modelConfig/${stringifyId(id)}`)
+  return get(`${baseUrl}/modelConfig/delete/${stringifyId(id)}`)
 }
