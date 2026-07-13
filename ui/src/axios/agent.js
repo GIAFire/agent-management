@@ -2,6 +2,10 @@ import { del, get, post, put, stringifyId } from '@/axios/request'
 
 const baseUrl = '/agent'
 
+export const getAgentInfoList = () => {
+    return get(`${baseUrl}/agent/getAgentInfoList`)
+}
+
 export const listAgent = () => {
   return get(`${baseUrl}/agent/list`)
 }

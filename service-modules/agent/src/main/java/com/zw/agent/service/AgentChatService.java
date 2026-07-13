@@ -21,22 +21,16 @@ public interface AgentChatService {
                                                           UserInfo userInfo,
                                                           Long sessionId,
                                                           String text,
-                                                          Long runId,
-                                                          Long requestStartNs,
-                                                          Long requestStartMs);
+                                                          Long runId);
 
     Flux<ServerSentEvent<AgentStreamResponse>> userConfirmStream(AgentConfigDTO config,
                                                                  UserInfo userInfo,
                                                                  Long sessionId,
-                                                                 AgentInterventionRequest request,
-                                                                 Long requestStartNs,
-                                                                 Long requestStartMs);
+                                                                 AgentInterventionRequest request);
 
     Flux<ServerSentEvent<AgentStreamResponse>> externalExecutionStream(AgentConfigDTO config,
                                                                        UserInfo userInfo,
                                                                        Long sessionId,
-                                                                       AgentInterventionRequest request,
-                                                                       Long requestStartNs,
-                                                                       Long requestStartMs);
+                                                                       AgentInterventionRequest request);
 
 }

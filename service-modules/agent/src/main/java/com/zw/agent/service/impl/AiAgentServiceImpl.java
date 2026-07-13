@@ -46,6 +46,11 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
         return aiAgentMapper.getAgentFullInfo(agentId);
     }
 
+    @Override
+    public List<AgentConfigDTO> getAgentInfoList() {
+        return aiAgentMapper.getAgentInfoList();
+    }
+
     @Transactional(rollbackFor = Exception.class)
     @Override
     public Boolean createAgent(AgentConfigDTO agentVO) {

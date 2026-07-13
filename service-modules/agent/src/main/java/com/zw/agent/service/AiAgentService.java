@@ -4,6 +4,8 @@ import com.zw.agent.entity.AiAgentEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 
+import java.util.List;
+
 /**
  * <p>
  * Agent 定义表：保存一个可视化 Agent 的基础身份信息 服务类
@@ -15,6 +17,8 @@ import com.zw.agent.entity.DTO.AgentConfigDTO;
 public interface AiAgentService extends IService<AiAgentEntity> {
 
     AgentConfigDTO getAgentFullInfo(Long agentId);
+
+    List<AgentConfigDTO> getAgentInfoList();
 
     Boolean createAgent(AgentConfigDTO agentVO);
 }

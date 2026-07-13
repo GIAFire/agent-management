@@ -34,7 +34,7 @@ public class AgentFullConfigService {
      * @return 完整的Agent运行时配置对象，包含租户ID、Agent信息、模型配置、工作空间路径、压缩策略等
      * @throws AgentConfigException 当租户不存在或已停用、Agent不存在或未发布、模型配置无效时抛出异常
      */
-    public AgentConfigDTO loadPublishedConfig(Long tenantId, Long agentId) {
+    public AgentConfigDTO loadPublishedConfig(Long agentId) {
         if (agentId == null) {
             throw new AgentConfigException("agentId 不能为空");
         }

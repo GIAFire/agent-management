@@ -36,13 +36,9 @@ public class AgentChatController {
     @PostMapping(value = "/chatStream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> chatStream(@RequestBody AgentChatRequest request) {
         Long requestStartNs = System.nanoTime();
-        Long requestStartMs = System.currentTimeMillis();
         UserInfo userInfo = UserContext.get();
 
-        AgentConfigDTO agentConfig = agentFullConfigService.loadPublishedConfig(
-                userInfo.getTenantId(),
-                request.getAgentId()
-        );
+        AgentConfigDTO agentConfig = agentFullConfigService.loadPublishedConfig(request.getAgentId());
 
         AiAgentSessionEntity session = agentSessionService.getOrCreateSession(
                 userInfo,
@@ -71,33 +67,21 @@ public class AgentChatController {
                 (System.nanoTime() - requestStartNs) / 1_000_000
         );
 
-        return agentChatService.chatStream(agentConfig,userInfo, session.getId(), request.getContent(),run.getId(),requestStartNs,
-                requestStartMs);
+        return agentChatService.chatStream(agentConfig,userInfo, session.getId(), request.getContent(),run.getId());
     }
 
     @PostMapping(value = "/userConfirm", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> userConfirm(@RequestBody AgentInterventionRequest request) {
-        Long requestStartNs = System.nanoTime();
-        Long requestStartMs = System.currentTimeMillis();
         UserInfo userInfo = UserContext.get();
-        AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(
-                userInfo.getTenantId(),
-                request.getAgentId()
-        );
-        return agentChatService.userConfirmStream(config, userInfo, request.getSessionId(), request,requestStartNs,requestStartMs);
+        AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(request.getAgentId());
+        return agentChatService.userConfirmStream(config, userInfo, request.getSessionId(), request);
     }
 
     @PostMapping(value = "/externalExecution", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> externalExecution(@RequestBody AgentInterventionRequest request) {
-        Long requestStartNs = System.nanoTime();
-        Long requestStartMs = System.currentTimeMillis();
         UserInfo userInfo = UserContext.get();
-        AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(
-                userInfo.getTenantId(),
-                request.getAgentId()
-        );
-        return agentChatService.externalExecutionStream(config, userInfo, request.getSessionId(), request,requestStartNs,
-                requestStartMs);
+        AgentConfigDTO config = agentFullConfigService.loadPublishedConfig(request.getAgentId());
+        return agentChatService.externalExecutionStream(config, userInfo, request.getSessionId(), request);
     }
 
 }

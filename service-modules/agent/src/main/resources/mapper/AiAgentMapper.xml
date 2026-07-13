@@ -156,4 +156,78 @@
         ORDER BY ac.published_at DESC, ac.id DESC
         LIMIT 1
     </select>
+
+    <select id="getAgentInfoList" resultType="com.zw.agent.entity.DTO.AgentConfigDTO">
+        SELECT
+            agent.id AS agentId,
+            agent.agent_code AS agentCode,
+            agent.agent_name AS agentName,
+            agent.description AS agentDescription,
+            agent.agent_type AS agentType,
+            agent.STATUS AS agentStatus,
+            tenant.id AS tenantId,
+            tenant.tenant_name AS tenantName,
+            tenant.STATUS AS tenantStatus,
+            tenant.nacos_namespace_id AS tenantNacosNamespaceId,
+            tenant.remark AS tenantRemark,
+            ac.id AS agentConfigId,
+            ac.version_no AS versionNo,
+            ac.sys_prompt_id AS sysPromptId,
+            ac.model_id AS modelId,
+            ac.max_iters AS maxIters,
+            ac.workspace_path AS workspacePath,
+            ac.permission_mode AS permissionMode,
+            ac.visual_schema_json AS visualSchemaJson,
+            ac.agent_permission_policy_id AS agentPermissionPolicyId,
+            ac.publish_status AS publishStatus,
+            ac.published_at AS publishedAt,
+            ac.context_enabled AS contextEnabled,
+            ac.trigger_messages AS triggerMessages,
+            ac.keep_messages AS keepMessages,
+            ac.trigger_tokens AS triggerTokens,
+            ac.keep_tokens AS keepTokens,
+            ac.flush_before_compact AS flushBeforeCompact,
+            ac.offload_before_compact AS offloadBeforeCompact,
+            ac.compaction_model_config_id AS compactionModelConfigId,
+            ac.truncate_args_enabled AS truncateArgsEnabled,
+            ac.truncate_args_max_chars AS truncateArgsMaxChars,
+            ac.tool_result_eviction_enabled AS toolResultEvictionEnabled,
+            ac.tool_result_max_chars AS toolResultMaxChars,
+            ac.memory_enable AS memoryEnable,
+            ac.plan_mode_enabled AS planModeEnabled,
+            ac.plan_file_directory AS planFileDirectory,
+            ac.task_list_enabled AS taskListEnabled,
+            ac.allow_shell_in_plan_mode AS allowShellInPlanMode,
+            ac.plan_exit_approval_required AS planExitApprovalRequired,
+            ac.plan_max_steps AS planMaxSteps,
+            ac.plan_auto_enter_enabled AS planAutoEnterEnabled,
+            ac.plan_prompt AS planPrompt,
+            ac.sandbox_enabled AS sandboxEnabled,
+            ac.sandbox_config_id AS sandboxConfigId,
+            model.id AS modelId,
+            model.provider AS provider,
+            model.base_URL AS baseUrl,
+            model.api_key AS apiKey,
+            model.model_name AS modelName,
+            model.model_type AS modelType,
+            model.streaming AS streaming,
+            model.thinking AS thinking,
+            model.temperature AS temperature,
+            model.top_p AS topP,
+            model.max_tokens AS maxTokens,
+            model.timeout_ms AS timeoutMs,
+            model.max_attempts AS maxAttempts,
+            model.fallback_model_config_id AS fallbackModelConfigId,
+            model.STATUS AS modelStatus,
+            sp.prompt_name promptName,
+            sp.sys_prompt sysPrompt
+        FROM
+            ai_agent agent
+                LEFT JOIN sys_tenant tenant ON agent.tenant_id = tenant.id
+                LEFT JOIN ai_agent_config ac ON ac.agent_id = agent.id
+                LEFT JOIN ai_agent_model model ON model.id = ac.model_id
+                LEFT JOIN ai_agent_sys_prompt sp ON sp.id = ac.sys_prompt_id
+        ORDER BY
+            agent.created_at ASC
+    </select>
 </mapper>

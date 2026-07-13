@@ -6,6 +6,8 @@ import com.zw.agent.entity.DTO.AgentConfigDTO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * <p>
  * Agent 定义表：保存一个可视化 Agent 的基础身份信息 Mapper 接口
@@ -18,4 +20,6 @@ import org.apache.ibatis.annotations.Param;
 public interface AiAgentMapper extends BaseMapper<AiAgentEntity> {
 
     AgentConfigDTO getAgentFullInfo(@Param("agentId") Long agentId);
+
+    List<AgentConfigDTO> getAgentInfoList();
 }

@@ -27,6 +27,11 @@ import org.springframework.web.bind.annotation.*;
 public class AiAgentController {
     private final AiAgentService aiAgentService;
 
+    @GetMapping("/getAgentInfoList")
+    public Result<List<AgentConfigDTO>> getAgentInfoList() {
+        return Result.ok(aiAgentService.getAgentInfoList());
+    }
+
     @PostMapping("/createAgent")
     public Result<Boolean> createAgent(@RequestBody AgentConfigDTO agentVO) {
         return Result.ok(aiAgentService.createAgent(agentVO));

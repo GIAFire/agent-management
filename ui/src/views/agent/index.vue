@@ -20,7 +20,7 @@ import {
   SetUp,
   Tools
 } from '@element-plus/icons-vue'
-import { createAgentFull, deleteAgent, getAgent, listAgent, updateAgent } from '@/axios/agent'
+import { createAgentFull, deleteAgent, getAgent, getAgentInfoList, updateAgent } from '@/axios/agent'
 import {
   listWizardKnowledgeBases,
   listWizardModels,
@@ -320,7 +320,7 @@ const isSelected = (list, id) => {
 const loadAgentList = async () => {
   loading.value = true
   try {
-    const data = await listAgent()
+    const data = await getAgentInfoList()
     agentRows.value = Array.isArray(data) ? data : []
   } catch {
     agentRows.value = []
@@ -570,14 +570,9 @@ const handleDelete = async (row) => {
 }
 
 const handleChat = (row) => {
-  if (String(row.id).startsWith('demo-')) {
-    ElMessage.info('示例智能体仅用于展示，请先创建真实智能体')
-    return
-  }
-
   router.push({
     name: 'AgentChat',
-    params: { agentId: row.id },
+    params: { agentId: row.agentId },
     query: {
       agentName: row.agentName || undefined,
       agentKey: row.agentKey || row.agentCode || undefined
@@ -627,9 +622,9 @@ onMounted(async () => {
       <el-table v-loading="loading" :data="filteredRows" class="agent-table">
         <el-table-column prop="agentName" label="智能体" min-width="180" />
         <el-table-column prop="agentType" label="类型" min-width="140" />
-        <el-table-column label="当前版本" min-width="140">
+        <el-table-column label="描述" min-width="140">
           <template #default="{ row }">
-            {{ row.currentVersionId || 'v1.0' }}
+            {{ row.agentDescription || 'v1.0' }}
           </template>
         </el-table-column>
         <el-table-column label="模型" min-width="170">
@@ -639,8 +634,8 @@ onMounted(async () => {
         </el-table-column>
         <el-table-column label="状态" width="130">
           <template #default="{ row }">
-            <span class="status-badge" :class="statusMeta(row.status).className">
-              <i />{{ statusMeta(row.status).text }}
+            <span class="status-badge" :class="statusMeta(row.agentStatus).className">
+              <i />{{ statusMeta(row.agentStatus).text }}
             </span>
           </template>
         </el-table-column>
