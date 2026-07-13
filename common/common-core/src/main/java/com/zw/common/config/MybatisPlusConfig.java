@@ -43,6 +43,8 @@ public class MybatisPlusConfig {
                         return "sys_config".equalsIgnoreCase(tableName)
                                 || "sys_dict".equalsIgnoreCase(tableName)
                                 || "sys_user".equalsIgnoreCase(tableName)
+                                || "sys_user_role".equalsIgnoreCase(tableName)
+                                || "sys_role".equalsIgnoreCase(tableName)
                                 || "sys_tenant".equalsIgnoreCase(tableName);
                     }
                 }

@@ -24,17 +24,12 @@ const sessions = ref([])
 const activeSessionId = ref('')
 const inputMessage = ref('')
 const sessionKeyword = ref('')
+const planDrawerOpen = ref(false)
 const streaming = ref(false)
 const autoScrollEnabled = ref(true)
 const messageListRef = ref()
 const abortController = ref(null)
 
-// 网络流和屏幕显示解耦：SSE 增量先进队列，再由动画帧平滑吐字。
-let typewriterFrame = null
-let typewriterQueue = []
-let typewriterMessage = null
-let typewriterSession = null
-let typewriterIdleResolve = null
 let saveTimer = null
 let scrollFrame = null
 let pendingScrollForce = false
@@ -43,7 +38,6 @@ let snowflakeSequence = 0n
 let snowflakeWorkerId = null
 let snowflakeDatacenterId = null
 
-const TYPEWRITER_CHARS_PER_FRAME = 1
 const SCROLL_BOTTOM_THRESHOLD = 64
 const SNOWFLAKE_EPOCH = 1288834974657n
 const SNOWFLAKE_WORKER_ID_BITS = 5n
@@ -140,6 +134,18 @@ const PLAN_STATUS_META = {
   CANCELLED: { label: '已取消', type: 'info' }
 }
 
+const PLAN_STATUS_ALIAS = {
+  RUNNING: 'EXECUTING',
+  IN_PROGRESS: 'EXECUTING',
+  WAITING: 'WAITING_APPROVAL',
+  WAITING_CONFIRM: 'WAITING_APPROVAL',
+  WAITING_USER_CONFIRM: 'WAITING_APPROVAL',
+  DONE: 'COMPLETED',
+  SUCCESS: 'COMPLETED',
+  FINISHED: 'COMPLETED',
+  ERROR: 'FAILED'
+}
+
 const TASK_STATE_META = {
   PENDING: { label: '待执行', type: 'info' },
   IN_PROGRESS: { label: '执行中', type: 'warning' },
@@ -148,6 +154,20 @@ const TASK_STATE_META = {
   FAILED: { label: '失败', type: 'danger' },
   CANCELLED: { label: '已取消', type: 'info' }
 }
+
+const TASK_STATE_ALIAS = {
+  TODO: 'PENDING',
+  WAITING: 'PENDING',
+  RUNNING: 'IN_PROGRESS',
+  EXECUTING: 'IN_PROGRESS',
+  PROCESSING: 'IN_PROGRESS',
+  DONE: 'COMPLETED',
+  SUCCESS: 'COMPLETED',
+  FINISHED: 'COMPLETED',
+  ERROR: 'FAILED'
+}
+
+const PLAN_TOOL_NAMES = new Set(['plan_enter', 'plan_write', 'plan_exit', 'todo_write'])
 
 const getStageKey = (eventType = '') => {
   const normalizedType = String(eventType || '').toUpperCase()
@@ -292,11 +312,28 @@ const toolStatusText = (toolCall) => {
   return '调用中'
 }
 
+const isRecord = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+
 // 统一计划状态大小写，避免后端枚举大小写变化影响展示。
-const normalizePlanStatus = (status = '') => String(status || '').toUpperCase()
+const normalizePlanStatus = (status = '') => {
+  const normalized = String(status || '').toUpperCase()
+  return PLAN_STATUS_ALIAS[normalized] || normalized
+}
 
 // 统一任务状态大小写，并为空状态提供 PENDING 兜底。
-const normalizeTaskState = (state = '') => String(state || 'PENDING').toUpperCase()
+const normalizeTaskState = (state = '') => {
+  const normalized = String(state || 'PENDING').toUpperCase()
+  return TASK_STATE_ALIAS[normalized] || normalized
+}
+
+const normalizePlanToolName = (toolName = '') => String(toolName || '').trim().toLowerCase()
+
+const isPlanToolName = (toolName = '') => PLAN_TOOL_NAMES.has(normalizePlanToolName(toolName))
+
+const isPlanEventType = (type = '') => {
+  const normalized = String(type || '').toUpperCase()
+  return normalized.startsWith('PLAN_') || normalized.startsWith('TODO_')
+}
 
 // 根据计划状态返回标签文案和 Element Plus 标签类型。
 const planStatusMeta = (status) => PLAN_STATUS_META[normalizePlanStatus(status)] || { label: status || '未知', type: 'info' }
@@ -320,10 +357,11 @@ const taskStateType = (state) => taskStateMeta(state).type
 const normalizePlanTask = (task = {}, index = 0) => ({
   id: task.id || `${task.planId || 'plan'}-${task.taskIndex || index + 1}`,
   planId: task.planId || '',
-  taskIndex: Number(task.taskIndex) || index + 1,
-  subject: task.subject || task.title || `任务 ${index + 1}`,
-  detail: task.detail || task.description || '',
-  state: normalizeTaskState(task.state),
+  taskIndex: Number(task.taskIndex ?? task.index ?? task.step ?? task.order) || index + 1,
+  subject: task.subject || task.title || task.name || task.content || task.task || `任务 ${index + 1}`,
+  detail: task.detail || task.description || task.desc || task.summary || '',
+  state: normalizeTaskState(task.state || task.status || task.taskState),
+  priority: task.priority || task.level || '',
   owner: task.owner || '',
   blocks: Array.isArray(task.blocks) ? task.blocks : [],
   blockedBy: Array.isArray(task.blockedBy) ? task.blockedBy : [],
@@ -364,12 +402,16 @@ const normalizePlanProgress = (progress = {}, tasks = []) => {
 
 // 判断当前消息是否已经包含计划或任务信息，决定是否显示 Plan 面板。
 const hasPlanOutput = (message) => {
-  return Boolean(message?.planState || (Array.isArray(message?.planTasks) && message.planTasks.length))
+  return Boolean(
+    message?.planState ||
+    message?.lastPlanEvent ||
+    (Array.isArray(message?.planTasks) && message.planTasks.length)
+  )
 }
 
 // 生成 Plan 面板标题，优先展示计划标题，其次展示计划编号。
 const planPanelTitle = (message) => {
-  return message?.planState?.title || message?.planState?.planNo || 'Plan Mode'
+  return message?.planState?.title || message?.planState?.planNo || '执行计划'
 }
 
 // 生成进度短文案，例如 3/5；没有任务时不展示。
@@ -400,9 +442,39 @@ const executionPlanDurationText = computed(() => {
   return message ? (streamUsageTimeText(message) || streamTotalText(message)) : ''
 })
 
+const executionPlanProgress = computed(() => {
+  const message = activePlanMessage.value
+  return message?.planProgress || buildPlanProgress(message?.planTasks || [])
+})
+
+const planDrawerTaskCount = computed(() => activePlanMessage.value?.planTasks?.length || 0)
+
+const executionPlanEventText = computed(() => {
+  const event = activePlanMessage.value?.lastPlanEvent
+  if (!event?.toolName && !event?.type) {
+    return ''
+  }
+  const toolName = normalizePlanToolName(event.toolName)
+  const labels = {
+    plan_enter: '进入计划',
+    plan_write: '写入计划',
+    todo_write: '同步任务',
+    plan_exit: '申请执行'
+  }
+  return labels[toolName] || event.type || ''
+})
+
+const togglePlanDrawer = () => {
+  planDrawerOpen.value = !planDrawerOpen.value
+}
+
 const executionTaskStateClass = (state) => normalizeTaskState(state).toLowerCase()
 
 const isExecutionTaskDone = (task) => normalizeTaskState(task?.state) === 'COMPLETED'
+
+const isExecutionTaskRunning = (task) => normalizeTaskState(task?.state) === 'IN_PROGRESS'
+
+const taskPriorityClass = (priority = '') => String(priority || '').toLowerCase()
 
 const executionTaskToolLabel = (task = {}) => {
   const block = (task.blocks || []).find((item) => item?.toolCall?.name || item?.toolName || item?.name)
@@ -420,9 +492,158 @@ const executionTaskToolLabel = (task = {}) => {
   return labels[String(toolName).toLowerCase()] || toolName
 }
 
+const hasPlanPayloadShape = (payload) => {
+  return isRecord(payload) && (
+    isRecord(payload.plan) ||
+    Array.isArray(payload.tasks) ||
+    isRecord(payload.progress) ||
+    isPlanToolName(payload.toolName) ||
+    isPlanEventType(payload.type)
+  )
+}
+
+const extractPlanEventPayload = (streamEvent = {}) => {
+  const payload = isRecord(streamEvent.payload) ? streamEvent.payload : null
+  const dataPayload = isRecord(streamEvent.data?.payload) ? streamEvent.data.payload : null
+  const candidates = [
+    payload?.planEvent,
+    payload?.plan_event,
+    dataPayload?.planEvent,
+    dataPayload?.plan_event,
+    payload,
+    dataPayload
+  ]
+
+  return candidates.find(hasPlanPayloadShape) || null
+}
+
+const planStatusFromEvent = (planEvent = {}, currentStatus = '') => {
+  if (planEvent.plan?.status) {
+    return normalizePlanStatus(planEvent.plan.status)
+  }
+
+  const type = String(planEvent.type || '').toUpperCase()
+  if (type.includes('EXIT_REQUEST') || type.includes('WAITING')) {
+    return 'WAITING_APPROVAL'
+  }
+  if (type.includes('APPROVE') || type.includes('EXECUTING')) {
+    return 'EXECUTING'
+  }
+  if (type.includes('REJECT')) {
+    return 'REJECTED'
+  }
+  if (type.includes('CANCEL')) {
+    return 'CANCELLED'
+  }
+  if (type.includes('FAILED') || type.includes('ERROR')) {
+    return 'FAILED'
+  }
+  if (type.includes('TODO')) {
+    return currentStatus ? normalizePlanStatus(currentStatus) : 'EXECUTING'
+  }
+  if (type.includes('START') || type.includes('ENTER') || type.includes('WRITE')) {
+    return currentStatus ? normalizePlanStatus(currentStatus) : 'DRAFT'
+  }
+
+  return currentStatus ? normalizePlanStatus(currentStatus) : 'EXECUTING'
+}
+
+const planTitleFromEvent = (planEvent = {}) => {
+  if (planEvent.plan?.title || planEvent.plan?.planNo) {
+    return planEvent.plan.title || planEvent.plan.planNo
+  }
+  if (isPlanToolName(planEvent.toolName)) {
+    const labels = {
+      plan_enter: '进入计划模式',
+      plan_write: '生成执行计划',
+      todo_write: '同步任务列表',
+      plan_exit: '申请执行计划'
+    }
+    return labels[normalizePlanToolName(planEvent.toolName)] || '执行计划'
+  }
+  return '执行计划'
+}
+
+const parseJsonLikeText = (text = '') => {
+  const value = String(text || '').trim()
+  if (!value) {
+    return null
+  }
+
+  const tryParse = (candidate) => {
+    try {
+      return JSON.parse(candidate)
+    } catch {
+      return null
+    }
+  }
+
+  const direct = tryParse(value)
+  if (direct) {
+    return direct
+  }
+
+  const fenceMatch = value.match(/```(?:json)?\s*([\s\S]*?)```/i)
+  if (fenceMatch) {
+    const fenced = tryParse(fenceMatch[1].trim())
+    if (fenced) {
+      return fenced
+    }
+  }
+
+  const objectStart = value.indexOf('{')
+  const objectEnd = value.lastIndexOf('}')
+  if (objectStart >= 0 && objectEnd > objectStart) {
+    const objectValue = tryParse(value.slice(objectStart, objectEnd + 1))
+    if (objectValue) {
+      return objectValue
+    }
+  }
+
+  const arrayStart = value.indexOf('[')
+  const arrayEnd = value.lastIndexOf(']')
+  if (arrayStart >= 0 && arrayEnd > arrayStart) {
+    return tryParse(value.slice(arrayStart, arrayEnd + 1))
+  }
+
+  return null
+}
+
+const extractTasksFromParsedPayload = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload
+  }
+  if (!isRecord(payload)) {
+    return []
+  }
+  const keys = ['tasks', 'todos', 'todoList', 'taskList', 'items', 'list']
+  for (const key of keys) {
+    if (Array.isArray(payload[key])) {
+      return payload[key]
+    }
+  }
+  return []
+}
+
+const extractPlanFromParsedPayload = (payload) => {
+  if (!isRecord(payload)) {
+    return null
+  }
+  if (isRecord(payload.plan)) {
+    return payload.plan
+  }
+  const plan = {}
+  if (payload.title || payload.goal || payload.content || payload.planContent) {
+    plan.title = payload.title || ''
+    plan.goal = payload.goal || ''
+    plan.planContent = payload.planContent || payload.content || ''
+  }
+  return Object.keys(plan).length ? plan : null
+}
+
 // 将 SSE 中的 planEvent 快照合并到当前 assistant 消息，驱动计划面板实时刷新。
 const applyPlanEventPayload = (message, streamEvent) => {
-  const planEvent = streamEvent?.payload?.planEvent
+  const planEvent = extractPlanEventPayload(streamEvent)
   if (!message || !planEvent) {
     return false
   }
@@ -435,14 +656,44 @@ const applyPlanEventPayload = (message, streamEvent) => {
     }
   }
 
-  if (Array.isArray(planEvent.tasks)) {
-    // todo_write 每次都是完整任务列表，这里也按完整快照覆盖本地状态。
-    message.planTasks = planEvent.tasks.map(normalizePlanTask)
-  } else if (!Array.isArray(message.planTasks)) {
-    message.planTasks = []
+  if (!message.planState) {
+    message.planState = {
+      title: planTitleFromEvent(planEvent),
+      status: planStatusFromEvent(planEvent)
+    }
+  } else {
+    message.planState = {
+      ...message.planState,
+      status: planStatusFromEvent(planEvent, message.planState.status)
+    }
+    if (!message.planState.title) {
+      message.planState.title = planTitleFromEvent(planEvent)
+    }
   }
 
-  message.planProgress = normalizePlanProgress(planEvent.progress, message.planTasks || [])
+  const currentTasks = Array.isArray(message.planTasks) ? message.planTasks : []
+  const incomingTasks = Array.isArray(planEvent.tasks)
+    ? planEvent.tasks.map(normalizePlanTask)
+    : null
+
+  if (incomingTasks?.length) {
+    // todo_write 每次都是完整任务列表，这里按非空快照覆盖本地状态。
+    message.planTasks = incomingTasks
+  } else if (!Array.isArray(message.planTasks)) {
+    message.planTasks = []
+  } else {
+    // plan_enter/plan_write 等事件可能携带空 tasks，不应清空 todo_write 已解析出的任务列表。
+    message.planTasks = currentTasks
+  }
+
+  const progressTotal = Number(planEvent.progress?.total)
+  const shouldUseIncomingProgress = incomingTasks?.length ||
+    !message.planTasks.length ||
+    (Number.isFinite(progressTotal) && progressTotal > 0)
+  message.planProgress = normalizePlanProgress(
+    shouldUseIncomingProgress ? planEvent.progress : {},
+    message.planTasks || []
+  )
   message.lastPlanEvent = {
     type: planEvent.type || '',
     toolName: planEvent.toolName || '',
@@ -450,6 +701,60 @@ const applyPlanEventPayload = (message, streamEvent) => {
   }
   message.planExpanded = message.planExpanded ?? true
   return true
+}
+
+const applyPlanFallbackFromTool = (message) => {
+  if (!message || !Array.isArray(message.toolCalls) || !message.toolCalls.length) {
+    return false
+  }
+
+  const toolCall = message.toolCalls[message.toolCalls.length - 1]
+  const toolName = normalizePlanToolName(toolCall?.name)
+  if (!isPlanToolName(toolName)) {
+    return false
+  }
+
+  const parsedInput = parseJsonLikeText(toolCall.rawInput || '')
+  const parsedResult = parseJsonLikeText(toolCall.rawResult || toolCall.result || '')
+  const tasks = extractTasksFromParsedPayload(parsedResult).length
+    ? extractTasksFromParsedPayload(parsedResult)
+    : extractTasksFromParsedPayload(parsedInput)
+  const planFromTool = extractPlanFromParsedPayload(parsedResult) || extractPlanFromParsedPayload(parsedInput)
+  let changed = false
+
+  if (!message.planState) {
+    message.planState = {
+      title: planTitleFromEvent({ toolName }),
+      status: toolName === 'todo_write' ? 'EXECUTING' : 'DRAFT'
+    }
+    changed = true
+  }
+
+  if (planFromTool) {
+    message.planState = {
+      ...message.planState,
+      ...planFromTool
+    }
+    changed = true
+  }
+
+  if (tasks.length) {
+    message.planTasks = tasks.map(normalizePlanTask)
+    message.planProgress = normalizePlanProgress({}, message.planTasks)
+    changed = true
+  }
+
+  if (changed || isPlanToolName(toolName)) {
+    message.lastPlanEvent = {
+      type: `${toolName.toUpperCase()}_STREAM`,
+      toolName,
+      occurredAt: nowText()
+    }
+    message.planExpanded = true
+    return true
+  }
+
+  return false
 }
 
 // 切换 Plan 面板展开状态，并持久化到本地会话缓存。
@@ -651,6 +956,8 @@ const createToolCall = (name = '') => {
     name: name || '工具调用',
     process: '',
     result: '',
+    rawInput: '',
+    rawResult: '',
     status: 'running',
     argumentStarted: false,
     resultStarted: false,
@@ -739,6 +1046,8 @@ const normalizeAuxiliaryBlock = (block, index = 0) => {
       name: block.toolCall?.name || '工具调用',
       process: block.toolCall?.process || '',
       result: block.toolCall?.result || '',
+      rawInput: block.toolCall?.rawInput || '',
+      rawResult: block.toolCall?.rawResult || '',
       status: block.toolCall?.status || block.status || 'done',
       argumentStarted: Boolean(block.toolCall?.argumentStarted),
       resultStarted: Boolean(block.toolCall?.resultStarted),
@@ -783,6 +1092,8 @@ const normalizeStoredToolCalls = (message) => {
       name: toolCall.name || '工具调用',
       process: toolCall.process || '',
       result: toolCall.result || '',
+      rawInput: toolCall.rawInput || '',
+      rawResult: toolCall.rawResult || '',
       status: toolCall.status || 'done',
       argumentStarted: Boolean(toolCall.argumentStarted),
       resultStarted: Boolean(toolCall.resultStarted),
@@ -1094,6 +1405,7 @@ const appendToolEvent = (message, streamEvent) => {
       appendToolLine(toolCall, 'process', '调用参数：')
       toolCall.argumentStarted = true
     }
+    toolCall.rawInput = `${toolCall.rawInput || ''}${delta}`
     appendToolText(toolCall, 'process', delta)
     touchAuxiliaryBlock(block, 'running')
     return true
@@ -1115,12 +1427,14 @@ const appendToolEvent = (message, streamEvent) => {
   }
 
   if (isToolResultTextDeltaEvent(streamEvent)) {
+    toolCall.rawResult = `${toolCall.rawResult || ''}${delta}`
     appendToolText(toolCall, 'result', delta)
     touchAuxiliaryBlock(block, 'running')
     return true
   }
 
   if (isToolResultDataDeltaEvent(streamEvent)) {
+    toolCall.rawResult = `${toolCall.rawResult || ''}${delta}`
     appendToolText(toolCall, 'result', delta)
     touchAuxiliaryBlock(block, 'running')
     return true
@@ -1404,7 +1718,6 @@ const recordStreamEvent = (message, streamEvent) => {
   timing.totalMs = now - timing.startedAt
   message.streamStatus = eventType === 'ERROR' ? 'error' : 'running'
 
-  scheduleSaveSessions()
   scheduleScrollToBottom()
 }
 
@@ -1446,6 +1759,10 @@ const appendAuxiliaryDelta = (message, session, streamEvent) => {
       changed = true
     }
 
+    if (applyPlanFallbackFromTool(message)) {
+      changed = true
+    }
+
     if (appendInterventionEvent(message, streamEvent)) {
       changed = true
     }
@@ -1463,7 +1780,6 @@ const appendAuxiliaryDelta = (message, session, streamEvent) => {
     session.updatedAt = nowText()
   }
 
-  scheduleSaveSessions()
   scheduleScrollToBottom()
 }
 
@@ -1520,7 +1836,7 @@ const finishStreamEvents = (message, status = 'done') => {
 }
 
 const messageText = (message) => {
-  return message.displayContent ?? message.content ?? ''
+  return message.content ?? message.displayContent ?? ''
 }
 
 const messageDisplayText = (message) => {
@@ -1692,100 +2008,24 @@ const scheduleScrollToBottom = (force = false) => {
   })
 }
 
-const cancelTypewriterFrame = () => {
-  if (typewriterFrame) {
-    window.cancelAnimationFrame(typewriterFrame)
-    typewriterFrame = null
-  }
-}
-
-const resolveTypewriterIdle = () => {
-  if (typewriterIdleResolve) {
-    typewriterIdleResolve()
-    typewriterIdleResolve = null
-  }
-}
-
-const drainTypewriter = () => {
-  typewriterFrame = null
-
-  if (!typewriterMessage || !typewriterQueue.length) {
-    resolveTypewriterIdle()
-    return
-  }
-
-  const nextText = typewriterQueue.splice(0, TYPEWRITER_CHARS_PER_FRAME).join('')
-  // 只更新 displayContent，content 保留完整原文，形成 ChatGPT 式平滑输出。
-  typewriterMessage.displayContent = `${typewriterMessage.displayContent || ''}${nextText}`
-  typewriterMessage.pending = false
-  typewriterMessage.typing = true
-
-  scheduleSaveSessions()
-  scheduleScrollToBottom()
-
-  if (typewriterQueue.length) {
-    startTypewriter()
-  } else {
-    resolveTypewriterIdle()
-  }
-}
-
-const startTypewriter = () => {
-  if (!typewriterFrame) {
-    typewriterFrame = window.requestAnimationFrame(drainTypewriter)
-  }
-}
-
-const pushTypewriterText = (message, session, delta) => {
+const appendStreamText = (message, session, delta) => {
   if (!delta) {
     return
   }
 
-  typewriterMessage = message
-  typewriterSession = session
-  // content 立即累计完整回复，displayContent 由打字机逐帧追上。
   message.content = `${message.content || ''}${delta}`
-  message.displayContent = message.displayContent ?? ''
-  typewriterQueue.push(...Array.from(delta))
+  message.displayContent = message.content
   message.pending = false
   message.typing = true
-  startTypewriter()
+  if (session) {
+    session.updatedAt = nowText()
+  }
+  scheduleScrollToBottom()
 }
 
-const flushTypewriter = () => {
-  cancelTypewriterFrame()
-
-  if (typewriterMessage && typewriterQueue.length) {
-    typewriterMessage.displayContent = typewriterMessage.content || `${typewriterMessage.displayContent || ''}${typewriterQueue.join('')}`
-    typewriterMessage.pending = false
-    typewriterMessage.typing = false
-    if (typewriterSession) {
-      typewriterSession.updatedAt = nowText()
-    }
-    typewriterQueue = []
-  }
-
+const flushStreamText = () => {
   flushScheduledSave()
   scheduleScrollToBottom()
-  resolveTypewriterIdle()
-}
-
-const resetTypewriter = () => {
-  cancelTypewriterFrame()
-  typewriterQueue = []
-  typewriterMessage = null
-  typewriterSession = null
-  resolveTypewriterIdle()
-}
-
-const waitTypewriterIdle = () => {
-  if (!typewriterQueue.length && !typewriterFrame) {
-    return Promise.resolve()
-  }
-
-  return new Promise((resolve) => {
-    typewriterIdleResolve = resolve
-  })
 }
 
 const applyRouteAgentInfo = () => {
@@ -2002,11 +2242,10 @@ const runAssistantStream = async (streamer, data, assistantMessage, session) => 
         }
       },
       onMessage: (delta) => {
-        pushTypewriterText(assistantMessage, session, delta)
+        appendStreamText(assistantMessage, session, delta)
       },
       onError: (message) => {
         finishStreamEvents(assistantMessage, 'error')
-        resetTypewriter()
         assistantMessage.content = message
         assistantMessage.displayContent = message
         assistantMessage.pending = false
@@ -2028,7 +2267,6 @@ const runAssistantStream = async (streamer, data, assistantMessage, session) => 
     }
   )
 
-  await waitTypewriterIdle()
   assistantMessage.pending = false
   assistantMessage.typing = false
   assistantMessage.displayContent = assistantMessage.content
@@ -2157,7 +2395,6 @@ const sendMessage = async () => {
   const backendSessionId = getBackendSessionId(session)
   saveSessions()
 
-  resetTypewriter()
   streaming.value = true
   abortController.value = new AbortController()
 
@@ -2174,7 +2411,7 @@ const sendMessage = async () => {
     )
     await handlePendingInterventions(assistantMessage, session, backendSessionId, pendingIntervention)
   } catch (error) {
-    flushTypewriter()
+    flushStreamText()
     finishStreamEvents(assistantMessage, error.name === 'AbortError' ? 'done' : 'error')
     if (error.name === 'AbortError') {
       assistantMessage.content = assistantMessage.content || '已停止生成'
@@ -2198,7 +2435,7 @@ watch(
   () => route.params.agentId,
   () => {
     stopStream()
-    resetTypewriter()
+    planDrawerOpen.value = false
     applyRouteAgentInfo()
     loadSessions()
   },
@@ -2207,7 +2444,6 @@ watch(
 
 onBeforeUnmount(() => {
   stopStream()
-  resetTypewriter()
 
   if (saveTimer) {
     clearTimeout(saveTimer)
@@ -2225,13 +2461,9 @@ onBeforeUnmount(() => {
 <template>
   <section
     class="agent-chat-page"
-    :class="{ 'with-execution-plan': showExecutionPlan }"
+    :class="{ 'is-plan-drawer-open': planDrawerOpen }"
   >
     <aside class="chat-session-panel">
-      <div class="session-panel-header">
-        <h2>对话</h2>
-      </div>
-
       <el-button
         class="new-session-button"
         type="primary"
@@ -2460,17 +2692,25 @@ onBeforeUnmount(() => {
           </el-button>
         </div>
       </footer>
-      <div class="chat-disclaimer">
-        Agent 生成的内容可能存在误差，请核实重要信息
-      </div>
     </section>
 
+    <button
+      class="plan-drawer-toggle"
+      type="button"
+      :aria-expanded="planDrawerOpen"
+      @click="togglePlanDrawer"
+    >
+      <span>{{ planDrawerOpen ? '收起计划' : '执行计划' }}</span>
+      <small v-if="planDrawerTaskCount">{{ planDrawerTaskCount }}</small>
+    </button>
+
     <aside
-      v-if="showExecutionPlan"
       class="execution-plan-panel"
+      :class="{ open: planDrawerOpen }"
+      :aria-hidden="!planDrawerOpen"
     >
       <header class="execution-plan-header">
-        <div>
+        <div class="execution-plan-title">
           <h3>执行计划</h3>
           <p v-if="activePlanMessage?.planState?.title || activePlanMessage?.planState?.planNo">
             {{ planPanelTitle(activePlanMessage) }}
@@ -2483,25 +2723,24 @@ onBeforeUnmount(() => {
           >
             {{ planStatusText(activePlanMessage?.planState?.status) }}
           </el-tag>
-          <span
-            class="execution-plan-icon"
-            aria-hidden="true"
-          >
-            ^
-          </span>
-          <span
-            class="execution-plan-icon"
-            aria-hidden="true"
-          >
-            ...
-          </span>
         </div>
       </header>
 
       <div class="execution-plan-meta">
-        <span>本次任务</span>
+        <span v-if="executionPlanEventText">{{ executionPlanEventText }}</span>
+        <span v-else>本次任务</span>
         <span v-if="executionPlanDurationText">用时 {{ executionPlanDurationText }}</span>
         <span v-if="planProgressText(activePlanMessage)">进度 {{ planProgressText(activePlanMessage) }}</span>
+      </div>
+
+      <div
+        v-if="executionPlanProgress.total"
+        class="execution-plan-progress"
+      >
+        <div class="execution-progress-bar">
+          <span :style="{ width: `${executionPlanProgress.percent || 0}%` }" />
+        </div>
+        <small>{{ executionPlanProgress.completed }}/{{ executionPlanProgress.total }} 完成</small>
       </div>
 
       <ol
@@ -2516,23 +2755,18 @@ onBeforeUnmount(() => {
         >
           <div class="execution-task-rail">
             <span class="execution-task-index">{{ task.taskIndex || taskIndex + 1 }}</span>
-            <span
-              v-if="isExecutionTaskDone(task)"
-              class="execution-task-check"
-            >
-              ✓
-            </span>
           </div>
           <div class="execution-task-content">
-            <strong>{{ task.subject }}</strong>
-            <el-tag
+            <div class="execution-task-head">
+              <strong>{{ task.subject }}</strong>
+              <span class="execution-task-state">{{ taskStateText(task.state) }}</span>
+            </div>
+            <span
               v-if="executionTaskToolLabel(task)"
               class="execution-task-tool"
-              size="small"
-              effect="plain"
             >
               {{ executionTaskToolLabel(task) }}
-            </el-tag>
+            </span>
             <p v-if="task.detail">{{ task.detail }}</p>
           </div>
         </li>
@@ -2541,7 +2775,8 @@ onBeforeUnmount(() => {
         v-else
         class="execution-task-empty"
       >
-        计划生成中...
+        <strong>{{ activePlanMessage ? '计划生成中' : '暂无执行计划' }}</strong>
+        <span>{{ activePlanMessage?.lastPlanEvent?.occurredAt || (activePlanMessage ? '正在等待任务列表' : 'Agent 生成计划后会在这里更新') }}</span>
       </div>
     </aside>
   </section>
@@ -2553,16 +2788,18 @@ onBeforeUnmount(() => {
 }
 .agent-chat-page {
   display: grid;
-  height: calc(100vh - 142px);
+  position: relative;
+  height: calc(100vh - 80px);
   min-height: 560px;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 230px minmax(0, 1fr);
   padding: 5px;
   margin: -30px;  /* 反向偏移，抵消父元素的 padding */
   gap: 5px;
+  overflow: hidden;
 }
 
 .agent-chat-page.with-execution-plan {
-  grid-template-columns: 300px minmax(0, 1fr) 320px;
+  grid-template-columns: 230px minmax(0, 1fr);
 }
 
 .chat-session-panel,
@@ -2599,7 +2836,7 @@ onBeforeUnmount(() => {
 
 .new-session-button {
   width: 100%;
-  height: 44px;
+  height: 35px;
   margin-bottom: 14px;
   border-radius: 8px;
   font-weight: 760;
@@ -2610,7 +2847,7 @@ onBeforeUnmount(() => {
 }
 
 .session-search :deep(.el-input__wrapper) {
-  min-height: 44px;
+  min-height: 35px;
   border-radius: 8px;
 }
 
@@ -3253,76 +3490,156 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 
+.plan-drawer-toggle {
+  position: absolute;
+  top: 88px;
+  right: 12px;
+  z-index: 10;
+  display: inline-flex;
+  height: 34px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #cfe0f8;
+  border-radius: 999px;
+  padding: 0 10px;
+  cursor: pointer;
+  color: #1d6ff2;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(42, 87, 143, 0.12);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  transition: right 180ms ease, background 180ms ease, color 180ms ease;
+}
+
+.plan-drawer-toggle:hover,
+.agent-chat-page.is-plan-drawer-open .plan-drawer-toggle {
+  color: #ffffff;
+  background: #1d6ff2;
+}
+
+.agent-chat-page.is-plan-drawer-open .plan-drawer-toggle {
+  right: 244px;
+}
+
+.plan-drawer-toggle small {
+  display: grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgba(29, 111, 242, 0.12);
+  color: inherit;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .execution-plan-panel {
   display: flex;
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  bottom: 5px;
+  z-index: 9;
   flex-direction: column;
-  height: 100%;
-  padding: 24px 22px;
+  width: 230px;
+  height: auto;
+  padding: 16px 12px;
   overflow-y: auto;
+  transform: translateX(calc(100% + 12px));
+  transition: transform 180ms ease;
+  pointer-events: none;
+}
+
+.execution-plan-panel.open {
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .execution-plan-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 24px;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.execution-plan-title {
+  min-width: 0;
 }
 
 .execution-plan-header h3 {
   margin: 0;
   color: #0f1f3a;
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 820;
   letter-spacing: 0;
 }
 
 .execution-plan-header p {
-  margin: 8px 0 0;
+  margin: 5px 0 0;
+  overflow: hidden;
   color: #6c7890;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .execution-plan-actions {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-}
-
-.execution-plan-icon {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  border: 0;
-  cursor: default;
-  background: transparent;
-  color: #42516a;
-  font: inherit;
-  font-size: 15px;
-  line-height: 1;
+  flex: 0 0 auto;
 }
 
 .execution-plan-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 28px;
+  gap: 5px 8px;
+  margin-bottom: 10px;
   color: #1f2f49;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 760;
 }
 
 .execution-plan-meta span + span::before {
-  margin-right: 8px;
+  margin-right: 6px;
   color: #8da0ba;
   content: '·';
 }
 
+.execution-plan-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.execution-progress-bar {
+  overflow: hidden;
+  height: 6px;
+  border-radius: 999px;
+  background: #e5eef9;
+}
+
+.execution-progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1d6ff2, #5aa2ff);
+  transition: width 180ms ease;
+}
+
+.execution-plan-progress small {
+  color: #64748b;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
 .execution-task-list {
   display: grid;
-  gap: 0;
+  gap: 10px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -3331,14 +3648,14 @@ onBeforeUnmount(() => {
 .execution-task-item {
   display: grid;
   position: relative;
-  min-height: 120px;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 14px;
-  padding-bottom: 28px;
+  min-height: 0;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 8px;
+  padding: 0;
 }
 
 .execution-task-item:last-child {
-  min-height: 72px;
+  min-height: 0;
   padding-bottom: 0;
 }
 
@@ -3350,8 +3667,8 @@ onBeforeUnmount(() => {
 
 .execution-task-item:not(:last-child) .execution-task-rail::after {
   position: absolute;
-  top: 38px;
-  bottom: -24px;
+  top: 30px;
+  bottom: -10px;
   left: 50%;
   border-left: 2px dashed #d9e5f5;
   content: '';
@@ -3362,62 +3679,115 @@ onBeforeUnmount(() => {
   display: grid;
   position: relative;
   z-index: 1;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   place-items: center;
   border-radius: 50%;
   background: #eaf4ff;
   color: #1d6ff2;
-  font-size: 16px;
-  font-weight: 800;
-}
-
-.execution-task-check {
-  display: grid;
-  position: absolute;
-  top: 5px;
-  right: 0;
-  z-index: 2;
-  width: 20px;
-  height: 20px;
-  place-items: center;
-  border-radius: 50%;
-  background: #18bf63;
-  color: #ffffff;
   font-size: 13px;
   font-weight: 800;
 }
 
+
 .execution-task-content {
   min-width: 0;
-  padding-top: 4px;
+  padding: 2px 0 10px;
+}
+
+.execution-task-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: start;
+  gap: 6px;
 }
 
 .execution-task-content strong {
   display: block;
   color: #1d2c45;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
 
+.execution-task-state {
+  border-radius: 999px;
+  padding: 2px 6px;
+  color: #1d6ff2;
+  background: #eef5ff;
+  font-size: 11px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
 .execution-task-content p {
-  margin: 8px 0 0;
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 5px 0 0;
   color: #79869b;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.55;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .execution-task-tool {
-  margin-top: 8px;
+  display: inline-flex;
+  max-width: 100%;
+  margin-top: 5px;
+  border-radius: 6px;
+  padding: 2px 6px;
+  overflow: hidden;
   color: #1d6ff2;
+  background: #eff6ff;
+  font-size: 11px;
+  font-weight: 760;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.execution-task-priority {
+  display: inline-flex;
+  margin: 5px 0 0 5px;
+  border-radius: 6px;
+  padding: 2px 6px;
+  color: #64748b;
+  background: #f1f5f9;
+  font-size: 11px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.execution-task-priority.high {
+  color: #d92d45;
+  background: #fff0f2;
+}
+
+.execution-task-priority.medium {
+  color: #b77904;
+  background: #fff7df;
+}
+
+.execution-task-priority.low {
+  color: #159252;
+  background: #eafaf1;
 }
 
 .execution-task-item.in_progress .execution-task-index {
   background: #fff4db;
   color: #d98909;
+}
+
+.execution-task-item.in_progress .execution-task-state {
+  color: #b77904;
+  background: #fff7df;
+}
+
+.execution-task-item.completed .execution-task-state {
+  color: #159252;
+  background: #eafaf1;
 }
 
 .execution-task-item.failed .execution-task-index,
@@ -3426,17 +3796,40 @@ onBeforeUnmount(() => {
   color: #e5485d;
 }
 
+.execution-task-item.failed .execution-task-state,
+.execution-task-item.blocked .execution-task-state {
+  color: #d92d45;
+  background: #fff0f2;
+}
+
 .execution-task-item.cancelled .execution-task-index {
   background: #eef2f7;
   color: #64748b;
 }
 
+.execution-task-item.cancelled .execution-task-state {
+  color: #64748b;
+  background: #eef2f7;
+}
+
 .execution-task-empty {
-  display: grid;
-  min-height: 120px;
-  place-items: center;
+  display: flex;
+  min-height: 92px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px dashed #d9e5f5;
+  border-radius: 10px;
+  background: #f8fbff;
   color: #8b9ab0;
-  font-size: 14px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.execution-task-empty strong {
+  color: #1d2c45;
+  font-size: 13px;
 }
 
 .stream-stage {
@@ -3629,8 +4022,12 @@ onBeforeUnmount(() => {
   }
 
   .execution-plan-panel {
-    height: auto;
+    width: min(280px, calc(100% - 20px));
     min-height: 360px;
+  }
+
+  .agent-chat-page.is-plan-drawer-open .plan-drawer-toggle {
+    right: min(292px, calc(100% - 86px));
   }
 
   .chat-input-panel {
