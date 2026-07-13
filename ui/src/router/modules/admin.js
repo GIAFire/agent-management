@@ -22,7 +22,7 @@ export const adminRoutes = [
             path: 'manage',
             name: 'AgentManage',
             component: () => import('@/views/agent/index.vue'),
-            meta: { title: '智能体管理', icon: 'Cpu' }
+            meta: { title: '智能体', icon: 'Cpu' }
           },
           {
             path: 'chat/:agentId',
@@ -34,49 +34,49 @@ export const adminRoutes = [
             path: 'agent-config',
             name: 'agentConfigManage',
             component: () => import('@/views/agentConfig/index.vue'),
-            meta: { title: '智能体配置', icon: 'Document' }
+            meta: { title: '运行中心', icon: 'Document', section: 'RUNTIME CENTER' }
           },
           {
             path: 'model',
             name: 'ModelManage',
             component: () => import('@/views/model/index.vue'),
-            meta: { title: '模型管理', icon: 'Connection' }
+            meta: { title: '模型', icon: 'Connection', section: 'MODEL PROVIDERS' }
           },
           {
             path: 'knowledge',
             name: 'KnowledgeManage',
             component: () => import('@/views/knowledge/index.vue'),
-            meta: { title: '知识库管理', icon: 'Collection' }
+            meta: { title: '知识库', icon: 'Collection', section: 'KNOWLEDGE & RAG' }
           },
           {
             path: 'tool',
             name: 'ToolManage',
             component: () => import('@/views/tool/index.vue'),
-            meta: { title: '工具管理', icon: 'Tools' }
+            meta: { title: '工具管理', icon: 'Tools', section: 'TOOLS & SKILLS' }
           },
           {
             path: 'skill-package',
             name: 'SkillPackageManage',
             component: () => import('@/views/skillPackage/index.vue'),
-            meta: { title: '技能包管理', icon: 'Box' }
+            meta: { title: '技能包管理', icon: 'Box', section: 'TOOLS & SKILLS' }
           },
           {
             path: 'mcp',
             name: 'McpManage',
             component: () => import('@/views/mcp/index.vue'),
-            meta: { title: 'MCP管理', icon: 'Share' }
+            meta: { title: '沙箱', icon: 'Share', section: 'SANDBOX' }
           },
           {
             path: 'hook',
             name: 'HookManage',
             component: () => import('@/views/hook/index.vue'),
-            meta: { title: '钩子管理', icon: 'Link' }
+            meta: { title: '钩子管理', icon: 'Link', section: 'SANDBOX' }
           },
           {
             path: 'sensitive-word',
             name: 'SensitiveWordManage',
             component: () => import('@/views/sensitiveWord/index.vue'),
-            meta: { title: '敏感词管理', icon: 'Warning' }
+            meta: { title: '敏感词管理', icon: 'Warning', section: 'SANDBOX' }
           }
         ]
       },
@@ -90,13 +90,13 @@ export const adminRoutes = [
             path: 'tenant',
             name: 'TenantManage',
             component: () => import('@/views/tenant/index.vue'),
-            meta: { title: '租户管理', icon: 'OfficeBuilding' }
+            meta: { title: '租户管理', icon: 'OfficeBuilding', section: 'TENANT & ACCESS' }
           },
           {
             path: 'manage',
             name: 'UserManage',
             component: () => import('@/views/user/index.vue'),
-            meta: { title: '用户管理', icon: 'User' }
+            meta: { title: '用户管理', icon: 'User', section: 'TENANT & ACCESS' }
           }
         ]
       }

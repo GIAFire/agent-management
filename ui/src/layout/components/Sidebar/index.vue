@@ -4,10 +4,10 @@ import { useRoute } from 'vue-router'
 import {
   Box,
   Briefcase,
+  Collection,
   Grid,
   Monitor,
   Operation,
-  Reading,
   Tools,
   User
 } from '@element-plus/icons-vue'
@@ -17,11 +17,11 @@ const route = useRoute()
 const navItems = [
   { title: '总览', path: '/overview', icon: Grid },
   { title: '智能体', path: '/agent/manage', icon: Briefcase },
-  { title: '配置中心', path: '/agent/agent-config', icon: Operation },
-  { title: '知识库', path: '/agent/knowledge', icon: Reading },
+  { title: '运行中心', path: '/agent/agent-config', icon: Monitor },
+  { title: '知识库', path: '/agent/knowledge', icon: Collection },
   { title: '工具与技能', path: '/agent/tool', icon: Tools, match: ['/agent/tool', '/agent/skill-package'] },
   { title: '模型', path: '/agent/model', icon: Box },
-  { title: '沙箱', path: '/agent/mcp', icon: Monitor, match: ['/agent/mcp', '/agent/hook', '/agent/sensitive-word'] },
+  { title: '沙箱', path: '/agent/mcp', icon: Operation, match: ['/agent/mcp', '/agent/hook', '/agent/sensitive-word'] },
   { title: '租户与权限', path: '/user/manage', icon: User, match: ['/user/manage', '/user/tenant'] }
 ]
 
@@ -65,7 +65,7 @@ const isActive = (item) => {
         全部服务运行正常
       </div>
       <button class="collapse-button" type="button" aria-label="收起侧栏">
-        ‹
+        &lt;&lt;
       </button>
     </div>
   </aside>

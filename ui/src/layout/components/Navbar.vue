@@ -7,7 +7,7 @@ import { clearAuth, getUser } from '@/utils/auth'
 const route = useRoute()
 const router = useRouter()
 const title = computed(() => route.meta.title || '后台管理')
-const section = computed(() => route.meta.section || 'AGENT MANAGEMENT')
+const section = computed(() => route.meta.section || '')
 const user = getUser()
 const userName = user?.userName || 'Fire'
 const avatarText = computed(() => userName.charAt(0).toUpperCase())
@@ -21,7 +21,7 @@ const logout = () => {
 <template>
   <header class="navbar">
     <div class="navbar-title">
-      <span class="navbar-path">{{ section }}</span>
+      <span v-if="section" class="navbar-path">{{ section }}</span>
       <h1>{{ title }}</h1>
     </div>
     <div class="navbar-actions">
@@ -32,23 +32,24 @@ const logout = () => {
       </el-button>
       <div class="global-search">
         <el-icon><Search /></el-icon>
-        <span>搜索智能体、知识库、工具等</span>
-        <kbd>⌘ K</kbd>
+        <span>搜索知识库、文档、任务...</span>
       </div>
       <el-tooltip content="通知" placement="bottom">
         <button class="icon-button notification-button" type="button">
           <el-icon><Bell /></el-icon>
-          <span>3</span>
+          <span>5</span>
         </button>
       </el-tooltip>
-      <div class="user-avatar" :title="userName">
-        {{ avatarText }}
-      </div>
-      <el-tooltip content="退出登录" placement="bottom">
-        <button class="icon-button logout-button" type="button" @click="logout">
-          <el-icon><SwitchButton /></el-icon>
+      <el-dropdown trigger="click">
+        <button class="avatar-button" type="button" :title="userName">
+          {{ avatarText }}
         </button>
-      </el-tooltip>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item :icon="SwitchButton" @click="logout">退出登录</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
   </header>
 </template>

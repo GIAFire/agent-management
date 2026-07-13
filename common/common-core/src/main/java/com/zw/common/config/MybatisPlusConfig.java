@@ -42,6 +42,7 @@ public class MybatisPlusConfig {
                         // 哪些表不需要加租户条件
                         return "sys_config".equalsIgnoreCase(tableName)
                                 || "sys_dict".equalsIgnoreCase(tableName)
+                                || "sys_user".equalsIgnoreCase(tableName)
                                 || "sys_tenant".equalsIgnoreCase(tableName);
                     }
                 }

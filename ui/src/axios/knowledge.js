@@ -1,6 +1,22 @@
-import { get, request, stringifyId } from '@/axios/request'
+import { get, post, request, stringifyId } from '@/axios/request'
 
 const baseUrl = '/agent'
+
+export const listKnowledgeBases = () => {
+  return get(`${baseUrl}/knowledgeBase/list`)
+}
+
+export const createKnowledgeBase = (data) => {
+  return post(`${baseUrl}/knowledgeBase/create`, data)
+}
+
+export const updateKnowledgeBase = (data) => {
+  return post(`${baseUrl}/knowledgeBase/update`, data)
+}
+
+export const listKnowledgeDocuments = () => {
+  return get(`${baseUrl}/ai-knowledge-document-entity/list`)
+}
 
 export const uploadKnowledgeDocument = ({ file, knowledgeBaseId, workspaceFileId, language }) => {
   const formData = new FormData()
