@@ -3084,17 +3084,14 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.app-main{
-  padding: 5px;
-}
 .agent-chat-page {
   display: grid;
   position: relative;
-  height: calc(100vh - 80px);
+  height: calc(100vh - 96px);
   min-height: 560px;
   grid-template-columns: 230px minmax(0, 1fr) 0;
   padding: 5px;
-  margin: -30px;  /* 反向偏移，抵消父元素的 padding */
+  margin-top: 16px;
   gap: 5px;
   overflow: hidden;
   transition: grid-template-columns 180ms ease;

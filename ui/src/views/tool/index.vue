@@ -431,9 +431,6 @@ onMounted(loadDashboard)
         <h2>工具与技能</h2>
         <p>集中管理 Agent 可调用的工具、技能包与权限策略，安全扩展智能体执行能力。</p>
       </div>
-      <div class="hero-actions">
-        <el-button size="large" :icon="Document" @click="openLogDialog">调用日志</el-button>
-      </div>
     </div>
 
     <div class="tool-metrics">
