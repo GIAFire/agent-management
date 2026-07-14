@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   ArrowRight,
@@ -48,6 +48,8 @@ const indexResult = ref(null)
 const chunks = ref([])
 const knowledgeBases = ref([])
 const documents = ref([])
+const currentPage = ref(1)
+const pageSize = ref(6)
 
 const queryParams = reactive({
   keyword: '',
@@ -236,6 +238,11 @@ const filteredKnowledgeRows = computed(() => {
     const matchStatus = !queryParams.status || row.status === queryParams.status
     return matchKeyword && matchBackend && matchStatus
   })
+})
+
+const pagedKnowledgeRows = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredKnowledgeRows.value.slice(start, start + pageSize.value)
 })
 
 const backendOptions = computed(() => {
@@ -592,6 +599,13 @@ const shortText = (value, length = 96) => {
   return text.length > length ? `${text.slice(0, length)}...` : text
 }
 
+watch(
+  () => [queryParams.keyword, queryParams.backend, queryParams.status, pageSize.value],
+  () => {
+    currentPage.value = 1
+  }
+)
+
 onMounted(loadDashboard)
 </script>
 
@@ -628,72 +642,89 @@ onMounted(loadDashboard)
             <h3>知识库列表</h3>
             <p>共 {{ filteredKnowledgeRows.length }} 个知识库</p>
           </div>
-          <el-button :icon="Refresh" @click="loadDashboard">刷新</el-button>
-        </div>
-
-        <div class="kb-filter-bar">
-          <el-input
-            v-model="queryParams.keyword"
-            clearable
-            :prefix-icon="Search"
-            placeholder="搜索知识库名称或描述..."
-          />
-          <el-select v-model="queryParams.backend" clearable placeholder="全部后端">
-            <el-option
-              v-for="backend in backendOptions"
-              :key="backend"
-              :label="backend"
-              :value="backend"
+          <div class="kb-filter-bar">
+            <el-input
+              v-model="queryParams.keyword"
+              clearable
+              :prefix-icon="Search"
+              placeholder="搜索知识库名称或描述..."
             />
-          </el-select>
-          <el-select v-model="queryParams.status" clearable placeholder="全部状态">
-            <el-option label="就绪" value="ready" />
-            <el-option label="索引中" value="indexing" />
-            <el-option label="停用" value="disabled" />
-          </el-select>
+            <el-select v-model="queryParams.backend" clearable placeholder="全部后端">
+              <el-option
+                v-for="backend in backendOptions"
+                :key="backend"
+                :label="backend"
+                :value="backend"
+              />
+            </el-select>
+            <el-select v-model="queryParams.status" clearable placeholder="全部状态">
+              <el-option label="就绪" value="ready" />
+              <el-option label="索引中" value="indexing" />
+              <el-option label="停用" value="disabled" />
+            </el-select>
+            <el-button :icon="Refresh" @click="loadDashboard">刷新</el-button>
+          </div>
         </div>
 
         <div class="kb-list">
-          <article v-for="row in filteredKnowledgeRows" :key="row.id" class="kb-row">
-            <div class="kb-icon" :class="row.tone">
-              <el-icon><component :is="row.icon" /></el-icon>
-            </div>
-            <div class="kb-main">
-              <div class="kb-title-line">
-                <h4>{{ row.knowledgeName }}</h4>
-                <span>{{ row.backend }}</span>
+          <article v-for="row in pagedKnowledgeRows" :key="row.id" class="kb-row">
+            <header class="kb-card-head">
+              <div class="kb-icon" :class="row.tone">
+                <el-icon><component :is="row.icon" /></el-icon>
               </div>
-              <p>{{ row.description }}</p>
+              <div class="kb-main">
+                <div class="kb-title-line">
+                  <h4>{{ row.knowledgeName }}</h4>
+                  <span>{{ row.backend }}</span>
+                </div>
+                <p>{{ row.description }}</p>
+              </div>
+              <span class="kb-status" :class="statusTagClass(row.status)">
+                <el-icon><component :is="row.status === 'indexing' ? Warning : CircleCheck" /></el-icon>
+                {{ row.statusText }}
+              </span>
+            </header>
+            <div class="kb-card-stats">
+              <div class="kb-stat">
+                <strong>{{ formatNumber(row.documents) }}</strong>
+                <span>文档</span>
+              </div>
+              <div class="kb-stat">
+                <strong>{{ formatCompact(row.chunks) }}</strong>
+                <span>切片</span>
+              </div>
+              <div class="kb-time">
+                <span>最后索引</span>
+                <strong>{{ row.lastIndexedAt }}</strong>
+              </div>
             </div>
-            <div class="kb-stat">
-              <strong>{{ formatNumber(row.documents) }}</strong>
-              <span>文档</span>
-            </div>
-            <div class="kb-stat">
-              <strong>{{ formatCompact(row.chunks) }}</strong>
-              <span>切片</span>
-            </div>
-            <div class="kb-time">
-              <span>最后索引</span>
-              <strong>{{ row.lastIndexedAt }}</strong>
-            </div>
-            <span class="kb-status" :class="statusTagClass(row.status)">
-              <el-icon><component :is="row.status === 'indexing' ? Warning : CircleCheck" /></el-icon>
-              {{ row.statusText }}
-            </span>
-            <el-button @click="openUploadDialog(row)">管理文档</el-button>
-            <el-dropdown trigger="click">
-              <button class="more-button" type="button" aria-label="更多操作">
-                <el-icon><MoreFilled /></el-icon>
-              </button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item @click="openUploadDialog(row)">上传文档</el-dropdown-item>
-                  <el-dropdown-item @click="openRetrievalDialog">检索测试</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+            <footer class="kb-card-actions">
+              <el-button @click="openUploadDialog(row)">管理文档</el-button>
+              <el-dropdown trigger="click">
+                <button class="more-button" type="button" aria-label="更多操作">
+                  <el-icon><MoreFilled /></el-icon>
+                </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="openUploadDialog(row)">上传文档</el-dropdown-item>
+                    <el-dropdown-item @click="openRetrievalDialog">检索测试</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </footer>
           </article>
+        </div>
+
+        <div class="kb-list-footer">
+          <span>共 {{ filteredKnowledgeRows.length }} 个</span>
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            background
+            layout="prev, pager, next, sizes"
+            :total="filteredKnowledgeRows.length"
+            :page-sizes="[6, 12, 24]"
+          />
         </div>
       </section>
 
@@ -997,6 +1028,7 @@ onMounted(loadDashboard)
   min-height: calc(100vh - 115px);
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
+  padding-bottom: 28px;
 }
 
 .knowledge-hero {
@@ -1090,6 +1122,10 @@ onMounted(loadDashboard)
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  border-color: #d9e4f2;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 30px rgba(34, 67, 112, 0.06);
 }
 
 .panel-head,
@@ -1101,7 +1137,9 @@ onMounted(loadDashboard)
 }
 
 .panel-head {
-  padding: 20px 22px 14px;
+  align-items: center;
+  padding: 18px 18px 24px;
+  border-bottom: 0;
 }
 
 .panel-head h3,
@@ -1119,28 +1157,52 @@ onMounted(loadDashboard)
 }
 
 .kb-filter-bar {
-  display: grid;
-  grid-template-columns: minmax(240px, 1fr) 160px 160px;
-  gap: 12px;
-  padding: 0 22px 16px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+}
+
+.kb-filter-bar .el-input {
+  width: 250px;
+}
+
+.kb-filter-bar .el-select {
+  width: 128px;
+}
+
+.kb-filter-bar .el-button {
+  height: 34px;
+  border-radius: 5px;
+  font-weight: 800;
+}
+
+.kb-filter-bar :deep(.el-input__wrapper),
+.kb-filter-bar :deep(.el-select__wrapper) {
+  min-height: 34px;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px #d7e1ee inset;
 }
 
 .kb-list {
   display: grid;
-  gap: 10px;
-  padding: 0 22px 22px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px 20px;
+  padding: 0 18px 18px;
 }
 
 .kb-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 56px minmax(180px, 1fr) 84px 84px 150px auto auto 34px;
-  align-items: center;
-  gap: 14px;
-  min-height: 92px;
-  padding: 14px 16px;
+  min-height: 260px;
+  grid-template-rows: auto minmax(78px, 1fr) auto;
+  gap: 18px;
+  padding: 18px;
   border: 1px solid #e0eaf6;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #ffffff;
+  box-shadow: 0 10px 24px rgba(42, 72, 108, 0.05);
   transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
@@ -1148,6 +1210,12 @@ onMounted(loadDashboard)
   border-color: #a9c9ff;
   box-shadow: 0 12px 28px rgba(47, 117, 255, 0.08);
   transform: translateY(-1px);
+}
+
+.kb-card-head {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 14px;
 }
 
 .kb-icon,
@@ -1196,11 +1264,14 @@ onMounted(loadDashboard)
 
 .kb-main {
   min-width: 0;
+  padding-right: 88px;
 }
 
 .kb-title-line {
   display: flex;
-  align-items: center;
+  min-width: 0;
+  align-items: flex-start;
+  flex-direction: column;
   gap: 8px;
 }
 
@@ -1213,6 +1284,11 @@ onMounted(loadDashboard)
   font-weight: 820;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.18s ease;
+}
+
+.kb-row:hover .kb-title-line h4 {
+  color: #0b63f6;
 }
 
 .kb-title-line span {
@@ -1226,17 +1302,36 @@ onMounted(loadDashboard)
 }
 
 .kb-main p {
+  display: -webkit-box;
   overflow: hidden;
-  margin: 7px 0 0;
+  margin: 10px 0 0;
   color: #6d819b;
   font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.7;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
-.kb-stat {
+.kb-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  align-self: end;
+  border: 1px solid #e1ebf6;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.kb-card-stats > div {
   display: grid;
   gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid #e1ebf6;
+}
+
+.kb-card-stats > div:last-child {
+  border-right: 0;
 }
 
 .kb-stat strong,
@@ -1255,6 +1350,7 @@ onMounted(loadDashboard)
   display: grid;
   gap: 4px;
   min-width: 0;
+  padding: 12px;
 }
 
 .kb-time strong {
@@ -1264,14 +1360,17 @@ onMounted(loadDashboard)
 }
 
 .kb-status {
+  position: absolute;
+  top: 18px;
+  right: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-width: 82px;
-  height: 34px;
+  height: 24px;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 7px;
   font-size: 12px;
   font-weight: 800;
 }
@@ -1309,6 +1408,52 @@ onMounted(loadDashboard)
 .more-button:hover {
   background: #edf4ff;
   color: #2f75ff;
+}
+
+.kb-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #e5edf6;
+}
+
+.kb-card-actions .el-button {
+  height: 32px;
+  border-radius: 6px;
+  font-weight: 800;
+}
+
+.kb-list-footer {
+  display: flex;
+  min-height: 58px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 18px 16px;
+  color: #53637b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kb-list-footer :deep(.el-pagination) {
+  --el-pagination-button-bg-color: #ffffff;
+  --el-pagination-hover-color: #0b63f6;
+}
+
+.kb-list-footer :deep(.el-pager li),
+.kb-list-footer :deep(.btn-prev),
+.kb-list-footer :deep(.btn-next) {
+  border: 1px solid #d9e4f2;
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+.kb-list-footer :deep(.el-pager li.is-active) {
+  border-color: #0b63f6;
+  color: #0b63f6;
+  background: #ffffff;
 }
 
 .knowledge-side {
@@ -1575,12 +1720,14 @@ onMounted(loadDashboard)
     grid-template-rows: none;
   }
 
-  .kb-row {
-    grid-template-columns: 56px minmax(220px, 1fr) 84px 84px auto auto 34px;
+  .panel-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .kb-time {
-    display: none;
+  .kb-filter-bar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 }
 
@@ -1594,21 +1741,19 @@ onMounted(loadDashboard)
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .kb-filter-bar,
   .upload-dialog-grid {
     grid-template-columns: 1fr;
   }
 
-  .kb-row {
-    grid-template-columns: 48px minmax(0, 1fr);
+  .kb-filter-bar {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .kb-stat,
-  .kb-status,
-  .kb-row > .el-button,
-  .kb-row > .el-dropdown {
-    grid-column: 2;
-    justify-self: start;
+  .kb-filter-bar .el-input,
+  .kb-filter-bar .el-select,
+  .kb-filter-bar .el-button {
+    width: 100%;
   }
 
   .document-row {
@@ -1629,6 +1774,50 @@ onMounted(loadDashboard)
 
   .knowledge-metrics {
     grid-template-columns: 1fr;
+  }
+
+  .kb-list {
+    grid-template-columns: 1fr;
+    padding: 0 12px 14px;
+  }
+
+  .kb-list-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .kb-card-head {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .kb-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .kb-main {
+    padding-right: 0;
+  }
+
+  .kb-status {
+    position: static;
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .kb-card-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .kb-card-stats > div {
+    border-right: 0;
+    border-bottom: 1px solid #e1ebf6;
+  }
+
+  .kb-card-stats > div:last-child {
+    border-bottom: 0;
   }
 }
 </style>

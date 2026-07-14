@@ -1,21 +1,17 @@
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowDown,
-  ArrowRight,
   Box,
   CircleCheck,
-  Connection,
   DataLine,
   Delete,
   Edit,
-  Histogram,
+  MoreFilled,
   OfficeBuilding,
   Plus,
   Refresh,
   Search,
-  Setting,
   User,
   Warning
 } from '@element-plus/icons-vue'
@@ -35,7 +31,7 @@ const providerDialogVisible = ref(false)
 const dialogTitle = ref('新建模型')
 const formRef = ref()
 const page = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(6)
 const modelRows = ref([])
 const activeType = ref('all')
 
@@ -303,16 +299,6 @@ const modelTypeLabel = (type) => {
   return map[type] || type
 }
 
-const modelTypeClass = (type) => {
-  const map = {
-    CHAT: 'chat',
-    REASONING: 'reasoning',
-    EMBEDDING: 'embedding',
-    RERANK: 'rerank'
-  }
-  return map[type] || 'chat'
-}
-
 const providerClass = (provider) => {
   const text = String(provider || '').toLowerCase()
   if (text.includes('openai')) return 'openai'
@@ -386,19 +372,6 @@ const loadModelList = async () => {
 }
 
 const handleQuery = () => {
-  page.value = 1
-}
-
-const handleTypeChange = (type) => {
-  activeType.value = type
-  page.value = 1
-}
-
-const resetQuery = () => {
-  queryParams.keyword = ''
-  queryParams.provider = ''
-  queryParams.status = ''
-  activeType.value = 'all'
   page.value = 1
 }
 
@@ -504,6 +477,13 @@ const handleTest = (row) => {
   ElMessage.success(`${row.displayName} 测试请求已准备`)
 }
 
+watch(
+  () => [queryParams.keyword, queryParams.provider, queryParams.status, activeType.value, pageSize.value],
+  () => {
+    page.value = 1
+  }
+)
+
 onMounted(loadModelList)
 </script>
 
@@ -535,17 +515,10 @@ onMounted(loadModelList)
 
     <div class="model-dashboard">
       <section class="model-list-panel">
-        <div class="model-toolbar">
-          <div class="type-tabs">
-            <button
-              v-for="tab in typeTabs"
-              :key="tab.value"
-              type="button"
-              :class="{ active: activeType === tab.value }"
-              @click="handleTypeChange(tab.value)"
-            >
-              {{ tab.label }}
-            </button>
+        <div class="panel-head">
+          <div>
+            <h3>模型列表</h3>
+            <p>共 {{ filteredRows.length }} 个模型</p>
           </div>
           <div class="model-filters">
             <el-input
@@ -555,6 +528,9 @@ onMounted(loadModelList)
               placeholder="搜索模型名称或标识"
               @keyup.enter="handleQuery"
             />
+            <el-select v-model="activeType" placeholder="全部类型">
+              <el-option v-for="tab in typeTabs" :key="tab.value" :label="tab.label" :value="tab.value" />
+            </el-select>
             <el-select v-model="queryParams.provider" clearable placeholder="全部供应商">
               <el-option v-for="provider in providerOptions" :key="provider" :label="provider" :value="provider" />
             </el-select>
@@ -562,67 +538,73 @@ onMounted(loadModelList)
               <el-option label="已启用" :value="1" />
               <el-option label="已停用" :value="0" />
             </el-select>
+            <el-button :icon="Refresh" @click="loadModelList">刷新</el-button>
+            <el-button type="primary" :icon="Plus" @click="handleAdd">新建模型</el-button>
           </div>
         </div>
 
-        <div class="model-table">
-          <div class="model-table-head">
-            <span>模型名称</span>
-            <span>供应商</span>
-            <span>模型标识</span>
-            <span>类型</span>
-            <span>上下文窗口</span>
-            <span>今日调用</span>
-            <span>状态</span>
-            <span>操作</span>
-          </div>
-          <article v-for="row in pagedRows" :key="row.id" class="model-row">
-            <div class="model-name-cell">
+        <div class="model-list">
+          <article v-for="row in pagedRows" :key="row.id" class="model-card">
+            <header class="model-card-head">
               <span class="model-avatar" :class="providerClass(row.provider)">
                 {{ providerMark(row.provider) }}
               </span>
-              <strong>{{ row.displayName }}</strong>
-            </div>
-            <div class="provider-cell">
-              <span class="provider-mark" :class="providerClass(row.provider)">
-                {{ providerMark(row.provider) }}
+              <div class="model-main">
+                <div class="model-title-line">
+                  <h4>{{ row.displayName }}</h4>
+                  <span>{{ modelTypeLabel(row.modelType) }}</span>
+                </div>
+                <p>{{ row.description }}</p>
+              </div>
+              <span class="model-status" :class="{ disabled: Number(row.status) !== 1 }">
+                <i />
+                {{ Number(row.status) === 1 ? '已启用' : '已停用' }}
               </span>
-              <strong>{{ row.provider }}</strong>
+            </header>
+            <div class="model-card-stats">
+              <div>
+                <span>供应商</span>
+                <strong>{{ row.provider }}</strong>
+              </div>
+              <div>
+                <span>上下文</span>
+                <strong>{{ row.contextWindow }}</strong>
+              </div>
+              <div>
+                <span>今日调用</span>
+                <strong>{{ formatNumber(row.todayCalls) }}</strong>
+              </div>
             </div>
-            <span class="model-id">{{ row.modelName }}</span>
-            <span class="type-badge" :class="modelTypeClass(row.modelType)">{{ modelTypeLabel(row.modelType) }}</span>
-            <span>{{ row.contextWindow }}</span>
-            <span>{{ formatNumber(row.todayCalls) }}</span>
-            <span class="model-status" :class="{ disabled: Number(row.status) !== 1 }">
-              <i />
-              {{ Number(row.status) === 1 ? '已启用' : '已停用' }}
-            </span>
-            <div class="row-actions">
-              <el-button link type="primary" @click="handleEdit(row)">配置</el-button>
-              <el-button link type="primary" @click="handleTest(row)">测试</el-button>
-              <el-dropdown trigger="click">
-                <button class="more-action" type="button">
-                  更多 <el-icon><ArrowDown /></el-icon>
-                </button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item :icon="Edit" @click="handleEdit(row)">编辑</el-dropdown-item>
-                    <el-dropdown-item :icon="Refresh" @click="loadModelList">刷新</el-dropdown-item>
-                    <el-dropdown-item :icon="Delete" divided @click="handleDelete(row)">删除</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </div>
+            <footer class="model-card-actions">
+              <span class="model-id">{{ row.modelName }}</span>
+              <nav>
+                <el-button link type="primary" @click="handleEdit(row)">配置</el-button>
+                <el-button link type="primary" @click="handleTest(row)">测试</el-button>
+                <el-dropdown trigger="click">
+                  <button class="more-action" type="button" aria-label="更多操作">
+                    <el-icon><MoreFilled /></el-icon>
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item :icon="Edit" @click="handleEdit(row)">编辑</el-dropdown-item>
+                      <el-dropdown-item :icon="Refresh" @click="loadModelList">刷新</el-dropdown-item>
+                      <el-dropdown-item :icon="Delete" divided @click="handleDelete(row)">删除</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
+              </nav>
+            </footer>
           </article>
         </div>
 
-        <div class="model-pagination">
+        <div class="model-list-footer">
           <span>共 {{ filteredRows.length }} 条</span>
           <el-pagination
             v-model:current-page="page"
             v-model:page-size="pageSize"
             :total="filteredRows.length"
-            :page-sizes="[10, 20, 50]"
+            :page-sizes="[6, 12, 24]"
+            background
             layout="prev, pager, next, sizes"
           />
         </div>
@@ -804,6 +786,7 @@ onMounted(loadModelList)
   min-height: calc(100vh - 115px);
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
+  padding-bottom: 28px;
 }
 
 .model-hero {
@@ -917,126 +900,143 @@ onMounted(loadModelList)
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  border-color: #d9e4f2;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 30px rgba(34, 67, 112, 0.06);
 }
 
-.model-toolbar {
+.panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 20px;
-  padding: 22px 24px;
-  border-bottom: 1px solid #dce8f5;
+  gap: 16px;
+  padding: 18px 18px 24px;
+  border-bottom: 0;
 }
 
-.type-tabs {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 22px;
-  min-width: max-content;
-}
-
-.type-tabs button {
-  position: relative;
-  flex: 0 0 auto;
-  height: 40px;
-  border: 0;
-  color: #405874;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  font-size: 15px;
+.panel-head h3 {
+  margin: 0;
+  color: #0a2547;
+  font-size: 17px;
   font-weight: 800;
-  line-height: 40px;
-  white-space: nowrap;
 }
 
-.type-tabs button.active {
-  color: #2f75ff;
-}
-
-.type-tabs button.active::after {
-  position: absolute;
-  right: 0;
-  bottom: -23px;
-  left: 0;
-  height: 3px;
-  border-radius: 999px;
-  background: #2f75ff;
-  content: '';
+.panel-head p {
+  margin: 6px 0 0;
+  color: #6d819b;
+  font-size: 12px;
 }
 
 .model-filters {
-  display: grid;
-  flex: 1 1 520px;
-  grid-template-columns: minmax(220px, 1fr) 150px 140px;
-  gap: 10px;
-  min-width: 520px;
-}
-
-.model-table {
-  padding: 0 18px 18px;
-}
-
-.model-table-head,
-.model-row {
-  display: grid;
-  grid-template-columns: minmax(170px, 1.2fr) minmax(126px, 0.85fr) minmax(132px, 0.95fr) 92px 96px 88px 86px 132px;
-  align-items: center;
-  gap: 12px;
-}
-
-.model-table-head > span,
-.model-row > span,
-.model-row > div {
-  min-width: 0;
-}
-
-.model-table-head > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-table-head {
-  min-height: 64px;
-  padding: 0 16px;
-  border: 1px solid #e0eaf6;
-  border-radius: 12px 12px 0 0;
-  color: #405874;
-  background: #fbfdff;
-  font-weight: 820;
-}
-
-.model-row {
-  min-height: 86px;
-  padding: 0 16px;
-  border-right: 1px solid #e0eaf6;
-  border-bottom: 1px solid #e0eaf6;
-  border-left: 1px solid #e0eaf6;
-  background: #ffffff;
-}
-
-.model-row:last-child {
-  border-radius: 0 0 12px 12px;
-}
-
-.model-name-cell,
-.provider-cell {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 14px;
 }
 
-.model-name-cell strong,
-.provider-cell strong,
-.model-id {
+.model-filters .el-input {
+  width: 250px;
+}
+
+.model-filters .el-select {
+  width: 128px;
+}
+
+.model-filters .el-button {
+  height: 34px;
+  border-radius: 5px;
+  font-weight: 800;
+}
+
+.model-filters :deep(.el-input__wrapper),
+.model-filters :deep(.el-select__wrapper) {
+  min-height: 34px;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px #d7e1ee inset;
+}
+
+.model-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px 20px;
+  padding: 0 18px 18px;
+}
+
+.model-card {
+  position: relative;
+  display: grid;
+  min-height: 260px;
+  grid-template-rows: auto minmax(78px, 1fr) auto;
+  gap: 18px;
+  padding: 18px;
+  border: 1px solid #e0eaf6;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(42, 72, 108, 0.05);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.model-card:hover {
+  border-color: #a9c9ff;
+  box-shadow: 0 12px 28px rgba(47, 117, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.model-card-head {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.model-main {
+  min-width: 0;
+  padding-right: 84px;
+}
+
+.model-title-line {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-title-line h4 {
   overflow: hidden;
-  color: #203957;
+  margin: 0;
+  color: #0a2547;
+  font-size: 15px;
+  font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.18s ease;
+}
+
+.model-card:hover .model-title-line h4 {
+  color: #0b63f6;
+}
+
+.model-title-line span {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 6px;
+  color: #2f75ff;
+  background: #eaf2ff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.model-main p {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 10px 0 0;
+  color: #6d819b;
+  font-size: 12px;
+  line-height: 1.7;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .model-avatar,
@@ -1089,39 +1089,18 @@ onMounted(loadModelList)
   background: #edf7ff;
 }
 
-.type-badge {
-  justify-self: start;
-  padding: 6px 10px;
-  border-radius: 7px;
-  color: #2f75ff;
-  background: #eaf2ff;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.type-badge.reasoning {
-  color: #7c5cff;
-  background: #f1edff;
-}
-
-.type-badge.embedding {
-  color: #18a668;
-  background: #eaf8ef;
-}
-
-.type-badge.rerank {
-  color: #c56a1c;
-  background: #fff5e8;
-}
-
 .model-status {
+  position: absolute;
+  top: 18px;
+  right: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   min-width: 76px;
-  height: 32px;
-  border-radius: 8px;
+  height: 24px;
+  border: 1px solid #bce8cc;
+  border-radius: 7px;
   color: #168354;
   background: #eaf8ef;
   font-size: 12px;
@@ -1136,37 +1115,123 @@ onMounted(loadModelList)
 }
 
 .model-status.disabled {
+  border-color: #d9e2ec;
   color: #7e8ca0;
   background: #f0f2f5;
 }
 
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.model-card-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  overflow: hidden;
+  align-self: end;
+  border: 1px solid #e1ebf6;
+  border-radius: 8px;
+  background: #f8fbff;
+}
+
+.model-card-stats div {
+  display: grid;
+  gap: 4px;
   min-width: 0;
+  padding: 12px;
+  border-right: 1px solid #e1ebf6;
+}
+
+.model-card-stats div:last-child {
+  border-right: 0;
+}
+
+.model-card-stats span {
+  color: #7e94ad;
+  font-size: 12px;
+}
+
+.model-card-stats strong {
+  overflow: hidden;
+  color: #203957;
+  font-size: 15px;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.more-action {
-  display: inline-flex;
+.model-card-actions {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  border: 0;
-  color: #2f75ff;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #e5edf6;
+}
+
+.model-id {
+  overflow: hidden;
+  color: #405874;
+  font-size: 12px;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-card-actions nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.model-card-actions .el-button.is-link {
+  height: auto;
+  padding: 0;
   font-weight: 800;
 }
 
-.model-pagination {
+.more-action {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #405874;
+  background: transparent;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.more-action:hover {
+  background: #edf4ff;
+  color: #2f75ff;
+}
+
+.model-list-footer {
   display: flex;
+  min-height: 58px;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 18px;
-  padding: 18px 24px 22px;
-  color: #6d819b;
+  padding: 0 18px 16px;
+  color: #53637b;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.model-list-footer :deep(.el-pagination) {
+  --el-pagination-button-bg-color: #ffffff;
+  --el-pagination-hover-color: #0b63f6;
+}
+
+.model-list-footer :deep(.el-pager li),
+.model-list-footer :deep(.btn-prev),
+.model-list-footer :deep(.btn-next) {
+  border: 1px solid #d9e4f2;
+  border-radius: 5px;
+  box-shadow: none;
+}
+
+.model-list-footer :deep(.el-pager li.is-active) {
+  border-color: #0b63f6;
+  color: #0b63f6;
+  background: #ffffff;
 }
 
 .model-side {
@@ -1360,21 +1425,14 @@ onMounted(loadModelList)
     grid-template-rows: none;
   }
 
-  .model-toolbar {
-    align-items: flex-start;
+  .panel-head {
+    align-items: stretch;
     flex-direction: column;
   }
 
-  .type-tabs {
-    max-width: 100%;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
   .model-filters {
-    width: 100%;
-    flex-basis: auto;
-    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 }
 
@@ -1387,29 +1445,15 @@ onMounted(loadModelList)
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .type-tabs {
+  .model-filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .model-filters .el-input,
+  .model-filters .el-select,
+  .model-filters .el-button {
     width: 100%;
-    overflow-x: auto;
-  }
-
-  .model-filters,
-  .model-table-head,
-  .model-row {
-    grid-template-columns: 1fr;
-  }
-
-  .model-table-head {
-    display: none;
-  }
-
-  .model-row {
-    align-items: flex-start;
-    gap: 10px;
-    min-height: auto;
-    padding: 16px;
-    border: 1px solid #e0eaf6;
-    border-radius: 12px;
-    margin-top: 10px;
   }
 }
 
@@ -1421,6 +1465,50 @@ onMounted(loadModelList)
   .hero-actions {
     width: 100%;
     flex-direction: column;
+  }
+
+  .model-list {
+    grid-template-columns: 1fr;
+    padding: 0 12px 14px;
+  }
+
+  .model-list-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .model-card-head {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .model-avatar {
+    width: 48px;
+    height: 48px;
+  }
+
+  .model-main {
+    padding-right: 0;
+  }
+
+  .model-status {
+    position: static;
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
+  .model-card-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .model-card-stats div {
+    border-right: 0;
+    border-bottom: 1px solid #e1ebf6;
+  }
+
+  .model-card-stats div:last-child {
+    border-bottom: 0;
   }
 }
 </style>

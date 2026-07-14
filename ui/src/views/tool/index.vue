@@ -8,9 +8,6 @@ import {
   DataLine,
   Document,
   Finished,
-  Grid,
-  Link,
-  List,
   Lock,
   MoreFilled,
   Plus,
@@ -29,8 +26,6 @@ import {
 
 const loading = ref(false)
 const creating = ref(false)
-const activeTab = ref('tools')
-const viewMode = ref('list')
 const createDialogVisible = ref(false)
 const logDialogVisible = ref(false)
 const permissionDialogVisible = ref(false)
@@ -47,7 +42,7 @@ const queryParams = reactive({
 
 const pagination = reactive({
   currentPage: 1,
-  pageSize: 5
+  pageSize: 6
 })
 
 const permissionPagination = reactive({
@@ -229,29 +224,7 @@ const pagedTools = computed(() => {
   return filteredTools.value.slice(start, start + pagination.pageSize)
 })
 
-const mcpTools = computed(() => toolRows.value.filter((row) => row.toolType === 'MCP'))
-
-const currentTabRows = computed(() => {
-  if (activeTab.value === 'skills') {
-    return groupRows.value
-  }
-  if (activeTab.value === 'mcp') {
-    return mcpTools.value
-  }
-  return filteredTools.value
-})
-
-const currentTabTotal = computed(() => currentTabRows.value.length)
-
-const pagedGroups = computed(() => {
-  const start = (pagination.currentPage - 1) * pagination.pageSize
-  return groupRows.value.slice(start, start + pagination.pageSize)
-})
-
-const pagedMcpTools = computed(() => {
-  const start = (pagination.currentPage - 1) * pagination.pageSize
-  return mcpTools.value.slice(start, start + pagination.pageSize)
-})
+const currentTabTotal = computed(() => filteredTools.value.length)
 
 watch(
   () => [queryParams.keyword, queryParams.category, queryParams.status],
@@ -259,10 +232,6 @@ watch(
     pagination.currentPage = 1
   }
 )
-
-watch(activeTab, () => {
-  pagination.currentPage = 1
-})
 
 watch(
   () => pagination.pageSize,
@@ -275,7 +244,7 @@ watch(
 )
 
 watch(
-  currentTabRows,
+  filteredTools,
   () => {
     const maxPage = Math.max(1, Math.ceil(currentTabTotal.value / pagination.pageSize))
     if (pagination.currentPage > maxPage) {
@@ -310,7 +279,7 @@ const metrics = computed(() => {
       positive: true
     },
     {
-      label: '技能包',
+      label: '工具分组',
       value: groupRows.value.length,
       sub: '覆盖 8 类场景',
       icon: Box,
@@ -365,7 +334,7 @@ function normalizeGroup(row, index) {
   return {
     ...row,
     id: row.id || index + 1,
-    groupName: row.groupName || row.name || `技能包 ${index + 1}`,
+    groupName: row.groupName || row.name || `工具分组 ${index + 1}`,
     description: row.description || '暂无描述',
     enabled: Boolean(row.enabled ?? true),
     activeByDefault: Boolean(row.activeByDefault ?? false),
@@ -507,7 +476,7 @@ onMounted(loadDashboard)
     <div class="tool-hero">
       <div>
         <h2>工具与技能</h2>
-        <p>集中管理 Agent 可调用的工具、技能包与权限策略，安全扩展智能体执行能力。</p>
+        <p>集中管理 Agent 可调用的工具、工具分组与权限策略，安全扩展智能体执行能力。</p>
       </div>
     </div>
 
@@ -526,61 +495,69 @@ onMounted(loadDashboard)
 
     <div class="tool-dashboard">
       <section class="tool-library-panel">
-        <el-button class="tabs-create-tool" type="primary" :icon="Plus" @click="openCreateDialog">新建工具</el-button>
-        <el-tabs v-model="activeTab" class="tool-tabs">
-          <el-tab-pane label="工具库" name="tools">
-            <div class="tool-filter-bar">
-              <el-input
-                v-model="queryParams.keyword"
-                clearable
-                :prefix-icon="Search"
-                placeholder="搜索工具名称或编码..."
-              />
-              <el-select v-model="queryParams.category" clearable placeholder="全部分类">
-                <el-option v-for="type in toolTypeOptions" :key="type" :label="type" :value="type" />
-              </el-select>
-              <el-select v-model="queryParams.status" clearable placeholder="全部状态">
-                <el-option label="正常" value="normal" />
-                <el-option label="受限" value="limited" />
-                <el-option label="停用" value="disabled" />
-              </el-select>
-              <div class="view-switch">
-                <el-tooltip content="列表视图" placement="top">
-                  <button :class="{ active: viewMode === 'list' }" type="button" @click="viewMode = 'list'">
-                    <el-icon><List /></el-icon>
-                  </button>
-                </el-tooltip>
-                <el-tooltip content="卡片视图" placement="top">
-                  <button :class="{ active: viewMode === 'grid' }" type="button" @click="viewMode = 'grid'">
-                    <el-icon><Grid /></el-icon>
-                  </button>
-                </el-tooltip>
+        <div class="panel-head">
+          <div>
+            <h3>工具列表</h3>
+            <p>共 {{ filteredTools.length }} 个工具</p>
+          </div>
+          <div class="tool-filter-bar">
+            <el-input
+              v-model="queryParams.keyword"
+              clearable
+              :prefix-icon="Search"
+              placeholder="搜索工具名称或编码..."
+            />
+            <el-select v-model="queryParams.category" clearable placeholder="全部分类">
+              <el-option v-for="type in toolTypeOptions" :key="type" :label="type" :value="type" />
+            </el-select>
+            <el-select v-model="queryParams.status" clearable placeholder="全部状态">
+              <el-option label="正常" value="normal" />
+              <el-option label="受限" value="limited" />
+              <el-option label="停用" value="disabled" />
+            </el-select>
+            <el-button :icon="Refresh" @click="loadDashboard">刷新</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建工具</el-button>
+          </div>
+        </div>
+
+        <div class="tool-list">
+          <article v-for="tool in pagedTools" :key="tool.id" class="tool-row">
+            <header class="tool-card-head">
+              <span class="tool-mark" :class="riskClass(tool.riskLevel)">
+                <el-icon><component :is="tool.readOnly ? Search : Setting" /></el-icon>
+              </span>
+              <div class="tool-main">
+                <div class="tool-title-line">
+                  <h4>{{ tool.toolName }}</h4>
+                  <span>{{ tool.toolType }}</span>
+                </div>
+                <p>{{ tool.toolNameExplain }}</p>
+              </div>
+              <span class="status-pill-mini" :class="tool.status">
+                <i />
+                {{ statusLabel(tool.status) }}
+              </span>
+            </header>
+            <div class="tool-card-stats">
+              <div>
+                <span>调用</span>
+                <strong>{{ formatNumber(tool.calls) }}</strong>
+              </div>
+              <div>
+                <span>Agent</span>
+                <strong>{{ tool.agents }}</strong>
+              </div>
+              <div>
+                <span>耗时</span>
+                <strong>{{ tool.avgLatency }}ms</strong>
               </div>
             </div>
-
-            <div v-if="viewMode === 'list'" class="tool-list">
-              <article v-for="tool in pagedTools" :key="tool.id" class="tool-row">
-                <span class="tool-mark" :class="riskClass(tool.riskLevel)">
-                  <el-icon><component :is="tool.readOnly ? Search : Setting" /></el-icon>
-                </span>
-                <div class="tool-main">
-                  <h4>{{ tool.toolName }}</h4>
-                  <p>{{ tool.toolNameExplain }}</p>
-                </div>
-                <div class="tool-call">
-                  <span>调用</span>
-                  <strong>{{ formatNumber(tool.calls) }}</strong>
-                </div>
-                <div class="tool-agent">{{ tool.agents }} 个 Agent</div>
-                <span class="status-pill-mini" :class="tool.status">
-                  <i />
-                  {{ statusLabel(tool.status) }}
-                </span>
-                <el-tooltip :content="riskLabel(tool.riskLevel)" placement="top">
-                  <span class="risk-shield" :class="riskClass(tool.riskLevel)">
-                    <el-icon><Finished /></el-icon>
-                  </span>
-                </el-tooltip>
+            <footer class="tool-card-actions">
+              <span class="risk-label" :class="riskClass(tool.riskLevel)">
+                <el-icon><Finished /></el-icon>
+                {{ riskLabel(tool.riskLevel) }}
+              </span>
+              <nav>
                 <el-button link type="primary" @click="configureTool(tool)">配置</el-button>
                 <el-dropdown trigger="click">
                   <button class="more-button" type="button" aria-label="更多操作">
@@ -593,114 +570,19 @@ onMounted(loadDashboard)
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
-              </article>
-            </div>
+              </nav>
+            </footer>
+          </article>
+        </div>
 
-            <div v-else class="tool-card-grid">
-              <article v-for="tool in pagedTools" :key="tool.id" class="tool-card">
-                <div class="tool-card-head">
-                  <span class="tool-mark" :class="riskClass(tool.riskLevel)">
-                    <el-icon><component :is="tool.readOnly ? Search : Setting" /></el-icon>
-                  </span>
-                  <span class="status-pill-mini" :class="tool.status">{{ statusLabel(tool.status) }}</span>
-                </div>
-                <h4>{{ tool.toolName }}</h4>
-                <p>{{ tool.toolNameExplain }}</p>
-                <div class="tool-card-stats">
-                  <div><span>调用</span><strong>{{ formatNumber(tool.calls) }}</strong></div>
-                  <div><span>Agent</span><strong>{{ tool.agents }}</strong></div>
-                  <div><span>耗时</span><strong>{{ tool.avgLatency }}ms</strong></div>
-                </div>
-              </article>
-            </div>
-          </el-tab-pane>
-
-          <el-tab-pane label="技能包" name="skills">
-            <div class="tool-list">
-              <article v-for="group in pagedGroups" :key="group.id" class="tool-row">
-                <span class="tool-mark low"><el-icon><Box /></el-icon></span>
-                <div class="tool-main">
-                  <h4>{{ group.groupName }}</h4>
-                  <p>{{ group.description }}</p>
-                </div>
-                <div class="tool-call">
-                  <span>工具</span>
-                  <strong>{{ group.tools }}</strong>
-                </div>
-                <div class="tool-agent">{{ group.agents }} 个 Agent</div>
-                <span class="status-pill-mini" :class="group.enabled ? 'normal' : 'disabled'">
-                  <i />
-                  {{ group.enabled ? '正常' : '停用' }}
-                </span>
-                <el-tooltip :content="group.activeByDefault ? '默认启用' : '手动启用'" placement="top">
-                  <span class="risk-shield" :class="group.activeByDefault ? 'low' : 'medium'">
-                    <el-icon><Finished /></el-icon>
-                  </span>
-                </el-tooltip>
-                <el-button link type="primary">配置</el-button>
-                <el-dropdown trigger="click">
-                  <button class="more-button" type="button" aria-label="更多操作">
-                    <el-icon><MoreFilled /></el-icon>
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item>配置技能包</el-dropdown-item>
-                      <el-dropdown-item>查看关联工具</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </article>
-            </div>
-          </el-tab-pane>
-
-          <el-tab-pane label="MCP 工具" name="mcp">
-            <div class="tool-list">
-              <article v-for="tool in pagedMcpTools" :key="tool.id" class="tool-row">
-                <span class="tool-mark medium"><el-icon><Link /></el-icon></span>
-                <div class="tool-main">
-                  <h4>{{ tool.toolName }}</h4>
-                  <p>{{ tool.description }}</p>
-                </div>
-                <div class="tool-call">
-                  <span>调用</span>
-                  <strong>{{ formatNumber(tool.calls) }}</strong>
-                </div>
-                <div class="tool-agent">{{ tool.agents }} 个 Agent</div>
-                <span class="status-pill-mini" :class="tool.status">
-                  <i />
-                  {{ statusLabel(tool.status) }}
-                </span>
-                <el-tooltip :content="riskLabel(tool.riskLevel)" placement="top">
-                  <span class="risk-shield" :class="riskClass(tool.riskLevel)">
-                    <el-icon><Finished /></el-icon>
-                  </span>
-                </el-tooltip>
-                <el-button link type="primary" @click="configureTool(tool)">配置</el-button>
-                <el-dropdown trigger="click">
-                  <button class="more-button" type="button" aria-label="更多操作">
-                    <el-icon><MoreFilled /></el-icon>
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item @click="configureTool(tool)">配置 MCP</el-dropdown-item>
-                      <el-dropdown-item>查看调用</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </article>
-              <el-empty v-if="!mcpTools.length" description="暂无 MCP 工具" />
-            </div>
-          </el-tab-pane>
-
-        </el-tabs>
-        <div v-if="['tools', 'skills', 'mcp'].includes(activeTab)" class="table-footer">
+        <div class="table-footer">
           <span>共 {{ currentTabTotal }} 项</span>
           <el-pagination
             v-model:current-page="pagination.currentPage"
             v-model:page-size="pagination.pageSize"
             background
             layout="prev, pager, next, sizes"
-            :page-sizes="[5, 10, 20, 50]"
+            :page-sizes="[6, 12, 24]"
             :total="currentTabTotal"
           />
         </div>
@@ -774,8 +656,8 @@ onMounted(loadDashboard)
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="技能包">
-              <el-select v-model="createForm.groupId" clearable placeholder="选择技能包">
+            <el-form-item label="工具分组">
+              <el-select v-model="createForm.groupId" clearable placeholder="选择工具分组">
                 <el-option v-for="group in groupRows" :key="group.id" :label="group.groupName" :value="group.id" />
               </el-select>
             </el-form-item>
@@ -888,6 +770,7 @@ onMounted(loadDashboard)
   min-height: calc(100vh - 115px);
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
+  padding-bottom: 28px;
 }
 
 .tool-hero {
@@ -1008,106 +891,92 @@ onMounted(loadDashboard)
 
 .tool-library-panel {
   display: grid;
-  position: relative;
   grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  border-color: #d9e4f2;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 30px rgba(34, 67, 112, 0.06);
 }
 
-.tool-tabs :deep(.el-tabs__header) {
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 18px 24px;
+  border-bottom: 0;
+}
+
+.panel-head h3 {
   margin: 0;
-  padding: 0 150px 0 22px;
-  border-bottom: 1px solid #dce8f5;
-}
-
-.tool-tabs {
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
-  min-height: 0;
-}
-
-.tool-tabs :deep(.el-tabs__content) {
-  min-height: 0;
-}
-
-.tabs-create-tool {
-  position: absolute;
-  z-index: 2;
-  top: 10px;
-  right: 22px;
-}
-
-.tool-tabs :deep(.el-tabs__nav-wrap::after) {
-  display: none;
-}
-
-.tool-tabs :deep(.el-tabs__item) {
-  height: 56px;
-  color: #667d99;
-  font-size: 15px;
+  color: #0a2547;
+  font-size: 17px;
   font-weight: 800;
 }
 
-.tool-tabs :deep(.el-tabs__item.is-active) {
-  color: #2f75ff;
+.panel-head p {
+  margin: 6px 0 0;
+  color: #6d819b;
+  font-size: 12px;
 }
 
 .tool-filter-bar {
-  display: grid;
-  grid-template-columns: minmax(260px, 1fr) 160px 160px auto;
-  gap: 12px;
-  padding: 22px;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
 }
 
-.view-switch {
-  display: inline-flex;
-  overflow: hidden;
-  height: 40px;
-  border: 1px solid #d3e2f6;
-  border-radius: 10px;
-  background: #ffffff;
+.tool-filter-bar .el-input {
+  width: 250px;
 }
 
-.view-switch button {
-  display: grid;
-  width: 44px;
-  height: 38px;
-  place-items: center;
-  border: 0;
-  color: #6d819b;
-  background: transparent;
-  cursor: pointer;
-  font-size: 18px;
+.tool-filter-bar .el-select {
+  width: 128px;
 }
 
-.view-switch button.active {
-  color: #2f75ff;
-  background: #edf4ff;
+.tool-filter-bar .el-button {
+  height: 34px;
+  border-radius: 5px;
+  font-weight: 800;
+}
+
+.tool-filter-bar :deep(.el-input__wrapper),
+.tool-filter-bar :deep(.el-select__wrapper) {
+  min-height: 34px;
+  border-radius: 5px;
+  box-shadow: 0 0 0 1px #d7e1ee inset;
 }
 
 .tool-list {
   display: grid;
-  gap: 10px;
-  padding: 0 22px 18px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px 20px;
+  padding: 0 18px 18px;
 }
 
 .tool-row {
+  position: relative;
   display: grid;
-  grid-template-columns: 54px minmax(180px, 1fr) 86px 90px 74px 36px 56px 34px;
-  align-items: center;
-  gap: 14px;
-  padding: 7px 16px;
+  min-height: 260px;
+  grid-template-rows: auto minmax(78px, 1fr) auto;
+  gap: 18px;
+  padding: 18px;
   border: 1px solid #e0eaf6;
-  border-radius: 12px;
+  border-radius: 8px;
   background: #ffffff;
+  box-shadow: 0 10px 24px rgba(42, 72, 108, 0.05);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
 }
 
-.tool-row:hover,
-.tool-card:hover,
-.skill-card:hover {
+.tool-row:hover {
   border-color: #a9c9ff;
   box-shadow: 0 12px 28px rgba(47, 117, 255, 0.08);
+  transform: translateY(-1px);
 }
 
 .tool-mark {
@@ -1138,12 +1007,24 @@ onMounted(loadDashboard)
 
 .tool-main {
   min-width: 0;
+  padding-right: 78px;
 }
 
-.tool-main h4,
-.tool-card h4,
-.skill-card h4,
-.mcp-row h4 {
+.tool-card-head {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.tool-title-line {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-title-line h4 {
   overflow: hidden;
   margin: 0;
   color: #0a2547;
@@ -1151,46 +1032,46 @@ onMounted(loadDashboard)
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 0.18s ease;
 }
 
-.tool-main p,
-.tool-card p,
-.skill-card p,
-.mcp-row p {
+.tool-row:hover .tool-title-line h4 {
+  color: #0b63f6;
+}
+
+.tool-title-line span {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 6px;
+  color: #2f75ff;
+  background: #eaf2ff;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.tool-main p {
+  display: -webkit-box;
   overflow: hidden;
-  margin: 7px 0 0;
+  margin: 10px 0 0;
   color: #6d819b;
   font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tool-call span {
-  display: block;
-  color: #7e94ad;
-  font-size: 12px;
-}
-
-.tool-call strong {
-  display: block;
-  margin-top: 4px;
-  color: #203957;
-  font-size: 17px;
-}
-
-.tool-agent {
-  color: #405874;
-  font-weight: 750;
+  line-height: 1.7;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .status-pill-mini {
+  position: absolute;
+  top: 18px;
+  right: 18px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-width: 62px;
-  height: 32px;
-  border-radius: 8px;
+  height: 24px;
+  border: 1px solid #bce8cc;
+  border-radius: 7px;
   color: #168354;
   background: #eaf8ef;
   font-size: 12px;
@@ -1205,11 +1086,13 @@ onMounted(loadDashboard)
 }
 
 .status-pill-mini.limited {
+  border-color: #ffdca6;
   color: #c56a1c;
   background: #fff5e8;
 }
 
 .status-pill-mini.disabled {
+  border-color: #d9e2ec;
   color: #6d819b;
   background: #edf3f8;
 }
@@ -1248,97 +1131,105 @@ onMounted(loadDashboard)
   color: #2f75ff;
 }
 
-.tool-card-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  padding: 0 22px 18px;
-}
-
-.tool-card {
-  border: 1px solid #e0eaf6;
-  border-radius: 12px;
-  background: #ffffff;
-  padding: 16px;
-}
-
-.tool-card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-
 .tool-card-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 16px;
+  overflow: hidden;
+  align-self: end;
+  border: 1px solid #e1ebf6;
+  border-radius: 8px;
+  background: #f8fbff;
 }
 
 .tool-card-stats div {
-  padding: 10px;
-  border-radius: 9px;
-  background: #f7fbff;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 12px;
+  border-right: 1px solid #e1ebf6;
+}
+
+.tool-card-stats div:last-child {
+  border-right: 0;
 }
 
 .tool-card-stats span {
-  color: #7890aa;
-  font-size: 11px;
+  color: #7e94ad;
+  font-size: 12px;
 }
 
 .tool-card-stats strong {
   display: block;
-  margin-top: 5px;
-  color: #0a2547;
+  color: #203957;
+  font-size: 15px;
+}
+
+.tool-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 14px;
+  border-top: 1px solid #e5edf6;
+}
+
+.tool-card-actions nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tool-card-actions .el-button.is-link {
+  height: auto;
+  padding: 0;
+  font-weight: 800;
+}
+
+.risk-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #18a668;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.risk-label.medium {
+  color: #c56a1c;
+}
+
+.risk-label.high {
+  color: #e45765;
 }
 
 .table-footer {
   display: flex;
-  flex-wrap: wrap;
+  min-height: 58px;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 22px;
-  border-top: 1px solid #dce8f5;
-  color: #6d819b;
-  background: rgba(255, 255, 255, 0.94);
+  gap: 18px;
+  padding: 0 18px 16px;
+  color: #53637b;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .table-footer :deep(.el-pagination) {
   --el-pagination-button-bg-color: #ffffff;
-  --el-pagination-hover-color: #2f75ff;
+  --el-pagination-hover-color: #0b63f6;
 }
 
-.skill-card .el-button {
-  display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  border: 1px solid #d3e2f6;
-  border-radius: 8px;
-  color: #2f75ff;
-  background: #ffffff;
+.table-footer :deep(.el-pager li),
+.table-footer :deep(.btn-prev),
+.table-footer :deep(.btn-next) {
+  border: 1px solid #d9e4f2;
+  border-radius: 5px;
+  box-shadow: none;
 }
 
-.skill-grid,
-.mcp-list {
-  display: grid;
-  gap: 12px;
-  padding: 22px;
-}
-
-.skill-card,
-.mcp-row {
-  display: grid;
-  grid-template-columns: 48px minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 14px;
-  min-height: 82px;
-  padding: 14px 16px;
-  border: 1px solid #e0eaf6;
-  border-radius: 12px;
+.table-footer :deep(.el-pager li.is-active) {
+  border-color: #0b63f6;
+  color: #0b63f6;
   background: #ffffff;
 }
 
@@ -1515,8 +1406,14 @@ onMounted(loadDashboard)
     grid-template-rows: none;
   }
 
-  .tool-row {
-    grid-template-columns: 54px minmax(220px, 1fr) 86px 90px 74px 36px 56px 34px;
+  .panel-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tool-filter-bar {
+    flex-wrap: wrap;
+    justify-content: flex-start;
   }
 }
 
@@ -1526,31 +1423,22 @@ onMounted(loadDashboard)
     flex-direction: column;
   }
 
-  .tool-metrics,
-  .tool-card-grid {
+  .tool-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .tool-filter-bar {
-    grid-template-columns: 1fr;
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .tool-row {
-    grid-template-columns: 48px minmax(0, 1fr);
+  .tool-filter-bar .el-input,
+  .tool-filter-bar .el-select,
+  .tool-filter-bar .el-button {
+    width: 100%;
   }
 
-  .tool-call,
-  .tool-agent,
-  .status-pill-mini,
-  .risk-shield,
-  .tool-row > .el-button,
-  .tool-row > .el-dropdown {
-    grid-column: 2;
-    justify-self: start;
-  }
-
-  .permission-change-list > div,
-  .mcp-row {
+  .permission-change-list > div {
     grid-template-columns: 1fr;
   }
 }
@@ -1560,10 +1448,52 @@ onMounted(loadDashboard)
     font-size: 28px;
   }
 
-  .tool-metrics,
-  .tool-card-grid,
+  .tool-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .tool-list {
+    grid-template-columns: 1fr;
+    padding: 0 12px 14px;
+  }
+
+  .table-footer {
+    align-items: flex-start;
+    flex-direction: column;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .tool-card-head {
+    grid-template-columns: 48px minmax(0, 1fr);
+  }
+
+  .tool-mark {
+    width: 48px;
+    height: 48px;
+  }
+
+  .tool-main {
+    padding-right: 0;
+  }
+
+  .status-pill-mini {
+    position: static;
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+
   .tool-card-stats {
     grid-template-columns: 1fr;
+  }
+
+  .tool-card-stats div {
+    border-right: 0;
+    border-bottom: 1px solid #e1ebf6;
+  }
+
+  .tool-card-stats div:last-child {
+    border-bottom: 0;
   }
 }
 </style>
