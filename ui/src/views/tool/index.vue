@@ -788,10 +788,9 @@ onMounted(loadDashboard)
 
 .tool-metric {
   display: flex;
-  min-height: 126px;
   align-items: center;
   gap: 18px;
-  padding: 20px 22px;
+  padding: 10px 22px;
 }
 
 .metric-icon {
@@ -938,8 +937,7 @@ onMounted(loadDashboard)
   grid-template-columns: 54px minmax(180px, 1fr) 86px 90px 74px 36px 56px 34px;
   align-items: center;
   gap: 14px;
-  min-height: 88px;
-  padding: 14px 16px;
+  padding: 7px 16px;
   border: 1px solid #e0eaf6;
   border-radius: 12px;
   background: #ffffff;
