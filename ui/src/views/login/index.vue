@@ -68,7 +68,7 @@ const handleLogin = async () => {
       <section class="login-intro">
         <div class="intro-copy">
           <span class="intro-kicker">BUILD · ORCHESTRATE · EVOLVE</span>
-          <h1>让每一个智能体，<br>都成为可靠的数字同事</h1>
+          <h1>让每一个智能体，<br>都成为可靠的数字助手</h1>
           <p>连接模型、知识、工具与业务流程，构建可协作、可进化的企业级 AI Agent。</p>
         </div>
 

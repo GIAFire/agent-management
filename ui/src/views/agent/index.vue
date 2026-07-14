@@ -130,7 +130,7 @@ const wizardSteps = [
   { title: '选择类型', desc: '选择推理和协作模式' },
   { title: '基本信息', desc: '配置智能体的基本信息' },
   { title: '模型与提示词', desc: '选择模型和提示词模板' },
-  { title: '工具与技能', desc: '配置钩子、工具、技能和敏感词' },
+  { title: '工具与技能', desc: '配置工具TOOL' },
   { title: '知识库', desc: '配置知识库、MCP 服务和子智能体' },
   { title: '高级配置', desc: '配置计划、记忆、执行环境和 Studio 等' }
 ]
