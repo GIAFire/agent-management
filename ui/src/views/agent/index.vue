@@ -198,9 +198,9 @@ const stats = computed(() => {
   const total = sourceRows.value.length
   const running = sourceRows.value.filter((row) => Number(row.status) === 1).length
   return [
-    { label: '智能体总数', value: total || 32, note: `${running || 24} 个正在运行` },
-    { label: '已发布版本', value: 86, note: '本周新增 7 个' },
-    { label: '今日对话', value: '4,692', note: '较昨日 +18.2%' }
+    { label: '智能体总数', value: total || 32, note: `${running || 24} 个正在运行`, icon: Briefcase },
+    { label: '已发布版本', value: 86, note: '本周新增 7 个', icon: Collection, tone: 'indigo' },
+    { label: '今日对话', value: '4,692', note: '较昨日 +18.2%', icon: Lightning, tone: 'cyan' }
   ]
 })
 
@@ -603,72 +603,79 @@ onMounted(async () => {
 
     <div class="agent-stats">
       <article v-for="item in stats" :key="item.label" class="agent-stat-card">
-        <span>{{ item.label }}</span>
-        <strong>{{ item.value }}</strong>
-        <small><i />{{ item.note }}</small>
+        <span class="metric-icon" :class="item.tone">
+          <el-icon><component :is="item.icon" /></el-icon>
+        </span>
+        <div>
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+          <small><i />{{ item.note }}</small>
+        </div>
       </article>
     </div>
 
-    <article class="agent-list-panel">
-      <div class="agent-list-header">
-        <div>
-          <h3>智能体列表</h3>
-          <p>展示平台当前配置与实时运行状态</p>
+    <div class="agent-dashboard">
+      <article class="agent-list-panel">
+        <div class="agent-list-header">
+          <div>
+            <h3>智能体列表</h3>
+            <p>展示平台当前配置与实时运行状态</p>
+          </div>
+          <el-segmented v-model="activeFilter" :options="['全部', '运行中', '需关注']" />
         </div>
-        <el-segmented v-model="activeFilter" :options="['全部', '运行中', '需关注']" />
-      </div>
 
-      <el-table v-loading="loading" :data="filteredRows" class="agent-table">
-        <el-table-column prop="agentName" label="智能体" min-width="180" />
-        <el-table-column prop="agentType" label="类型" min-width="140" />
-        <el-table-column label="描述" min-width="140">
-          <template #default="{ row }">
-            {{ row.agentDescription || 'v1.0' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="模型" min-width="170">
-          <template #default="{ row }">
-            {{ row.modelName || row.model || 'Qwen3-235B' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="130">
-          <template #default="{ row }">
-            <span class="status-badge" :class="statusMeta(row.agentStatus).className">
-              <i />{{ statusMeta(row.agentStatus).text }}
-            </span>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="handleChat(row)">对话</el-button>
-            <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </article>
+        <el-table v-loading="loading" :data="filteredRows" class="agent-table">
+          <el-table-column prop="agentName" label="智能体" min-width="180" />
+          <el-table-column prop="agentType" label="类型" min-width="140" />
+          <el-table-column label="描述" min-width="140">
+            <template #default="{ row }">
+              {{ row.agentDescription || 'v1.0' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="模型" min-width="170">
+            <template #default="{ row }">
+              {{ row.modelName || row.model || 'Qwen3-235B' }}
+            </template>
+          </el-table-column>
+          <el-table-column label="状态" width="130">
+            <template #default="{ row }">
+              <span class="status-badge" :class="statusMeta(row.agentStatus).className">
+                <i />{{ statusMeta(row.agentStatus).text }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="220" fixed="right">
+            <template #default="{ row }">
+              <el-button link type="primary" @click="handleChat(row)">对话</el-button>
+              <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
+              <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </article>
 
-    <div class="agent-bottom-grid">
-      <article class="insight-card">
-        <span class="insight-icon">
-          <el-icon><MagicStick /></el-icon>
-        </span>
-        <div>
-          <h3>智能建议</h3>
-          <p>根据最近 7 天运行数据，建议优先检查报告生成助手的模型超时配置。</p>
-        </div>
-        <el-button link type="primary">查看建议</el-button>
-      </article>
-      <article class="insight-card">
-        <span class="insight-icon cyan">
-          <el-icon><Key /></el-icon>
-        </span>
-        <div>
-          <h3>安全与审计</h3>
-          <p>所有敏感工具调用均经过租户、角色与运行时三层权限校验。</p>
-        </div>
-        <el-button link type="primary">打开审计</el-button>
-      </article>
+      <aside class="agent-bottom-grid">
+        <article class="insight-card">
+          <span class="insight-icon">
+            <el-icon><MagicStick /></el-icon>
+          </span>
+          <div>
+            <h3>智能建议</h3>
+            <p>根据最近 7 天运行数据，建议优先检查报告生成助手的模型超时配置。</p>
+          </div>
+          <el-button link type="primary">查看建议</el-button>
+        </article>
+        <article class="insight-card">
+          <span class="insight-icon cyan">
+            <el-icon><Key /></el-icon>
+          </span>
+          <div>
+            <h3>安全与审计</h3>
+            <p>所有敏感工具调用均经过租户、角色与运行时三层权限校验。</p>
+          </div>
+          <el-button link type="primary">打开审计</el-button>
+        </article>
+      </aside>
     </div>
 
     <el-dialog

@@ -801,6 +801,8 @@ onMounted(loadModelList)
 <style scoped>
 .model-console {
   display: grid;
+  min-height: calc(100vh - 115px);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -847,22 +849,21 @@ onMounted(loadModelList)
 
 .model-metric {
   display: flex;
-  min-height: 126px;
   align-items: center;
   gap: 18px;
-  padding: 20px 22px;
+  padding: 10px 22px;
 }
 
 .metric-icon {
   display: grid;
-  width: 72px;
-  height: 72px;
+  width: 58px;
+  height: 58px;
   flex: 0 0 auto;
   place-items: center;
-  border-radius: 50%;
+  border-radius: 13px;
   color: #2f75ff;
   background: #ecf4ff;
-  font-size: 32px;
+  font-size: 28px;
 }
 
 .metric-icon.green {
@@ -878,13 +879,12 @@ onMounted(loadModelList)
 .model-metric > div > span {
   display: block;
   color: #667d99;
-  font-size: 14px;
-  font-weight: 750;
+  font-size: 13px;
 }
 
 .model-metric strong {
   display: block;
-  margin-top: 9px;
+  margin-top: 8px;
   color: #0a2547;
   font-size: 30px;
   font-weight: 850;
@@ -905,12 +905,17 @@ onMounted(loadModelList)
 
 .model-dashboard {
   display: grid;
+  width: 100%;
   grid-template-columns: minmax(760px, 1fr) minmax(330px, 0.36fr);
+  align-self: stretch;
+  align-items: stretch;
   gap: 18px;
+  min-height: 0;
 }
 
 .model-list-panel {
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -1166,12 +1171,18 @@ onMounted(loadModelList)
 
 .model-side {
   display: grid;
-  align-content: start;
+  grid-template-rows: minmax(150px, 0.42fr) minmax(260px, 0.58fr);
+  align-content: stretch;
   gap: 18px;
+  min-height: 0;
 }
 
 .side-panel {
-  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 18px;
 }
 
 .side-head {
@@ -1338,6 +1349,15 @@ onMounted(loadModelList)
 @media (max-width: 1320px) {
   .model-dashboard {
     grid-template-columns: 1fr;
+  }
+
+  .model-dashboard,
+  .model-side {
+    min-height: 0;
+  }
+
+  .model-side {
+    grid-template-rows: none;
   }
 
   .model-toolbar {

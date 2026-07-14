@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import {
   ArrowRight,
@@ -9,7 +9,6 @@ import {
   Document,
   Finished,
   Grid,
-  Key,
   Link,
   List,
   Lock,
@@ -34,6 +33,7 @@ const activeTab = ref('tools')
 const viewMode = ref('list')
 const createDialogVisible = ref(false)
 const logDialogVisible = ref(false)
+const permissionDialogVisible = ref(false)
 const tools = ref([])
 const groups = ref([])
 const logs = ref([])
@@ -43,6 +43,16 @@ const queryParams = reactive({
   keyword: '',
   category: '',
   status: ''
+})
+
+const pagination = reactive({
+  currentPage: 1,
+  pageSize: 5
+})
+
+const permissionPagination = reactive({
+  currentPage: 1,
+  pageSize: 10
 })
 
 const createForm = reactive({
@@ -198,6 +208,11 @@ const permissionRows = computed(() => {
   }))
 })
 
+const pagedPermissionRows = computed(() => {
+  const start = (permissionPagination.currentPage - 1) * permissionPagination.pageSize
+  return permissionRows.value.slice(start, start + permissionPagination.pageSize)
+})
+
 const filteredTools = computed(() => {
   const keyword = queryParams.keyword.trim().toLowerCase()
   return toolRows.value.filter((row) => {
@@ -209,11 +224,69 @@ const filteredTools = computed(() => {
   })
 })
 
-const toolTypeOptions = computed(() => {
-  return [...new Set(toolRows.value.map((row) => row.toolType).filter(Boolean))]
+const pagedTools = computed(() => {
+  const start = (pagination.currentPage - 1) * pagination.pageSize
+  return filteredTools.value.slice(start, start + pagination.pageSize)
 })
 
 const mcpTools = computed(() => toolRows.value.filter((row) => row.toolType === 'MCP'))
+
+const currentTabRows = computed(() => {
+  if (activeTab.value === 'skills') {
+    return groupRows.value
+  }
+  if (activeTab.value === 'mcp') {
+    return mcpTools.value
+  }
+  return filteredTools.value
+})
+
+const currentTabTotal = computed(() => currentTabRows.value.length)
+
+const pagedGroups = computed(() => {
+  const start = (pagination.currentPage - 1) * pagination.pageSize
+  return groupRows.value.slice(start, start + pagination.pageSize)
+})
+
+const pagedMcpTools = computed(() => {
+  const start = (pagination.currentPage - 1) * pagination.pageSize
+  return mcpTools.value.slice(start, start + pagination.pageSize)
+})
+
+watch(
+  () => [queryParams.keyword, queryParams.category, queryParams.status],
+  () => {
+    pagination.currentPage = 1
+  }
+)
+
+watch(activeTab, () => {
+  pagination.currentPage = 1
+})
+
+watch(
+  () => pagination.pageSize,
+  () => {
+    const maxPage = Math.max(1, Math.ceil(currentTabTotal.value / pagination.pageSize))
+    if (pagination.currentPage > maxPage) {
+      pagination.currentPage = maxPage
+    }
+  }
+)
+
+watch(
+  currentTabRows,
+  () => {
+    const maxPage = Math.max(1, Math.ceil(currentTabTotal.value / pagination.pageSize))
+    if (pagination.currentPage > maxPage) {
+      pagination.currentPage = maxPage
+    }
+  }
+)
+
+const toolTypeOptions = computed(() => {
+  return [...new Set(toolRows.value.map((row) => row.toolType).filter(Boolean))]
+})
 
 const failedLogs = computed(() => {
   return logRows.value.filter((row) => String(row.successStatus).toUpperCase() === 'FAILED').slice(0, 4)
@@ -262,7 +335,7 @@ const metrics = computed(() => {
   ]
 })
 
-const normalizeTool = (row, index) => {
+function normalizeTool(row, index) {
   const calls = Number(row.calls ?? row.callCount ?? row.invokeCount ?? 0)
   const syntheticCalls = [3826, 2198, 1462, 864, 726][index % 5]
   const riskLevel = String(row.riskLevel || 'LOW').toUpperCase()
@@ -287,7 +360,7 @@ const normalizeTool = (row, index) => {
   }
 }
 
-const normalizeGroup = (row, index) => {
+function normalizeGroup(row, index) {
   const relatedTools = toolRows.value.filter((tool) => String(tool.groupId) === String(row.id) || tool.groupId === row.groupName)
   return {
     ...row,
@@ -344,6 +417,11 @@ const handleCreateTool = async () => {
 
 const openLogDialog = () => {
   logDialogVisible.value = true
+}
+
+const openPermissionDialog = () => {
+  permissionPagination.currentPage = 1
+  permissionDialogVisible.value = true
 }
 
 const configureTool = (tool) => {
@@ -481,7 +559,7 @@ onMounted(loadDashboard)
             </div>
 
             <div v-if="viewMode === 'list'" class="tool-list">
-              <article v-for="tool in filteredTools" :key="tool.id" class="tool-row">
+              <article v-for="tool in pagedTools" :key="tool.id" class="tool-row">
                 <span class="tool-mark" :class="riskClass(tool.riskLevel)">
                   <el-icon><component :is="tool.readOnly ? Search : Setting" /></el-icon>
                 </span>
@@ -519,7 +597,7 @@ onMounted(loadDashboard)
             </div>
 
             <div v-else class="tool-card-grid">
-              <article v-for="tool in filteredTools" :key="tool.id" class="tool-card">
+              <article v-for="tool in pagedTools" :key="tool.id" class="tool-card">
                 <div class="tool-card-head">
                   <span class="tool-mark" :class="riskClass(tool.riskLevel)">
                     <el-icon><component :is="tool.readOnly ? Search : Setting" /></el-icon>
@@ -535,68 +613,104 @@ onMounted(loadDashboard)
                 </div>
               </article>
             </div>
-
-            <div class="table-footer">
-              <span>共 {{ filteredTools.length }} 项</span>
-              <div class="pager-mock">
-                <button disabled type="button">&lt;</button>
-                <strong>1</strong>
-                <button disabled type="button">&gt;</button>
-                <span>10 条/页</span>
-              </div>
-            </div>
           </el-tab-pane>
 
           <el-tab-pane label="技能包" name="skills">
-            <div class="skill-grid">
-              <article v-for="group in groupRows" :key="group.id" class="skill-card">
-                <span class="skill-icon"><el-icon><Box /></el-icon></span>
-                <div>
+            <div class="tool-list">
+              <article v-for="group in pagedGroups" :key="group.id" class="tool-row">
+                <span class="tool-mark low"><el-icon><Box /></el-icon></span>
+                <div class="tool-main">
                   <h4>{{ group.groupName }}</h4>
                   <p>{{ group.description }}</p>
-                  <small>工具 {{ group.tools }} 个 · Agent {{ group.agents }} 个</small>
                 </div>
-                <el-button :icon="ArrowRight" />
+                <div class="tool-call">
+                  <span>工具</span>
+                  <strong>{{ group.tools }}</strong>
+                </div>
+                <div class="tool-agent">{{ group.agents }} 个 Agent</div>
+                <span class="status-pill-mini" :class="group.enabled ? 'normal' : 'disabled'">
+                  <i />
+                  {{ group.enabled ? '正常' : '停用' }}
+                </span>
+                <el-tooltip :content="group.activeByDefault ? '默认启用' : '手动启用'" placement="top">
+                  <span class="risk-shield" :class="group.activeByDefault ? 'low' : 'medium'">
+                    <el-icon><Finished /></el-icon>
+                  </span>
+                </el-tooltip>
+                <el-button link type="primary">配置</el-button>
+                <el-dropdown trigger="click">
+                  <button class="more-button" type="button" aria-label="更多操作">
+                    <el-icon><MoreFilled /></el-icon>
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item>配置技能包</el-dropdown-item>
+                      <el-dropdown-item>查看关联工具</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </article>
             </div>
           </el-tab-pane>
 
           <el-tab-pane label="MCP 工具" name="mcp">
-            <div class="mcp-list">
-              <article v-for="tool in mcpTools" :key="tool.id" class="mcp-row">
-                <span><el-icon><Link /></el-icon></span>
-                <div>
+            <div class="tool-list">
+              <article v-for="tool in pagedMcpTools" :key="tool.id" class="tool-row">
+                <span class="tool-mark medium"><el-icon><Link /></el-icon></span>
+                <div class="tool-main">
                   <h4>{{ tool.toolName }}</h4>
                   <p>{{ tool.description }}</p>
                 </div>
-                <el-tag type="success">在线</el-tag>
-                <el-button text type="primary">配置</el-button>
+                <div class="tool-call">
+                  <span>调用</span>
+                  <strong>{{ formatNumber(tool.calls) }}</strong>
+                </div>
+                <div class="tool-agent">{{ tool.agents }} 个 Agent</div>
+                <span class="status-pill-mini" :class="tool.status">
+                  <i />
+                  {{ statusLabel(tool.status) }}
+                </span>
+                <el-tooltip :content="riskLabel(tool.riskLevel)" placement="top">
+                  <span class="risk-shield" :class="riskClass(tool.riskLevel)">
+                    <el-icon><Finished /></el-icon>
+                  </span>
+                </el-tooltip>
+                <el-button link type="primary" @click="configureTool(tool)">配置</el-button>
+                <el-dropdown trigger="click">
+                  <button class="more-button" type="button" aria-label="更多操作">
+                    <el-icon><MoreFilled /></el-icon>
+                  </button>
+                  <template #dropdown>
+                    <el-dropdown-menu>
+                      <el-dropdown-item @click="configureTool(tool)">配置 MCP</el-dropdown-item>
+                      <el-dropdown-item>查看调用</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </template>
+                </el-dropdown>
               </article>
               <el-empty v-if="!mcpTools.length" description="暂无 MCP 工具" />
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="权限策略" name="permissions">
-            <div class="permission-list">
-              <article v-for="item in permissionRows" :key="item.id" class="permission-row">
-                <span class="permission-icon"><el-icon><Key /></el-icon></span>
-                <div>
-                  <h4>{{ item.toolName }}</h4>
-                  <p>{{ item.description }}</p>
-                </div>
-                <span>{{ item.roleCode }}</span>
-                <el-tag :type="behaviorType(item.behavior)">{{ item.behavior }}</el-tag>
-              </article>
-            </div>
-          </el-tab-pane>
         </el-tabs>
+        <div v-if="['tools', 'skills', 'mcp'].includes(activeTab)" class="table-footer">
+          <span>共 {{ currentTabTotal }} 项</span>
+          <el-pagination
+            v-model:current-page="pagination.currentPage"
+            v-model:page-size="pagination.pageSize"
+            background
+            layout="prev, pager, next, sizes"
+            :page-sizes="[5, 10, 20, 50]"
+            :total="currentTabTotal"
+          />
+        </div>
       </section>
 
       <aside class="tool-side">
         <section class="side-panel">
           <div class="side-head">
             <h3>权限变更记录</h3>
-            <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
+            <el-button link type="primary" @click="openPermissionDialog">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
           </div>
           <div class="permission-change-list">
             <div v-for="item in permissionRows" :key="item.id">
@@ -734,13 +848,44 @@ onMounted(loadDashboard)
         <el-table-column prop="startedAt" label="开始时间" min-width="170" />
       </el-table>
     </el-dialog>
+
+    <el-dialog
+      v-model="permissionDialogVisible"
+      title="权限变更记录"
+      width="900px"
+      destroy-on-close
+      class="tool-dialog"
+    >
+      <el-table :data="pagedPermissionRows" stripe>
+        <el-table-column prop="toolName" label="工具" min-width="160" />
+        <el-table-column prop="roleCode" label="角色" min-width="130" />
+        <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />
+        <el-table-column prop="source" label="来源" width="130" />
+        <el-table-column prop="behavior" label="权限" width="110">
+          <template #default="{ row }">
+            <el-tag :type="behaviorType(row.behavior)">{{ row.behavior }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="updateTime" label="变更时间" min-width="170" />
+      </el-table>
+      <div class="dialog-pagination">
+        <el-pagination
+          v-model:current-page="permissionPagination.currentPage"
+          v-model:page-size="permissionPagination.pageSize"
+          background
+          layout="total, prev, pager, next, sizes"
+          :page-sizes="[10, 20, 50]"
+          :total="permissionRows.length"
+        />
+      </div>
+    </el-dialog>
   </section>
 </template>
 
 <style scoped>
 .tool-console {
   display: grid;
-  min-height: calc(100vh - 135px);
+  min-height: calc(100vh - 115px);
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
 }
@@ -853,15 +998,20 @@ onMounted(loadDashboard)
 
 .tool-dashboard {
   display: grid;
-  grid-template-columns: minmax(620px, 1fr) minmax(330px, 0.6fr);
+  width: 100%;
+  grid-template-columns: minmax(760px, 1fr) minmax(330px, 0.36fr);
+  align-self: stretch;
   align-items: stretch;
   gap: 18px;
   min-height: 0;
 }
 
 .tool-library-panel {
+  display: grid;
   position: relative;
+  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -869,6 +1019,16 @@ onMounted(loadDashboard)
   margin: 0;
   padding: 0 150px 0 22px;
   border-bottom: 1px solid #dce8f5;
+}
+
+.tool-tabs {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.tool-tabs :deep(.el-tabs__content) {
+  min-height: 0;
 }
 
 .tabs-create-tool {
@@ -983,8 +1143,7 @@ onMounted(loadDashboard)
 .tool-main h4,
 .tool-card h4,
 .skill-card h4,
-.mcp-row h4,
-.permission-row h4 {
+.mcp-row h4 {
   overflow: hidden;
   margin: 0;
   color: #0a2547;
@@ -997,8 +1156,7 @@ onMounted(loadDashboard)
 .tool-main p,
 .tool-card p,
 .skill-card p,
-.mcp-row p,
-.permission-row p {
+.mcp-row p {
   overflow: hidden;
   margin: 7px 0 0;
   color: #6d819b;
@@ -1138,21 +1296,21 @@ onMounted(loadDashboard)
 
 .table-footer {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 0 22px 18px;
+  padding: 12px 22px;
+  border-top: 1px solid #dce8f5;
   color: #6d819b;
+  background: rgba(255, 255, 255, 0.94);
 }
 
-.pager-mock {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.table-footer :deep(.el-pagination) {
+  --el-pagination-button-bg-color: #ffffff;
+  --el-pagination-hover-color: #2f75ff;
 }
 
-.pager-mock button,
-.pager-mock strong,
 .skill-card .el-button {
   display: grid;
   width: 34px;
@@ -1164,31 +1322,15 @@ onMounted(loadDashboard)
   background: #ffffff;
 }
 
-.pager-mock strong {
-  border-color: #2f75ff;
-  color: #ffffff;
-  background: #2f75ff;
-}
-
-.pager-mock span {
-  height: 34px;
-  padding: 0 12px;
-  border: 1px solid #d3e2f6;
-  border-radius: 8px;
-  line-height: 32px;
-}
-
 .skill-grid,
-.mcp-list,
-.permission-list {
+.mcp-list {
   display: grid;
   gap: 12px;
   padding: 22px;
 }
 
 .skill-card,
-.mcp-row,
-.permission-row {
+.mcp-row {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) auto;
   align-items: center;
@@ -1225,10 +1367,6 @@ onMounted(loadDashboard)
   grid-template-columns: 48px minmax(0, 1fr) 76px 64px;
 }
 
-.permission-row {
-  grid-template-columns: 48px minmax(0, 1fr) 110px 88px;
-}
-
 .tool-side {
   display: grid;
   grid-template-rows: minmax(150px, 0.42fr) minmax(260px, 0.58fr);
@@ -1237,7 +1375,10 @@ onMounted(loadDashboard)
 }
 
 .side-panel {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   padding: 18px;
 }
 
@@ -1258,7 +1399,12 @@ onMounted(loadDashboard)
 .failure-list,
 .permission-change-list {
   display: grid;
+  flex: 1 1 auto;
+  align-content: start;
   margin-top: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .permission-change-list > div {
@@ -1336,6 +1482,12 @@ onMounted(loadDashboard)
   padding: 20px 22px;
 }
 
+.dialog-pagination {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 16px;
+}
+
 .tool-form .el-select,
 .tool-form .el-input,
 .tool-form :deep(.el-input-number),
@@ -1398,8 +1550,7 @@ onMounted(loadDashboard)
   }
 
   .permission-change-list > div,
-  .mcp-row,
-  .permission-row {
+  .mcp-row {
     grid-template-columns: 1fr;
   }
 }

@@ -406,6 +406,13 @@
   gap: 10px;
 }
 
+.agent-center-page {
+  display: grid;
+  min-height: calc(100vh - 115px);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 18px;
+}
+
 .stats-grid,
 .agent-stats {
   display: grid;
@@ -415,7 +422,7 @@
 }
 
 .agent-stats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 0;
 }
 
 .metric-card,
@@ -482,7 +489,7 @@
 }
 
 .metric-card span,
-.agent-stat-card span {
+.agent-stat-card > div > span {
   display: block;
   color: #667d99;
   font-size: 13px;
@@ -743,11 +750,44 @@
 }
 
 .agent-stat-card {
-  min-height: 136px;
-  padding: 22px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 22px;
+}
+
+.agent-stat-card .metric-icon {
+  width: 58px;
+  height: 58px;
+  border-radius: 13px;
+  color: #2f75ff;
+  background: #ecf4ff;
+  font-size: 28px;
+}
+
+.agent-stat-card .metric-icon.indigo {
+  color: #5c6cff;
+  background: #eef1ff;
+}
+
+.agent-stat-card .metric-icon.cyan {
+  color: #0b95d8;
+  background: #e9f8ff;
+}
+
+.agent-dashboard {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(760px, 1fr) minmax(330px, 0.36fr);
+  align-self: stretch;
+  align-items: stretch;
+  gap: 18px;
+  min-height: 0;
 }
 
 .agent-list-panel {
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -793,9 +833,10 @@
 
 .agent-bottom-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-top: 18px;
+  grid-template-rows: minmax(150px, 0.42fr) minmax(260px, 0.58fr);
+  align-content: stretch;
+  gap: 18px;
+  min-height: 0;
 }
 
 .insight-card {
@@ -805,6 +846,7 @@
   gap: 14px;
   min-height: 76px;
   padding: 16px 18px;
+  overflow: hidden;
 }
 
 .agent-dialog {
@@ -1450,6 +1492,22 @@
   }
 }
 
+@media (max-width: 1320px) {
+  .agent-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-dashboard,
+  .agent-list-panel,
+  .agent-bottom-grid {
+    min-height: 0;
+  }
+
+  .agent-bottom-grid {
+    grid-template-rows: none;
+  }
+}
+
 @media (max-width: 980px) {
   .app-wrapper {
     display: block;
@@ -1506,10 +1564,13 @@
   }
 
   .stats-grid,
-  .agent-stats,
   .dashboard-grid,
   .agent-bottom-grid {
     grid-template-columns: 1fr;
+  }
+
+  .agent-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .trend-panel {
@@ -1529,6 +1590,10 @@
   .metric-card,
   .agent-stat-card {
     min-height: auto;
+  }
+
+  .agent-stats {
+    grid-template-columns: 1fr;
   }
 
   .trend-summary {

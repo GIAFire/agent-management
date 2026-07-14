@@ -994,7 +994,7 @@ onMounted(loadDashboard)
 <style scoped>
 .knowledge-console {
   display: grid;
-  min-height: calc(100vh - 135px);
+  min-height: calc(100vh - 115px);
   grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
 }
@@ -1042,10 +1042,9 @@ onMounted(loadDashboard)
 
 .knowledge-metric {
   display: flex;
-  min-height: 126px;
   align-items: center;
   gap: 18px;
-  padding: 20px 22px;
+  padding: 10px 22px;
 }
 
 .knowledge-metric span {
@@ -1079,7 +1078,9 @@ onMounted(loadDashboard)
 
 .knowledge-dashboard {
   display: grid;
-  grid-template-columns: minmax(620px, 1fr) minmax(330px, 0.6fr);
+  width: 100%;
+  grid-template-columns: minmax(760px, 1fr) minmax(330px, 0.36fr);
+  align-self: stretch;
   align-items: stretch;
   gap: 18px;
   min-height: 0;
@@ -1087,6 +1088,7 @@ onMounted(loadDashboard)
 
 .kb-list-panel {
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -1317,7 +1319,10 @@ onMounted(loadDashboard)
 }
 
 .side-panel {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   padding: 18px;
 }
 
@@ -1328,8 +1333,13 @@ onMounted(loadDashboard)
 .keyword-list {
   display: flex;
   flex-wrap: wrap;
+  flex: 1 1 auto;
   gap: 10px;
+  align-content: flex-start;
+  min-height: 0;
   margin-top: 18px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .keyword-list span {
@@ -1370,7 +1380,12 @@ onMounted(loadDashboard)
 
 .document-list {
   display: grid;
+  flex: 1 1 auto;
+  align-content: start;
+  min-height: 0;
   margin-top: 12px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .document-row {
