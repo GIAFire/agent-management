@@ -9,15 +9,21 @@ import {
   Close,
   Collection,
   Connection,
-  Download,
+  Coin,
   Files,
   FolderOpened,
-  Key,
+  Grid,
   Lightning,
+  Lock,
   MagicStick,
+  Menu,
   Monitor,
+  MoreFilled,
   Notebook,
+  Plus,
+  Search,
   SetUp,
+  TrendCharts,
   Tools
 } from '@element-plus/icons-vue'
 import { createAgentFull, deleteAgent, getAgent, getAgentInfoList, updateAgent } from '@/axios/agent'
@@ -39,7 +45,12 @@ const dialogTitle = ref('创建智能体')
 const wizardStep = ref(1)
 const formRef = ref()
 const agentRows = ref([])
-const activeFilter = ref('全部')
+const searchKeyword = ref('')
+const typeFilter = ref('')
+const statusFilter = ref('')
+const viewMode = ref('grid')
+const currentPage = ref(1)
+const pageSize = ref(6)
 const expandedResource = ref('')
 const modelRows = ref([])
 const promptRows = ref([])
@@ -184,25 +195,61 @@ const publishOptions = [
 
 const sourceRows = computed(() => agentRows.value.length ? agentRows.value : sampleRows)
 
+const getRowStatus = (row) => Number(row?.agentStatus ?? row?.status ?? 0)
+
+const getRowType = (row) => row?.agentType || row?.type || 'HARNESS'
+
+const getRowModel = (row) => row?.modelName || row?.model || row?.defaultModel || 'Qwen3-235B'
+
+const getRowDescription = (row) => row?.agentDescription || row?.description || '暂无描述'
+
+const getSubagentCount = (row) => {
+  if (Array.isArray(row?.subagents)) {
+    return row.subagents.length
+  }
+  return Number(row?.subagentCount ?? row?.subAgentCount ?? row?.childAgentCount ?? 0)
+}
+
 const filteredRows = computed(() => {
-  if (activeFilter.value === '运行中') {
-    return sourceRows.value.filter((row) => Number(row.status) === 1)
-  }
-  if (activeFilter.value === '需关注') {
-    return sourceRows.value.filter((row) => Number(row.status) !== 1)
-  }
-  return sourceRows.value
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  return sourceRows.value.filter((row) => {
+    const text = [
+      row.agentName,
+      row.agentKey,
+      row.agentCode,
+      getRowDescription(row),
+      getRowModel(row)
+    ].filter(Boolean).join(' ').toLowerCase()
+    const matchesKeyword = !keyword || text.includes(keyword)
+    const matchesType = !typeFilter.value || getRowType(row) === typeFilter.value
+    const matchesStatus = statusFilter.value === '' || getRowStatus(row) === Number(statusFilter.value)
+    return matchesKeyword && matchesType && matchesStatus
+  })
+})
+
+const pagedRows = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredRows.value.slice(start, start + pageSize.value)
 })
 
 const stats = computed(() => {
   const total = sourceRows.value.length
-  const running = sourceRows.value.filter((row) => Number(row.status) === 1).length
+  const running = sourceRows.value.filter((row) => getRowStatus(row) === 1).length
+  const successRate = total ? Math.min(99.8, 96 + (running / total) * 3).toFixed(1) : '98.2'
   return [
-    { label: '智能体总数', value: total || 32, note: `${running || 24} 个正在运行`, icon: Briefcase },
-    { label: '已发布版本', value: 86, note: '本周新增 7 个', icon: Collection, tone: 'indigo' },
-    { label: '今日对话', value: '4,692', note: '较昨日 +18.2%', icon: Lightning, tone: 'cyan' }
+    { label: '智能体总数', value: total || 0, note: `较昨日 +${Math.max(1, running || 1)}`, icon: Monitor, tone: 'blue' },
+    { label: '今日消耗 Token', value: '8.42M', note: '较昨日 +14.6% ↑', icon: Coin, tone: 'green' },
+    { label: '今日运行', value: '1,286', note: '较昨日 +12.6%', icon: TrendCharts, tone: 'purple' },
+    { label: '平均成功率', value: `${successRate}%`, note: '平均响应 2.4s', icon: Lock, tone: 'orange' }
   ]
 })
+
+const typeOptions = computed(() => {
+  const options = Array.from(new Set(sourceRows.value.map((row) => getRowType(row)).filter(Boolean)))
+  return options.length ? options : ['HARNESS', 'REACT']
+})
+
+const emptyText = computed(() => loading.value ? '正在加载智能体' : '暂无智能体')
 
 const configProgress = computed(() => {
   let score = 20
@@ -219,12 +266,16 @@ const configProgress = computed(() => {
 const statusMeta = (status) => {
   const value = Number(status)
   if (value === 1) {
-    return { text: '运行中', className: 'running' }
+    return { text: '已发布', className: 'published', detail: '成功率 98.7%' }
   }
   if (value === 2) {
-    return { text: '需关注', className: 'warning' }
+    return { text: '草稿', className: 'draft', detail: '尚未发布' }
   }
-  return { text: '已停用', className: 'muted' }
+  return { text: '已停用', className: 'muted', detail: '已停用' }
+}
+
+const resetPage = () => {
+  currentPage.value = 1
 }
 
 const resetConfigForm = () => {
@@ -572,7 +623,7 @@ const handleDelete = async (row) => {
 const handleChat = (row) => {
   router.push({
     name: 'AgentChat',
-    params: { agentId: row.agentId },
+    params: { agentId: row.agentId || row.id },
     query: {
       agentName: row.agentName || undefined,
       agentKey: row.agentKey || row.agentCode || undefined
@@ -593,11 +644,10 @@ onMounted(async () => {
     <div class="page-hero agent-hero">
       <div>
         <h2>智能体中心</h2>
-        <p>集中创建、配置和发布企业智能体，统一管理版本与运行状态。</p>
+        <p>创建、配置和运行智能体，统一管理智能体能力与状态</p>
       </div>
       <div class="hero-actions">
-        <el-button :icon="Download">导出数据</el-button>
-        <el-button type="primary" :icon="Lightning" @click="handleAdd">新建</el-button>
+        <el-button type="primary" :icon="Plus" @click="handleAdd">新建智能体</el-button>
       </div>
     </div>
 
@@ -614,69 +664,97 @@ onMounted(async () => {
       </article>
     </div>
 
-    <div class="agent-dashboard">
-      <article class="agent-list-panel">
-        <div class="agent-list-header">
-          <div>
-            <h3>智能体列表</h3>
-            <p>展示平台当前配置与实时运行状态</p>
+    <article class="agent-list-panel">
+      <div class="agent-list-header">
+        <h3>智能体列表</h3>
+        <div class="agent-list-tools">
+          <el-input
+            v-model="searchKeyword"
+            class="agent-search"
+            :prefix-icon="Search"
+            clearable
+            placeholder="搜索智能体名称或描述"
+            @input="resetPage"
+          />
+          <el-select v-model="typeFilter" class="agent-filter" placeholder="全部类型" clearable @change="resetPage">
+            <el-option label="全部类型" value="" />
+            <el-option v-for="type in typeOptions" :key="type" :label="type" :value="type" />
+          </el-select>
+          <el-select v-model="statusFilter" class="agent-filter" placeholder="全部状态" clearable @change="resetPage">
+            <el-option label="全部状态" value="" />
+            <el-option label="已发布" :value="1" />
+            <el-option label="草稿" :value="2" />
+            <el-option label="已停用" :value="0" />
+          </el-select>
+          <div class="view-switch">
+            <button type="button" :class="{ active: viewMode === 'grid' }" @click="viewMode = 'grid'">
+              <el-icon><Grid /></el-icon>
+            </button>
+            <button type="button" :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">
+              <el-icon><Menu /></el-icon>
+            </button>
           </div>
-          <el-segmented v-model="activeFilter" :options="['全部', '运行中', '需关注']" />
         </div>
+      </div>
 
-        <el-table v-loading="loading" :data="filteredRows" class="agent-table">
-          <el-table-column prop="agentName" label="智能体" min-width="180" />
-          <el-table-column prop="agentType" label="类型" min-width="140" />
-          <el-table-column label="描述" min-width="140">
-            <template #default="{ row }">
-              {{ row.agentDescription || 'v1.0' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="模型" min-width="170">
-            <template #default="{ row }">
-              {{ row.modelName || row.model || 'Qwen3-235B' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="状态" width="130">
-            <template #default="{ row }">
-              <span class="status-badge" :class="statusMeta(row.agentStatus).className">
-                <i />{{ statusMeta(row.agentStatus).text }}
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="220" fixed="right">
-            <template #default="{ row }">
+      <div v-loading="loading" class="agent-card-grid" :class="{ 'is-list': viewMode === 'list' }">
+        <article v-for="row in pagedRows" :key="row.id || row.agentId || row.agentKey" class="agent-card">
+          <header>
+            <div>
+              <h4>{{ row.agentName || row.agentKey || '未命名智能体' }}</h4>
+            </div>
+            <span class="status-badge" :class="statusMeta(getRowStatus(row)).className">
+              {{ statusMeta(getRowStatus(row)).text }}
+            </span>
+          </header>
+          <p>{{ getRowDescription(row) }}</p>
+          <div class="agent-card-meta">
+            <span>模型：{{ getRowModel(row) }}</span>
+            <span>
+              <el-icon><Connection /></el-icon>
+              {{ getSubagentCount(row) }} 个子智能体
+            </span>
+          </div>
+          <footer>
+            <div class="agent-card-run">
+              <span>今日运行 {{ row.todayRuns ?? row.runCount ?? 0 }}</span>
+              <i />
+              <span>{{ statusMeta(getRowStatus(row)).detail }}</span>
+            </div>
+            <nav>
               <el-button link type="primary" @click="handleChat(row)">对话</el-button>
+              <b>/</b>
               <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
-              <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
-            </template>
-          </el-table-column>
-        </el-table>
-      </article>
+              <b>/</b>
+              <el-dropdown trigger="click">
+                <el-button link type="primary">
+                  更多 <el-icon><MoreFilled /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="handleDelete(row)">删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
+            </nav>
+          </footer>
+        </article>
 
-      <aside class="agent-bottom-grid">
-        <article class="insight-card">
-          <span class="insight-icon">
-            <el-icon><MagicStick /></el-icon>
-          </span>
-          <div>
-            <h3>智能建议</h3>
-            <p>根据最近 7 天运行数据，建议优先检查报告生成助手的模型超时配置。</p>
-          </div>
-          <el-button link type="primary">查看建议</el-button>
-        </article>
-        <article class="insight-card">
-          <span class="insight-icon cyan">
-            <el-icon><Key /></el-icon>
-          </span>
-          <div>
-            <h3>安全与审计</h3>
-            <p>所有敏感工具调用均经过租户、角色与运行时三层权限校验。</p>
-          </div>
-          <el-button link type="primary">打开审计</el-button>
-        </article>
-      </aside>
-    </div>
+        <el-empty v-if="!pagedRows.length" class="agent-empty" :description="emptyText" :image-size="96" />
+      </div>
+
+      <div class="agent-list-footer">
+        <span>共 {{ filteredRows.length }} 个</span>
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          background
+          layout="prev, pager, next, sizes"
+          :total="filteredRows.length"
+          :page-sizes="[6, 12, 24]"
+        />
+      </div>
+    </article>
 
     <el-dialog
       v-model="dialogVisible"
