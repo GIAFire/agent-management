@@ -5,14 +5,10 @@ import {
   ArrowRight,
   Box,
   Briefcase,
-  Check,
-  CircleCheck,
   DataLine,
   Document,
   Finished,
-  Files,
   Grid,
-  Histogram,
   Key,
   Link,
   List,
@@ -22,8 +18,6 @@ import {
   Refresh,
   Search,
   Setting,
-  Tickets,
-  TrendCharts,
   Warning
 } from '@element-plus/icons-vue'
 import {
@@ -434,13 +428,11 @@ onMounted(loadDashboard)
   <section v-loading="loading" class="tool-console">
     <div class="tool-hero">
       <div>
-        <span class="eyebrow">TOOLS & SKILLS</span>
         <h2>工具与技能</h2>
         <p>集中管理 Agent 可调用的工具、技能包与权限策略，安全扩展智能体执行能力。</p>
       </div>
       <div class="hero-actions">
         <el-button size="large" :icon="Document" @click="openLogDialog">调用日志</el-button>
-        <el-button size="large" type="primary" :icon="Plus" @click="openCreateDialog">新建工具</el-button>
       </div>
     </div>
 
@@ -459,6 +451,7 @@ onMounted(loadDashboard)
 
     <div class="tool-dashboard">
       <section class="tool-library-panel">
+        <el-button class="tabs-create-tool" type="primary" :icon="Plus" @click="openCreateDialog">新建工具</el-button>
         <el-tabs v-model="activeTab" class="tool-tabs">
           <el-tab-pane label="工具库" name="tools">
             <div class="tool-filter-bar">
@@ -603,94 +596,40 @@ onMounted(loadDashboard)
       </section>
 
       <aside class="tool-side">
-        <section class="side-panel trend-panel">
+        <section class="side-panel">
           <div class="side-head">
-            <h3>调用趋势</h3>
-            <el-select model-value="近 7 天" size="small">
-              <el-option label="近 7 天" value="近 7 天" />
-              <el-option label="近 30 天" value="近 30 天" />
-            </el-select>
+            <h3>权限变更记录</h3>
+            <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
           </div>
-          <div class="trend-meta">
-            <span><i class="dot blue" /> 调用次数</span>
-            <span><i class="dot cyan" /> 成功次数</span>
-            <strong>总调用<br>68.4K</strong>
-            <strong>平均耗时<br>842ms</strong>
-          </div>
-          <svg class="trend-chart" viewBox="0 0 520 260" role="img" aria-label="工具调用趋势">
-            <defs>
-              <linearGradient id="toolTrendArea" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="#2f75ff" stop-opacity="0.22" />
-                <stop offset="100%" stop-color="#2f75ff" stop-opacity="0.02" />
-              </linearGradient>
-            </defs>
-            <path class="chart-grid" d="M28 36H500M28 92H500M28 148H500M28 204H500" />
-            <path class="trend-area" d="M28 178 C80 170 95 158 122 116 C150 76 178 158 210 138 C258 106 274 58 322 68 C356 75 374 106 414 102 C455 98 458 132 500 150 L500 228 L28 228 Z" />
-            <path class="trend-line primary" d="M28 178 C80 170 95 158 122 116 C150 76 178 158 210 138 C258 106 274 58 322 68 C356 75 374 106 414 102 C455 98 458 132 500 150" />
-            <path class="trend-line secondary" d="M28 204 C76 188 102 164 136 164 C170 164 188 196 232 178 C282 158 314 146 360 164 C402 178 436 170 500 206" />
-          </svg>
-          <div class="chart-axis">
-            <span>05-14</span>
-            <span>05-15</span>
-            <span>05-16</span>
-            <span>05-17</span>
-            <span>05-18</span>
-            <span>05-19</span>
-            <span>05-20</span>
+          <div class="permission-change-list">
+            <div v-for="item in permissionRows" :key="item.id">
+              <span class="permission-icon"><el-icon><Lock /></el-icon></span>
+              <div>
+                <strong>{{ item.toolName }}</strong>
+                <small>{{ item.roleCode }} · {{ item.updateTime }}</small>
+              </div>
+              <el-tag :type="behaviorType(item.behavior)">{{ item.behavior }}</el-tag>
+            </div>
           </div>
         </section>
 
-        <section class="side-panel hot-skill-panel">
+        <section class="side-panel">
           <div class="side-head">
-            <h3>热门技能包</h3>
+            <h3>最近失败调用</h3>
             <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
           </div>
-          <div class="hot-skill-list">
-            <div v-for="group in groupRows" :key="group.id">
-              <strong>{{ group.groupName }}</strong>
-              <span>工具 {{ group.tools }} 个</span>
-              <span>Agent {{ group.agents }} 个</span>
-              <el-button :icon="ArrowRight" />
+          <div class="failure-list">
+            <div v-for="item in failedLogs" :key="item.id" class="failure-row">
+              <span><el-icon><Warning /></el-icon></span>
+              <div>
+                <strong>{{ item.toolName }}</strong>
+                <small>{{ item.agentName }} · {{ item.reason }}</small>
+              </div>
+              <em>{{ item.durationMs }}ms</em>
             </div>
           </div>
         </section>
       </aside>
-    </div>
-
-    <div class="tool-bottom">
-      <section class="bottom-panel">
-        <div class="side-head">
-          <h3>最近失败调用</h3>
-          <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
-        </div>
-        <div class="failure-list">
-          <div v-for="item in failedLogs" :key="item.id" class="failure-row">
-            <span><el-icon><Warning /></el-icon></span>
-            <div>
-              <strong>{{ item.toolName }}</strong>
-              <small>{{ item.agentName }} · {{ item.reason }}</small>
-            </div>
-            <em>{{ item.durationMs }}ms</em>
-          </div>
-        </div>
-      </section>
-
-      <section class="bottom-panel">
-        <div class="side-head">
-          <h3>权限变更记录</h3>
-          <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
-        </div>
-        <div class="permission-change-list">
-          <div v-for="item in permissionRows" :key="item.id">
-            <span class="permission-icon"><el-icon><Lock /></el-icon></span>
-            <div>
-              <strong>{{ item.toolName }}</strong>
-              <small>{{ item.roleCode }} · {{ item.updateTime }}</small>
-            </div>
-            <el-tag :type="behaviorType(item.behavior)">{{ item.behavior }}</el-tag>
-          </div>
-        </div>
-      </section>
     </div>
 
     <el-dialog
@@ -804,6 +743,8 @@ onMounted(loadDashboard)
 <style scoped>
 .tool-console {
   display: grid;
+  min-height: calc(100vh - 135px);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -841,8 +782,7 @@ onMounted(loadDashboard)
 
 .tool-metric,
 .tool-library-panel,
-.side-panel,
-.bottom-panel {
+.side-panel {
   border: 1px solid #d7e5f8;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.92);
@@ -918,18 +858,28 @@ onMounted(loadDashboard)
 .tool-dashboard {
   display: grid;
   grid-template-columns: minmax(620px, 1fr) minmax(330px, 0.6fr);
+  align-items: stretch;
   gap: 18px;
+  min-height: 0;
 }
 
 .tool-library-panel {
+  position: relative;
   min-width: 0;
   overflow: hidden;
 }
 
 .tool-tabs :deep(.el-tabs__header) {
   margin: 0;
-  padding: 0 22px;
+  padding: 0 150px 0 22px;
   border-bottom: 1px solid #dce8f5;
+}
+
+.tabs-create-tool {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 22px;
 }
 
 .tool-tabs :deep(.el-tabs__nav-wrap::after) {
@@ -1208,7 +1158,6 @@ onMounted(loadDashboard)
 
 .pager-mock button,
 .pager-mock strong,
-.hot-skill-list .el-button,
 .skill-card .el-button {
   display: grid;
   width: 34px;
@@ -1287,12 +1236,13 @@ onMounted(loadDashboard)
 
 .tool-side {
   display: grid;
-  align-content: start;
+  grid-template-rows: minmax(150px, 0.42fr) minmax(260px, 0.58fr);
+  align-content: stretch;
   gap: 18px;
 }
 
-.side-panel,
-.bottom-panel {
+.side-panel {
+  min-height: 0;
   padding: 18px;
 }
 
@@ -1310,121 +1260,32 @@ onMounted(loadDashboard)
   font-weight: 800;
 }
 
-.trend-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto auto;
-  align-items: center;
-  gap: 12px;
-  margin-top: 18px;
-  color: #6d819b;
-  font-size: 12px;
-}
-
-.trend-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.trend-meta strong {
-  color: #203957;
-  font-size: 13px;
-  line-height: 1.35;
-}
-
-.dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
-
-.dot.blue {
-  background: #2f75ff;
-}
-
-.dot.cyan {
-  background: #66c3ff;
-}
-
-.trend-chart {
-  display: block;
-  width: 100%;
-  height: 210px;
-  margin-top: 10px;
-}
-
-.chart-grid {
-  fill: none;
-  stroke: #e2ebf6;
-}
-
-.trend-area {
-  fill: url(#toolTrendArea);
-}
-
-.trend-line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-width: 4;
-}
-
-.trend-line.primary {
-  stroke: #2f75ff;
-}
-
-.trend-line.secondary {
-  stroke: #66c3ff;
-}
-
-.chart-axis {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  color: #7890aa;
-  font-size: 12px;
-}
-
-.hot-skill-list,
 .failure-list,
 .permission-change-list {
   display: grid;
   margin-top: 14px;
 }
 
-.hot-skill-list > div,
 .permission-change-list > div {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 78px 92px 38px;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  min-height: 58px;
+  min-height: 60px;
   border-bottom: 1px solid #e3edf8;
 }
 
-.hot-skill-list > div:last-child,
 .failure-row:last-child,
 .permission-change-list > div:last-child {
   border-bottom: 0;
 }
 
-.hot-skill-list strong,
 .failure-row strong,
 .permission-change-list strong {
   overflow: hidden;
   color: #0a2547;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.hot-skill-list span {
-  color: #6d819b;
-  font-size: 12px;
-}
-
-.tool-bottom {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
 }
 
 .failure-row {
@@ -1462,10 +1323,6 @@ onMounted(loadDashboard)
   font-weight: 800;
 }
 
-.permission-change-list > div {
-  grid-template-columns: 42px minmax(0, 1fr) 84px;
-}
-
 .permission-change-list .permission-icon {
   width: 36px;
   height: 36px;
@@ -1498,9 +1355,17 @@ onMounted(loadDashboard)
 }
 
 @media (max-width: 1320px) {
-  .tool-dashboard,
-  .tool-bottom {
+  .tool-dashboard {
     grid-template-columns: 1fr;
+  }
+
+  .tool-dashboard,
+  .tool-side {
+    min-height: 0;
+  }
+
+  .tool-side {
+    grid-template-rows: none;
   }
 
   .tool-row {
@@ -1537,8 +1402,6 @@ onMounted(loadDashboard)
     justify-self: start;
   }
 
-  .trend-meta,
-  .hot-skill-list > div,
   .permission-change-list > div,
   .mcp-row,
   .permission-row {

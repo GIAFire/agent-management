@@ -2055,6 +2055,13 @@ const assistantMessageItems = (message) => {
     })
   }
 
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    if (items[index].type === 'content') {
+      items[index].isLastContent = true
+      break
+    }
+  }
+
   return items
 }
 
@@ -2865,6 +2872,7 @@ onBeforeUnmount(() => {
                 <div
                   v-if="item.type === 'content'"
                   class="message-content markdown-content assistant-content-segment"
+                  :class="{ 'is-last-content': item.isLastContent }"
                 >
                   <div
                     class="markdown-rendered"
@@ -3512,7 +3520,7 @@ onBeforeUnmount(() => {
   cursor: pointer;
   background: transparent;
   color: #64748b;
-  //font: inherit;
+  /* font: inherit; */
   text-align: left;
 }
 
@@ -4218,26 +4226,22 @@ onBeforeUnmount(() => {
   }
 }
 
-.message-row.assistant.typing .message-content::after {
+.message-row.assistant.typing .assistant-content-segment.is-last-content::after {
   display: inline-block;
-  width: 6px;
-  height: 1em;
-  margin-left: 3px;
-  animation: cursor-blink 1s steps(2, start) infinite;
-  background: var(--primary);
+  width: 15px;
+  height: 15px;
+  margin-left: 5px;
+  border: 2px solid rgba(139, 155, 176, 0.28);
+  border-top-color: #8b9bb0;
+  border-radius: 50%;
+  animation: cursor-spin 0.8s linear infinite;
   content: '';
-  vertical-align: -2px;
+  vertical-align: -1px;
 }
 
-@keyframes cursor-blink {
-  0%,
-  45% {
-    opacity: 1;
-  }
-
-  46%,
-  100% {
-    opacity: 0;
+@keyframes cursor-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 

@@ -11,7 +11,6 @@ import {
   Document,
   DocumentAdd,
   Files,
-  Finished,
   MoreFilled,
   Plus,
   Reading,
@@ -279,27 +278,6 @@ const metrics = computed(() => {
       tone: 'green'
     }
   ]
-})
-
-const indexTasks = computed(() => {
-  return normalizedDocuments.value.slice(0, 3).map((doc, index) => {
-    const status = String(doc.parseStatus || '').toUpperCase()
-    const running = ['PENDING', 'PARSING', 'CHUNKING', 'EMBEDDING', 'UPLOADED'].includes(status)
-    return {
-      ...doc,
-      progress: running ? [78, 54, 36][index] || 68 : 100,
-      statusLabel: running ? '索引中' : status === 'FAILED' ? '失败' : '已完成',
-      state: running ? 'running' : status === 'FAILED' ? 'failed' : 'done'
-    }
-  })
-})
-
-const healthScore = computed(() => {
-  if (!knowledgeRows.value.length) {
-    return 99.2
-  }
-  const total = knowledgeRows.value.reduce((sum, row) => sum + row.health, 0)
-  return (total / knowledgeRows.value.length).toFixed(1)
 })
 
 const recentDocuments = computed(() => normalizedDocuments.value.slice(0, 5))
@@ -621,7 +599,6 @@ onMounted(loadDashboard)
   <section v-loading="loading" class="knowledge-console">
     <div class="knowledge-hero">
       <div>
-        <span class="eyebrow">KNOWLEDGE & RAG</span>
         <h2>知识库</h2>
         <p>管理企业文档、切片与向量索引，为智能体提供稳定可靠的知识检索能力。</p>
       </div>
@@ -721,107 +698,39 @@ onMounted(loadDashboard)
       </section>
 
       <aside class="knowledge-side">
-        <section class="side-panel index-task-panel">
+        <section class="side-panel">
           <div class="side-head">
-            <h3>索引任务</h3>
-            <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
+            <h3>热门检索词</h3>
+            <el-icon><TrendCharts /></el-icon>
           </div>
-          <div class="task-list">
-            <div v-for="task in indexTasks" :key="task.id" class="task-row">
-              <el-progress
-                v-if="task.state === 'running'"
-                type="circle"
-                :percentage="task.progress"
-                :width="48"
-                :stroke-width="6"
-              />
-              <span v-else class="task-done" :class="task.state">
-                <el-icon><component :is="task.state === 'failed' ? Warning : Check" /></el-icon>
-              </span>
-              <div>
-                <strong>{{ task.documentName }}</strong>
-                <small>{{ formatNumber(task.chunkCount) }} 切片 · {{ task.createdAt }}</small>
-              </div>
-              <em :class="task.state">{{ task.statusLabel }}</em>
-            </div>
+          <div class="keyword-list">
+            <span v-for="keyword in hotKeywords" :key="keyword.text" :class="keyword.tone">
+              {{ keyword.text }}
+              <strong>{{ formatNumber(keyword.count) }}</strong>
+            </span>
           </div>
         </section>
 
-        <section class="side-panel health-panel">
+        <section class="side-panel">
           <div class="side-head">
-            <h3>知识库健康度</h3>
-            <el-button link type="primary">查看详情 <el-icon><ArrowRight /></el-icon></el-button>
+            <h3>最近文档</h3>
+            <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
           </div>
-          <div class="health-summary">
-            <div>
-              <strong>{{ healthScore }}%</strong>
-              <span>健康 <el-icon><Check /></el-icon></span>
-              <small>较昨日 +0.3% ↑</small>
-            </div>
-            <svg viewBox="0 0 360 130" role="img" aria-label="知识库健康度趋势">
-              <path class="health-grid" d="M10 24H350M10 64H350M10 104H350" />
-              <path class="health-area" d="M10 104 C45 76 66 54 98 62 C135 74 158 80 188 58 C224 32 245 50 278 42 C310 34 322 48 350 18 L350 122 L10 122 Z" />
-              <path class="health-line" d="M10 104 C45 76 66 54 98 62 C135 74 158 80 188 58 C224 32 245 50 278 42 C310 34 322 48 350 18" />
-              <circle cx="350" cy="18" r="5" />
-            </svg>
-          </div>
-          <div class="health-kpis">
-            <div>
-              <el-icon><Coin /></el-icon>
-              <span>索引覆盖率</span>
-              <strong>98.6%</strong>
-              <em>优秀</em>
-            </div>
-            <div>
-              <el-icon><Finished /></el-icon>
-              <span>检索成功率</span>
-              <strong>99.3%</strong>
-              <em>优秀</em>
-            </div>
-            <div>
-              <el-icon><Stopwatch /></el-icon>
-              <span>平均响应时间</span>
-              <strong>482ms</strong>
-              <em>优秀</em>
+          <div class="document-list compact">
+            <div v-for="doc in recentDocuments" :key="doc.id" class="document-row">
+              <span class="document-type">{{ doc.documentType }}</span>
+              <div class="document-main">
+                <strong>{{ doc.documentName }}</strong>
+                <small>{{ formatBytes(doc.sizeBytes) }}</small>
+              </div>
+              <el-tag :type="documentStatusType(doc.parseStatus)" effect="light">
+                {{ formatDocumentStatus(doc.parseStatus) }}
+              </el-tag>
+              <el-button text type="primary" :icon="View" @click="openChunkDrawer(doc)">切片</el-button>
             </div>
           </div>
         </section>
       </aside>
-    </div>
-
-    <div class="knowledge-bottom">
-      <section class="bottom-panel">
-        <div class="side-head">
-          <h3>热门检索词</h3>
-          <el-icon><TrendCharts /></el-icon>
-        </div>
-        <div class="keyword-list">
-          <span v-for="keyword in hotKeywords" :key="keyword.text" :class="keyword.tone">
-            {{ keyword.text }}
-            <strong>{{ formatNumber(keyword.count) }}</strong>
-          </span>
-        </div>
-      </section>
-
-      <section class="bottom-panel">
-        <div class="side-head">
-          <h3>最近文档</h3>
-          <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
-        </div>
-        <div class="document-list">
-          <div v-for="doc in recentDocuments" :key="doc.id" class="document-row">
-            <span class="document-type">{{ doc.documentType }}</span>
-            <div>
-              <strong>{{ doc.documentName }}</strong>
-              <small>{{ formatBytes(doc.sizeBytes) }} · {{ doc.createdAt }}</small>
-            </div>
-            <el-tag :type="documentStatusType(doc.parseStatus)" effect="light">
-              {{ formatDocumentStatus(doc.parseStatus) }}
-            </el-tag>
-            <el-button text type="primary" :icon="View" @click="openChunkDrawer(doc)">切片</el-button>
-          </div>
-        </div>
-      </section>
     </div>
 
     <el-dialog
@@ -1085,6 +994,8 @@ onMounted(loadDashboard)
 <style scoped>
 .knowledge-console {
   display: grid;
+  min-height: calc(100vh - 135px);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 18px;
 }
 
@@ -1122,8 +1033,7 @@ onMounted(loadDashboard)
 
 .knowledge-metric,
 .kb-list-panel,
-.side-panel,
-.bottom-panel {
+.side-panel {
   border: 1px solid #d7e5f8;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.92);
@@ -1170,7 +1080,9 @@ onMounted(loadDashboard)
 .knowledge-dashboard {
   display: grid;
   grid-template-columns: minmax(620px, 1fr) minmax(330px, 0.6fr);
+  align-items: stretch;
   gap: 18px;
+  min-height: 0;
 }
 
 .kb-list-panel {
@@ -1399,197 +1311,18 @@ onMounted(loadDashboard)
 
 .knowledge-side {
   display: grid;
-  align-content: start;
+  grid-template-rows: minmax(150px, 0.42fr) minmax(260px, 0.58fr);
+  align-content: stretch;
   gap: 18px;
 }
 
-.side-panel,
-.bottom-panel {
+.side-panel {
+  min-height: 0;
   padding: 18px;
 }
 
 .side-head {
   align-items: center;
-}
-
-.task-list {
-  display: grid;
-  margin-top: 14px;
-}
-
-.task-row {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) 58px;
-  align-items: center;
-  gap: 12px;
-  min-height: 74px;
-  border-bottom: 1px solid #e3edf8;
-}
-
-.task-row:last-child {
-  border-bottom: 0;
-}
-
-.task-row strong {
-  display: block;
-  overflow: hidden;
-  color: #0a2547;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.task-row small {
-  display: block;
-  margin-top: 5px;
-  color: #7890aa;
-  font-size: 12px;
-}
-
-.task-row em {
-  justify-self: end;
-  color: #2f75ff;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 800;
-}
-
-.task-row em.done {
-  color: #18a668;
-}
-
-.task-row em.failed {
-  color: #d84d5b;
-}
-
-.task-done {
-  display: grid;
-  width: 46px;
-  height: 46px;
-  place-items: center;
-  border: 3px solid #18a668;
-  border-radius: 50%;
-  color: #18a668;
-  font-size: 24px;
-}
-
-.task-done.failed {
-  border-color: #ef6673;
-  color: #ef6673;
-}
-
-.health-summary {
-  display: grid;
-  grid-template-columns: 120px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.health-summary strong {
-  display: block;
-  color: #2f75ff;
-  font-size: 42px;
-  font-weight: 850;
-  line-height: 1;
-}
-
-.health-summary span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 10px;
-  padding: 8px 12px;
-  border-radius: 8px;
-  color: #2f75ff;
-  background: #eaf2ff;
-  font-weight: 800;
-}
-
-.health-summary small {
-  display: block;
-  margin-top: 10px;
-  color: #22a86b;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.health-summary svg {
-  width: 100%;
-  min-width: 0;
-}
-
-.health-grid {
-  fill: none;
-  stroke: #e2ebf6;
-  stroke-width: 1;
-}
-
-.health-area {
-  fill: #e8f1ff;
-}
-
-.health-line {
-  fill: none;
-  stroke: #2f75ff;
-  stroke-linecap: round;
-  stroke-width: 4;
-}
-
-.health-summary circle {
-  fill: #ffffff;
-  stroke: #2f75ff;
-  stroke-width: 4;
-}
-
-.health-kpis {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  overflow: hidden;
-  margin-top: 14px;
-  border: 1px solid #dbe7f6;
-  border-radius: 10px;
-}
-
-.health-kpis div {
-  display: grid;
-  gap: 5px;
-  justify-items: center;
-  padding: 12px 8px;
-  border-right: 1px solid #dbe7f6;
-  text-align: center;
-}
-
-.health-kpis div:last-child {
-  border-right: 0;
-}
-
-.health-kpis .el-icon {
-  color: #2f75ff;
-  font-size: 24px;
-}
-
-.health-kpis span {
-  color: #6d819b;
-  font-size: 11px;
-}
-
-.health-kpis strong {
-  color: #0a2547;
-  font-size: 15px;
-}
-
-.health-kpis em {
-  color: #18a668;
-  font-size: 11px;
-  font-style: normal;
-  font-weight: 800;
-}
-
-.knowledge-bottom {
-  display: grid;
-  grid-template-columns: minmax(360px, 0.75fr) minmax(560px, 1.25fr);
-  gap: 18px;
 }
 
 .keyword-list {
@@ -1651,6 +1384,26 @@ onMounted(loadDashboard)
 
 .document-row:last-child {
   border-bottom: 0;
+}
+
+.document-list.compact .document-row {
+  grid-template-columns: 42px minmax(0, 1fr) auto auto;
+  align-items: center;
+  padding: 12px 0;
+}
+
+.document-main {
+  min-width: 0;
+}
+
+.document-list.compact .document-row > .el-tag,
+.document-list.compact .document-row > .el-button {
+  flex: 0 0 auto;
+}
+
+.document-list.compact .document-row > .el-button {
+  padding-right: 0;
+  padding-left: 0;
 }
 
 .document-type {
@@ -1793,9 +1546,18 @@ onMounted(loadDashboard)
 }
 
 @media (max-width: 1320px) {
-  .knowledge-dashboard,
-  .knowledge-bottom {
+  .knowledge-dashboard {
     grid-template-columns: 1fr;
+  }
+
+  .knowledge-dashboard,
+  .kb-list-panel,
+  .knowledge-side {
+    min-height: 0;
+  }
+
+  .knowledge-side {
+    grid-template-rows: none;
   }
 
   .kb-row {
@@ -1834,16 +1596,12 @@ onMounted(loadDashboard)
     justify-self: start;
   }
 
-  .health-summary {
-    grid-template-columns: 1fr;
-  }
-
   .document-row {
     grid-template-columns: 48px minmax(0, 1fr);
   }
 
-  .document-row .el-tag,
-  .document-row .el-button {
+  .document-row > .el-tag,
+  .document-row > .el-button {
     grid-column: 2;
     justify-self: start;
   }
@@ -1854,18 +1612,8 @@ onMounted(loadDashboard)
     font-size: 28px;
   }
 
-  .knowledge-metrics,
-  .health-kpis {
+  .knowledge-metrics {
     grid-template-columns: 1fr;
-  }
-
-  .health-kpis div {
-    border-right: 0;
-    border-bottom: 1px solid #dbe7f6;
-  }
-
-  .health-kpis div:last-child {
-    border-bottom: 0;
   }
 }
 </style>

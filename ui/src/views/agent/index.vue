@@ -592,7 +592,6 @@ onMounted(async () => {
   <section class="agent-center-page">
     <div class="page-hero agent-hero">
       <div>
-        <span class="eyebrow">AGENT WORKSPACE</span>
         <h2>智能体中心</h2>
         <p>集中创建、配置和发布企业智能体，统一管理版本与运行状态。</p>
       </div>
