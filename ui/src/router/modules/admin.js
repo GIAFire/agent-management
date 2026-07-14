@@ -84,19 +84,25 @@ export const adminRoutes = [
         path: 'user',
         name: 'UserCenter',
         redirect: '/user/manage',
-        meta: { title: '用户管理', icon: 'User' },
+        meta: { title: '系统管理', icon: 'User' },
         children: [
           {
             path: 'tenant',
             name: 'TenantManage',
             component: () => import('@/views/tenant/index.vue'),
-            meta: { title: '租户管理', icon: 'OfficeBuilding', section: 'TENANT & ACCESS' }
+            meta: { title: '租户管理', icon: 'OfficeBuilding', section: 'SYSTEM MANAGEMENT' }
           },
           {
             path: 'manage',
             name: 'UserManage',
             component: () => import('@/views/user/index.vue'),
-            meta: { title: '用户管理', icon: 'User', section: 'TENANT & ACCESS' }
+            meta: { title: '用户管理', icon: 'User', section: 'SYSTEM MANAGEMENT' }
+          },
+          {
+            path: 'role',
+            name: 'RoleManage',
+            component: () => import('@/views/role/index.vue'),
+            meta: { title: '角色管理', icon: 'UserFilled', section: 'SYSTEM MANAGEMENT' }
           }
         ]
       }

@@ -3,20 +3,18 @@ import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Delete, Edit, Plus, Refresh, Search } from '@element-plus/icons-vue'
 import { listTenant } from '@/axios/tenant'
-import { listRole } from '@/axios/role'
-import { addUser, deleteUser, getUser, listUser, updateUser } from '@/axios/user'
-import { addUserRole, deleteUserRole, listUserRole } from '@/axios/userRole'
+import { addRole, deleteRole, getRole, listRole, updateRole } from '@/axios/role'
+import { listUserRole } from '@/axios/userRole'
 
 const loading = ref(false)
 const submitting = ref(false)
 const dialogVisible = ref(false)
-const dialogTitle = ref('新增用户')
+const dialogTitle = ref('新增角色')
 const formRef = ref()
 const page = ref(1)
 const pageSize = ref(10)
-const userRows = ref([])
-const tenantRows = ref([])
 const roleRows = ref([])
+const tenantRows = ref([])
 const userRoleRows = ref([])
 
 const queryParams = reactive({
@@ -27,27 +25,16 @@ const queryParams = reactive({
 
 const form = reactive({
   id: null,
-  userName: '',
-  password: '',
+  roleCode: '',
+  roleName: '',
+  description: '',
   tenantId: '',
-  status: 1,
-  roleIds: []
+  status: 1
 })
 
 const rules = {
-  userName: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [
-    {
-      validator: (_rule, value, callback) => {
-        if (!form.id && !String(value || '').trim()) {
-          callback(new Error('请输入密码'))
-          return
-        }
-        callback()
-      },
-      trigger: 'blur'
-    }
-  ],
+  roleCode: [{ required: true, message: '请输入角色编码', trigger: 'blur' }],
+  roleName: [{ required: true, message: '请输入角色名称', trigger: 'blur' }],
   tenantId: [{ required: true, message: '请选择所属租户', trigger: 'change' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
@@ -59,28 +46,10 @@ const tenantMap = computed(() => {
   }, {})
 })
 
-const roleMap = computed(() => {
-  return roleRows.value.reduce((map, item) => {
-    map[String(item.id)] = item.roleName
-    return map
-  }, {})
-})
-
-const defaultTenantId = computed(() => {
-  return tenantRows.value[0]?.id ? String(tenantRows.value[0].id) : '1'
-})
-
-const currentTenantRoles = computed(() => {
-  if (!form.tenantId) {
-    return roleRows.value
-  }
-  return roleRows.value.filter((role) => String(role.tenantId || '') === String(form.tenantId))
-})
-
 const filteredRows = computed(() => {
   const keyword = queryParams.keyword.trim().toLowerCase()
-  return userRows.value.filter((row) => {
-    const matchKeyword = !keyword || [row.userName, tenantName(row.tenantId), roleNames(row.id).join(',')]
+  return roleRows.value.filter((row) => {
+    const matchKeyword = !keyword || [row.roleCode, row.roleName, row.description]
       .some((value) => String(value || '').toLowerCase().includes(keyword))
     const matchTenant = !queryParams.tenantId || String(row.tenantId || '') === String(queryParams.tenantId)
     const matchStatus = queryParams.status === '' || Number(row.status) === Number(queryParams.status)
@@ -93,6 +62,10 @@ const pagedRows = computed(() => {
   return filteredRows.value.slice(start, start + pageSize.value)
 })
 
+const defaultTenantId = computed(() => {
+  return tenantRows.value[0]?.id ? String(tenantRows.value[0].id) : '1'
+})
+
 const normalizeId = (value) => {
   return value === '' || value === undefined || value === null ? null : String(value).trim()
 }
@@ -103,39 +76,31 @@ const formatTime = (row) => row.updatedAt || row.createdAt || '-'
 
 const tenantName = (tenantId) => tenantMap.value[String(tenantId)] || `租户 ${tenantId || '-'}`
 
-const userRoleIds = (userId) => {
-  return userRoleRows.value
-    .filter((item) => String(item.userId) === String(userId))
-    .map((item) => String(item.roleId))
-}
-
-const roleNames = (userId) => {
-  return userRoleIds(userId).map((roleId) => roleMap.value[roleId] || `角色 ${roleId}`)
+const memberCount = (roleId) => {
+  return userRoleRows.value.filter((item) => String(item.roleId) === String(roleId)).length
 }
 
 const resetForm = () => {
   Object.assign(form, {
     id: null,
-    userName: '',
-    password: '',
+    roleCode: '',
+    roleName: '',
+    description: '',
     tenantId: defaultTenantId.value,
-    status: 1,
-    roleIds: []
+    status: 1
   })
 }
 
-const loadUserList = async () => {
+const loadRoleList = async () => {
   loading.value = true
   try {
-    const [userResult, tenantResult, roleResult, userRoleResult] = await Promise.allSettled([
-      listUser(),
-      listTenant(),
+    const [roleResult, tenantResult, userRoleResult] = await Promise.allSettled([
       listRole(),
+      listTenant(),
       listUserRole()
     ])
-    userRows.value = userResult.status === 'fulfilled' && Array.isArray(userResult.value) ? userResult.value : []
-    tenantRows.value = tenantResult.status === 'fulfilled' && Array.isArray(tenantResult.value) ? tenantResult.value : []
     roleRows.value = roleResult.status === 'fulfilled' && Array.isArray(roleResult.value) ? roleResult.value : []
+    tenantRows.value = tenantResult.status === 'fulfilled' && Array.isArray(tenantResult.value) ? tenantResult.value : []
     userRoleRows.value = userRoleResult.status === 'fulfilled' && Array.isArray(userRoleResult.value) ? userRoleResult.value : []
   } finally {
     loading.value = false
@@ -153,13 +118,8 @@ const resetQuery = () => {
   page.value = 1
 }
 
-const handleTenantChange = () => {
-  const availableRoleIds = currentTenantRoles.value.map((role) => String(role.id))
-  form.roleIds = form.roleIds.filter((roleId) => availableRoleIds.includes(String(roleId)))
-}
-
 const handleAdd = async () => {
-  dialogTitle.value = '新增用户'
+  dialogTitle.value = '新增角色'
   resetForm()
   dialogVisible.value = true
   await nextTick()
@@ -167,30 +127,20 @@ const handleAdd = async () => {
 }
 
 const handleEdit = async (row) => {
-  dialogTitle.value = '编辑用户'
+  dialogTitle.value = '编辑角色'
   resetForm()
-  const data = await getUser(row.id)
+  const data = await getRole(row.id)
   Object.assign(form, {
     id: data?.id,
-    userName: data?.userName || '',
-    password: '',
+    roleCode: data?.roleCode || '',
+    roleName: data?.roleName || '',
+    description: data?.description || '',
     tenantId: data?.tenantId ? String(data.tenantId) : defaultTenantId.value,
-    status: Number(data?.status ?? 1),
-    roleIds: userRoleIds(data?.id || row.id)
+    status: Number(data?.status ?? 1)
   })
   dialogVisible.value = true
   await nextTick()
   formRef.value?.clearValidate()
-}
-
-const syncUserRoles = async (userId, roleIds, tenantId) => {
-  const oldRelations = userRoleRows.value.filter((item) => String(item.userId) === String(userId))
-  await Promise.all(oldRelations.map((item) => deleteUserRole(item.id)))
-  await Promise.all(roleIds.map((roleId) => addUserRole({
-    userId: normalizeId(userId),
-    roleId: normalizeId(roleId),
-    tenantId: normalizeId(tenantId)
-  })))
 }
 
 const submitForm = async () => {
@@ -199,25 +149,23 @@ const submitForm = async () => {
   try {
     const payload = {
       id: normalizeId(form.id),
-      userName: form.userName,
-      password: form.password,
+      roleCode: form.roleCode,
+      roleName: form.roleName,
+      description: form.description,
       tenantId: normalizeId(form.tenantId),
       status: form.status
     }
-    let userId = form.id
 
     if (form.id) {
-      await updateUser(payload)
-      ElMessage.success('用户更新成功')
+      await updateRole(payload)
+      ElMessage.success('角色更新成功')
     } else {
-      const created = await addUser(payload)
-      userId = created?.id
-      ElMessage.success('用户新增成功')
+      await addRole(payload)
+      ElMessage.success('角色新增成功')
     }
 
-    await syncUserRoles(userId, form.roleIds, form.tenantId)
     dialogVisible.value = false
-    await loadUserList()
+    await loadRoleList()
   } finally {
     submitting.value = false
   }
@@ -225,7 +173,7 @@ const submitForm = async () => {
 
 const handleDelete = async (row) => {
   try {
-    await ElMessageBox.confirm(`确认删除用户「${row.userName}」吗？`, '删除确认', {
+    await ElMessageBox.confirm(`确认删除角色「${row.roleName}」吗？`, '删除确认', {
       type: 'warning',
       confirmButtonText: '删除',
       cancelButtonText: '取消'
@@ -234,13 +182,12 @@ const handleDelete = async (row) => {
     return
   }
 
-  await deleteUser(row.id)
-  await syncUserRoles(row.id, [], row.tenantId)
-  ElMessage.success('用户删除成功')
-  await loadUserList()
+  await deleteRole(row.id)
+  ElMessage.success('角色删除成功')
+  await loadRoleList()
 }
 
-onMounted(loadUserList)
+onMounted(loadRoleList)
 </script>
 
 <template>
@@ -251,7 +198,7 @@ onMounted(loadUserList)
           <el-input
             v-model="queryParams.keyword"
             clearable
-            placeholder="请输入用户名、租户或角色"
+            placeholder="请输入角色编码或名称"
             @keyup.enter="handleQuery"
           />
         </el-form-item>
@@ -281,25 +228,24 @@ onMounted(loadUserList)
     <div class="table-panel">
       <div class="table-toolbar">
         <div class="table-title">
-          <h2>用户管理列表</h2>
+          <h2>角色管理列表</h2>
           <span>共 {{ filteredRows.length }} 条</span>
         </div>
         <div class="toolbar-actions">
           <el-button type="primary" :icon="Plus" @click="handleAdd">新增</el-button>
-          <el-button :icon="Refresh" @click="loadUserList">刷新</el-button>
+          <el-button :icon="Refresh" @click="loadRoleList">刷新</el-button>
         </div>
       </div>
 
       <el-table v-loading="loading" :data="pagedRows" stripe class="data-table">
         <el-table-column type="index" label="序号" width="70" />
-        <el-table-column prop="userName" label="用户名" min-width="160" show-overflow-tooltip />
+        <el-table-column prop="roleCode" label="角色编码" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="roleName" label="角色名称" min-width="150" show-overflow-tooltip />
         <el-table-column label="所属租户" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">{{ tenantName(row.tenantId) }}</template>
         </el-table-column>
-        <el-table-column label="角色" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span>{{ roleNames(row.id).join('、') || '-' }}</span>
-          </template>
+        <el-table-column label="成员数" width="100">
+          <template #default="{ row }">{{ memberCount(row.id) }}</template>
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
@@ -308,9 +254,7 @@ onMounted(loadUserList)
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" min-width="170">
-          <template #default="{ row }">{{ row.createdAt || '-' }}</template>
-        </el-table-column>
+        <el-table-column prop="description" label="角色描述" min-width="200" show-overflow-tooltip />
         <el-table-column label="更新时间" min-width="170">
           <template #default="{ row }">{{ formatTime(row) }}</template>
         </el-table-column>
@@ -335,18 +279,14 @@ onMounted(loadUserList)
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="620px" destroy-on-close>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="104px">
-        <el-form-item label="用户名" prop="userName">
-          <el-input v-model="form.userName" placeholder="请输入用户名" />
+        <el-form-item label="角色名称" prop="roleName">
+          <el-input v-model="form.roleName" placeholder="请输入角色名称" />
         </el-form-item>
-        <el-form-item label="密码" prop="password">
-          <el-input
-            v-model="form.password"
-            show-password
-            :placeholder="form.id ? '留空则不修改密码' : '请输入密码'"
-          />
+        <el-form-item label="角色编码" prop="roleCode">
+          <el-input v-model="form.roleCode" placeholder="请输入唯一角色编码，如 ADMIN" />
         </el-form-item>
         <el-form-item label="所属租户" prop="tenantId">
-          <el-select v-model="form.tenantId" placeholder="请选择所属租户" @change="handleTenantChange">
+          <el-select v-model="form.tenantId" placeholder="请选择所属租户">
             <el-option
               v-for="tenant in tenantRows"
               :key="tenant.id"
@@ -355,21 +295,14 @@ onMounted(loadUserList)
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="角色">
-          <el-select v-model="form.roleIds" multiple clearable placeholder="请选择用户角色">
-            <el-option
-              v-for="role in currentTenantRoles"
-              :key="role.id"
-              :label="role.roleName"
-              :value="String(role.id)"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="form.status">
             <el-radio :value="1">启用</el-radio>
             <el-radio :value="0">停用</el-radio>
           </el-radio-group>
+        </el-form-item>
+        <el-form-item label="角色描述">
+          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入角色描述" />
         </el-form-item>
       </el-form>
       <template #footer>

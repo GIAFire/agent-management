@@ -1,27 +1,27 @@
 import { get, post, stringifyId } from '@/axios/request'
 
-const baseUrl = '/agent/tenant'
+const baseUrl = '/agent/sysUserRole'
 
-export const listTenant = () => {
+export const listUserRole = () => {
   return get(`${baseUrl}/list`)
 }
 
-export const pageTenant = (params) => {
+export const pageUserRole = (params) => {
   return get(`${baseUrl}/page`, params)
 }
 
-export const getTenant = (id) => {
+export const getUserRole = (id) => {
   return get(`${baseUrl}/${stringifyId(id)}`)
 }
 
-export const addTenant = (data) => {
+export const addUserRole = (data) => {
   return post(`${baseUrl}/create`, data)
 }
 
-export const updateTenant = (data) => {
+export const updateUserRole = (data) => {
   return post(`${baseUrl}/update`, data)
 }
 
-export const deleteTenant = (id) => {
+export const deleteUserRole = (id) => {
   return get(`${baseUrl}/delete/${stringifyId(id)}`)
 }
