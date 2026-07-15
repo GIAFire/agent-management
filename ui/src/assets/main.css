@@ -1154,12 +1154,26 @@
 
 .agent-dialog-large.el-dialog {
   margin-top: 2vh;
+  margin-bottom: 30px;
+  height: calc(100vh - 2vh - 30px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .agent-dialog .el-dialog__header {
   padding: 20px 22px;
   border-bottom: 1px solid #dce8f5;
   margin: 0;
+}
+
+.agent-dialog-large .el-dialog__body {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
 }
 
 .agent-dialog .el-dialog__body {
@@ -1293,10 +1307,21 @@
 }
 
 .agent-wizard-body {
-  min-height: 470px;
-  max-height: calc(96vh - 214px);
+  min-height: 0;
+  max-height: none;
   overflow-y: auto;
   background: #ffffff;
+}
+
+.agent-dialog-large .el-form {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.agent-dialog-large .agent-wizard-body {
+  flex: 1;
 }
 
 .agent-wizard-body.with-summary {
