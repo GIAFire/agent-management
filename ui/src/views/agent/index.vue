@@ -12,6 +12,7 @@ import {
   Collection,
   Connection,
   Coin,
+  Delete,
   Files,
   FolderOpened,
   Grid,
@@ -54,15 +55,93 @@ const statusFilter = ref('')
 const viewMode = ref('grid')
 const currentPage = ref(1)
 const pageSize = ref(6)
-const expandedResource = ref('')
 const modelConfigExpanded = ref(true)
 const promptTemplateExpanded = ref(true)
 const promptPreviewExpanded = ref(false)
+const toolsCapabilityExpanded = ref(true)
+const skillsCapabilityExpanded = ref(true)
+const subagentsCapabilityExpanded = ref(true)
+const knowledgeBaseExpanded = ref(true)
+const mcpServiceExpanded = ref(true)
 const modelRows = ref([])
 const promptRows = ref([])
 const toolRows = ref([])
 const knowledgeRows = ref([])
 const subagentRows = ref([])
+
+const skillRows = ref([
+  {
+    id: 'sql-analysis',
+    skillName: 'SQL 数据分析',
+    skillKey: '/sql-analysis',
+    description: '查询业务数据并生成分析结论',
+    enabled: true
+  },
+  {
+    id: 'report-generator',
+    skillName: '数据报告生成',
+    skillKey: '/report-generator',
+    description: '将分析结果整理为结构化报告',
+    enabled: true
+  },
+  {
+    id: 'document-summary',
+    skillName: '文档总结',
+    skillKey: '/document-summary',
+    description: '提取文档重点并形成摘要',
+    enabled: true
+  },
+  {
+    id: 'git-analysis',
+    skillName: 'Git 仓库分析',
+    skillKey: '/git-analysis',
+    description: '分析代码结构、提交记录和变更',
+    enabled: true
+  }
+])
+
+const mcpRows = ref([
+  {
+    id: 'business-database-mcp',
+    name: '业务数据库 MCP',
+    protocol: 'SSE',
+    endpoint: 'mcp-db.internal',
+    description: '订单、客户与销售数据查询',
+    toolCount: 8,
+    connected: true,
+    enabled: true
+  },
+  {
+    id: 'github-mcp',
+    name: 'GitHub MCP',
+    protocol: 'Streamable HTTP',
+    endpoint: '',
+    description: '仓库、Issue、Pull Request 操作',
+    toolCount: 12,
+    connected: true,
+    enabled: true
+  },
+  {
+    id: 'filesystem-mcp',
+    name: '文件系统 MCP',
+    protocol: 'STDIO',
+    endpoint: '本地服务',
+    description: '受控目录的文件读写与检索',
+    toolCount: 6,
+    connected: true,
+    enabled: true
+  },
+  {
+    id: 'browser-mcp',
+    name: '浏览器 MCP',
+    protocol: 'SSE',
+    endpoint: 'browser-service',
+    description: '网页访问、内容提取与页面操作',
+    toolCount: 9,
+    connected: false,
+    enabled: false
+  }
+])
 
 const sampleRows = []
 
@@ -135,8 +214,8 @@ const rules = {
 const wizardSteps = [
   { title: '基本信息', desc: '类型、名称与描述' },
   { title: '模型与提示词', desc: '选择模型和系统提示词' },
-  { title: '工具与 Skill', desc: '配置工具、技能与权限' },
-  { title: '知识库', desc: '绑定知识库与检索策略' },
+  { title: '工具、技能、子智能体', desc: '配置能力与协作成员' },
+  { title: '知识库与 MCP', desc: '绑定知识库与外部服务' },
   { title: '高级配置', desc: '上下文、记忆与工作区' }
 ]
 
@@ -153,25 +232,8 @@ const agentTypes = [
     title: 'ReAct Agent',
     desc: '通过“思考-行动-观察”循环处理轻量工具调用任务',
     icon: MagicStick
-  },
-  {
-    value: 'TEMPLATE',
-    title: '从企业模板创建',
-    desc: '复用已验证的模型、工具、知识库与权限组合',
-    icon: Lightning
   }
 ]
-
-const capabilityCards = computed(() => [
-  { key: 'tools', title: '工具', desc: '查询订单、文件读写、数据库访问', count: `${selections.toolIds.length} 个已选择`, icon: Tools },
-  { key: 'skills', title: '技能包', desc: '组合提示词、脚本和资源', count: `${selections.skillIds.length} 个已选择`, icon: Lightning }
-])
-
-const knowledgeCards = computed(() => [
-  { key: 'knowledge', title: '知识库', desc: '产品手册、合同法规库', action: `已选择 ${selections.knowledgeBaseIds.length} 个`, icon: Collection },
-  { key: 'mcp', title: 'MCP 服务器', desc: '数据库查询、GitHub、内部工单', action: '配置连接', icon: Connection },
-  { key: 'subagents', title: '子智能体', desc: '将任务委派给编程、检索或审查 Agent', action: `已选择 ${selections.subagentIds.length} 个`, icon: Briefcase }
-])
 
 const promptOptions = computed(() => promptRows.value.map((item) => ({
   label: item.promptName || `提示词 #${item.id}`,
@@ -312,6 +374,94 @@ const configProgress = computed(() => {
   return Math.min(score, 100)
 })
 
+const capabilityTotal = computed(() => {
+  return selections.toolIds.length + selections.skillIds.length + selections.subagentIds.length
+})
+
+const capabilitySummaryText = computed(() => {
+  return `已选择 ${selections.toolIds.length} 个工具 · ${selections.skillIds.length} 个技能 · ${selections.subagentIds.length} 个子智能体`
+})
+
+const selectedMcpToolCount = computed(() => {
+  return mcpRows.value.reduce((total, item) => {
+    if (!isSelected(selections.mcp, item.id)) {
+      return total
+    }
+    return total + Number(item.toolCount || 0)
+  }, 0)
+})
+
+const knowledgeMcpTotal = computed(() => selections.knowledgeBaseIds.length + selections.mcp.length)
+
+const knowledgeMcpSummaryText = computed(() => {
+  return `已选择 ${selections.knowledgeBaseIds.length} 个知识库 · ${selections.mcp.length} 个 MCP 服务`
+})
+
+const getToolTitle = (tool) => tool?.toolNameExplain || tool?.toolName || tool?.toolKey || `工具 #${tool?.id}`
+
+const getToolKey = (tool) => tool?.toolName || tool?.toolKey || tool?.permissionCode || tool?.methodName || '-'
+
+const getToolDesc = (tool) => tool?.description || tool?.toolType || tool?.permissionCode || '暂无工具说明'
+
+const isToolEnabled = (tool) => tool?.enabled !== false && Number(tool?.status ?? 1) !== 0
+
+const getSkillTitle = (skill) => skill?.skillName || skill?.name || `技能 #${skill?.id}`
+
+const getSkillKey = (skill) => skill?.skillKey || skill?.route || skill?.version || '-'
+
+const getSkillDesc = (skill) => skill?.description || skill?.scene || '暂无技能说明'
+
+const isSkillEnabled = (skill) => skill?.enabled !== false && skill?.status !== '停用'
+
+const getSubagentTitle = (subagent) => subagent?.subagentName || subagent?.subagentKey || `子智能体 #${subagent?.id}`
+
+const getSubagentType = (subagent) => subagent?.description || subagent?.workspaceMode || subagent?.subagentKey || '专业子智能体'
+
+const getSubagentDesc = (subagent) => subagent?.systemPrompt || subagent?.workspacePath || subagent?.modelConfigId || '可按任务需要派发执行'
+
+const isSubagentEnabled = (subagent) => Number(subagent?.status ?? 1) !== 0
+
+const clearCapabilitySelections = () => {
+  selections.toolIds.splice(0)
+  selections.skillIds.splice(0)
+  selections.subagentIds.splice(0)
+}
+
+const getKnowledgeTitle = (item) => item?.knowledgeName || item?.name || item?.collectionName || `知识库 #${item?.id}`
+
+const getKnowledgeDesc = (item) => item?.description || item?.chunkStrategy || item?.embeddingModel || '可用于检索增强与来源引用'
+
+const getKnowledgeMeta = (item) => {
+  const documentCount = Number(item?.documentCount ?? item?.docCount ?? item?.documents ?? 0)
+  const chunkCount = Number(item?.chunkCount ?? item?.sliceCount ?? item?.chunks ?? 0)
+  if (documentCount || chunkCount) {
+    return `${documentCount} 个文档 · ${chunkCount} 个切片`
+  }
+  return item?.collectionName || item?.knowledgeKey || '已建立向量索引'
+}
+
+const getKnowledgeStatus = (item) => {
+  const raw = String(item?.statusText || item?.syncStatus || item?.state || item?.status || '').toLowerCase()
+  if (raw.includes('updat') || raw.includes('sync') || raw.includes('更新') || raw === '2') {
+    return { text: '更新中', tone: 'warning' }
+  }
+  if (raw === '0' || raw.includes('disable') || raw.includes('停')) {
+    return { text: '未启用', tone: 'muted' }
+  }
+  return { text: '已就绪', tone: 'ready' }
+}
+
+const isKnowledgeEnabled = (item) => getKnowledgeStatus(item).tone !== 'muted'
+
+const getMcpEndpoint = (item) => [item.protocol, item.endpoint].filter(Boolean).join(' · ')
+
+const isMcpEnabled = (item) => item?.enabled !== false && item?.connected !== false
+
+const clearKnowledgeMcpSelections = () => {
+  selections.knowledgeBaseIds.splice(0)
+  selections.mcp.splice(0)
+}
+
 const statusMeta = (status) => {
   const value = Number(status)
   if (value === 1) {
@@ -386,7 +536,14 @@ const resetForm = () => {
   selections.knowledge.splice(0)
   selections.mcp.splice(0)
   selections.subAgents.splice(0)
-  expandedResource.value = ''
+  modelConfigExpanded.value = true
+  promptTemplateExpanded.value = true
+  promptPreviewExpanded.value = false
+  toolsCapabilityExpanded.value = true
+  skillsCapabilityExpanded.value = true
+  subagentsCapabilityExpanded.value = true
+  knowledgeBaseExpanded.value = true
+  mcpServiceExpanded.value = true
 }
 
 const normalizeId = (value) => {
@@ -468,18 +625,27 @@ const loadTools = async () => {
   }
 }
 
-const loadKnowledgeAndSubagents = async () => {
-  if (knowledgeRows.value.length && subagentRows.value.length) {
+const loadSubagents = async () => {
+  if (subagentRows.value.length) {
     return
   }
   wizardLoading.value = true
   try {
-    const [knowledgeBases, subagents] = await Promise.all([
-      listWizardKnowledgeBases(),
-      listWizardSubagents()
-    ])
-    knowledgeRows.value = Array.isArray(knowledgeBases) ? knowledgeBases : []
+    const subagents = await listWizardSubagents()
     subagentRows.value = Array.isArray(subagents) ? subagents : []
+  } finally {
+    wizardLoading.value = false
+  }
+}
+
+const loadKnowledgeBases = async () => {
+  if (knowledgeRows.value.length) {
+    return
+  }
+  wizardLoading.value = true
+  try {
+    const knowledgeBases = await listWizardKnowledgeBases()
+    knowledgeRows.value = Array.isArray(knowledgeBases) ? knowledgeBases : []
   } finally {
     wizardLoading.value = false
   }
@@ -491,9 +657,10 @@ const ensureStepData = async (step) => {
   }
   if (step === 3) {
     await loadTools()
+    await loadSubagents()
   }
   if (step === 4) {
-    await loadKnowledgeAndSubagents()
+    await loadKnowledgeBases()
   }
 }
 
@@ -926,14 +1093,14 @@ onMounted(async () => {
                   <el-empty v-if="!modelRows.length" description="暂无可选模型" :image-size="72" />
                 </div>
 
-                <div v-if="selectedModel" class="selected-model-strip">
-                  <span>已选择：<strong>{{ selectedModel.modelName || configForm.modelName }}</strong></span>
-                  <em v-if="selectedModel.streaming">支持流式输出</em>
-                  <em v-if="selectedModel.thinking">支持思考</em>
-                  <button type="button" @click="modelConfigExpanded = true">
-                    查看模型详情 <el-icon><ArrowRight /></el-icon>
-                  </button>
-                </div>
+<!--                <div v-if="selectedModel" class="selected-model-strip">-->
+<!--                  <span>已选择：<strong>{{ selectedModel.modelName || configForm.modelName }}</strong></span>-->
+<!--                  <em v-if="selectedModel.streaming">支持流式输出</em>-->
+<!--                  <em v-if="selectedModel.thinking">支持思考</em>-->
+<!--                  <button type="button" @click="modelConfigExpanded = true">-->
+<!--                    查看模型详情 <el-icon><ArrowRight /></el-icon>-->
+<!--                  </button>-->
+<!--                </div>-->
               </article>
 
               <article class="model-prompt-panel">
@@ -975,6 +1142,7 @@ onMounted(async () => {
                   <em>{{ promptPreviewExpanded ? '收起预览' : '展开编辑' }} <el-icon><component :is="promptPreviewExpanded ? ArrowUp : ArrowDown" /></el-icon></em>
                 </button>
                 <el-input
+                  disabled
                   v-show="promptPreviewExpanded"
                   v-model="configForm.sysPrompt"
                   class="prompt-preview-editor"
@@ -986,94 +1154,225 @@ onMounted(async () => {
 
               <div class="basic-info-tip">
                 <el-icon><InfoFilled /></el-icon>
-                <span>模型和提示词模板均可暂时不选择，点击下一步继续配置工具与 Skill。</span>
+                <span>模型和提示词模板均可暂时不选择，点击下一步继续配置工具、技能、子智能体。</span>
               </div>
             </section>
 
-            <section v-else-if="wizardStep === 3" class="wizard-section">
-              <h4>工具与能力</h4>
-              <p>按需装配执行能力，权限仍会在运行时按租户和角色校验。</p>
-              <div class="capability-grid">
-                <article
-                  v-for="card in capabilityCards"
-                  :key="card.title"
-                  class="capability-card resource-card"
-                  :class="{ expanded: expandedResource === card.key }"
-                >
-                  <button class="resource-card-head" type="button" @click="expandedResource = expandedResource === card.key ? '' : card.key">
-                    <span class="type-icon">
-                      <el-icon><component :is="card.icon" /></el-icon>
-                    </span>
-                    <span>
-                      <h5>{{ card.title }}</h5>
-                      <p>{{ card.desc }}</p>
-                    </span>
-                    <em>{{ card.count }} <el-icon><ArrowRight /></el-icon></em>
+            <section v-else-if="wizardStep === 3" class="wizard-section capability-step">
+              <header class="capability-step-head">
+                <div>
+                  <h4>工具、技能、子智能体</h4>
+                  <p>为智能体配置可调用的能力，并选择可委派任务的子智能体。</p>
+                </div>
+                <strong>{{ capabilitySummaryText }}</strong>
+              </header>
+
+              <article class="capability-section">
+                <button type="button" class="capability-section-title capability-section-toggle" @click="toolsCapabilityExpanded = !toolsCapabilityExpanded">
+                  <span class="capability-section-icon"><el-icon><Tools /></el-icon></span>
+                  <h5>工具</h5>
+                  <p>智能体在运行过程中按需调用，可单独设置使用模式</p>
+                  <el-icon class="capability-section-arrow"><component :is="toolsCapabilityExpanded ? ArrowUp : ArrowDown" /></el-icon>
+                </button>
+                <div v-show="toolsCapabilityExpanded" class="capability-select-grid tools">
+                  <button
+                    v-for="tool in toolRows"
+                    :key="tool.id"
+                    type="button"
+                    class="capability-select-card"
+                    :class="{ selected: isSelected(selections.toolIds, tool.id), disabled: !isToolEnabled(tool) }"
+                    :disabled="!isToolEnabled(tool)"
+                    @click="toggleId(selections.toolIds, tool.id)"
+                  >
+                    <el-checkbox
+                      :model-value="isSelected(selections.toolIds, tool.id)"
+                      :disabled="!isToolEnabled(tool)"
+                      @click.stop
+                      @change="() => toggleId(selections.toolIds, tool.id)"
+                    />
+                    <strong>{{ getToolTitle(tool) }}</strong>
+                    <small>{{ getToolKey(tool) }}</small>
+                    <p>{{ getToolDesc(tool) }}</p>
                   </button>
-                  <div v-if="card.key === 'tools' && expandedResource === 'tools'" class="resource-list">
-                    <label v-for="tool in toolRows" :key="tool.id" class="resource-option">
-                      <el-checkbox
-                        :model-value="isSelected(selections.toolIds, tool.id)"
-                        @change="() => toggleId(selections.toolIds, tool.id)"
-                      />
-                      <span>
-                        <strong>{{ tool.toolNameExplain || tool.toolName || tool.toolKey }}</strong>
-                        <small>{{ tool.description || tool.permissionCode || tool.toolType }}</small>
-                      </span>
-                    </label>
-                    <el-empty v-if="!toolRows.length" description="暂无工具" :image-size="72" />
-                  </div>
-                </article>
+                  <el-empty v-if="!toolRows.length" description="暂无工具" :image-size="72" />
+                </div>
+              </article>
+
+              <article class="capability-section">
+                <button type="button" class="capability-section-title capability-section-toggle" @click="skillsCapabilityExpanded = !skillsCapabilityExpanded">
+                  <span class="capability-section-icon"><el-icon><MagicStick /></el-icon></span>
+                  <h5>技能</h5>
+                  <p>技能封装可复用的业务流程、知识与操作规范</p>
+                  <el-icon class="capability-section-arrow"><component :is="skillsCapabilityExpanded ? ArrowUp : ArrowDown" /></el-icon>
+                </button>
+                <div v-show="skillsCapabilityExpanded" class="capability-select-grid">
+                  <button
+                    v-for="skill in skillRows"
+                    :key="skill.id"
+                    type="button"
+                    class="capability-select-card"
+                    :class="{ selected: isSelected(selections.skillIds, skill.id), disabled: !isSkillEnabled(skill) }"
+                    :disabled="!isSkillEnabled(skill)"
+                    @click="toggleId(selections.skillIds, skill.id)"
+                  >
+                    <el-checkbox
+                      :model-value="isSelected(selections.skillIds, skill.id)"
+                      :disabled="!isSkillEnabled(skill)"
+                      @click.stop
+                      @change="() => toggleId(selections.skillIds, skill.id)"
+                    />
+                    <strong>{{ getSkillTitle(skill) }}</strong>
+                    <small>{{ getSkillKey(skill) }}</small>
+                    <p>{{ getSkillDesc(skill) }}</p>
+                  </button>
+                </div>
+              </article>
+
+              <article class="capability-section">
+                <button type="button" class="capability-section-title capability-section-toggle" @click="subagentsCapabilityExpanded = !subagentsCapabilityExpanded">
+                  <span class="capability-section-icon"><el-icon><Connection /></el-icon></span>
+                  <h5>子智能体</h5>
+                  <p>主智能体可根据任务需要将子任务委派给专业子智能体</p>
+                  <el-icon class="capability-section-arrow"><component :is="subagentsCapabilityExpanded ? ArrowUp : ArrowDown" /></el-icon>
+                </button>
+                <div v-show="subagentsCapabilityExpanded" class="capability-select-grid">
+                  <button
+                    v-for="subagent in subagentRows"
+                    :key="subagent.id"
+                    type="button"
+                    class="capability-select-card subagent"
+                    :class="{ selected: isSelected(selections.subagentIds, subagent.id), disabled: !isSubagentEnabled(subagent) }"
+                    :disabled="!isSubagentEnabled(subagent)"
+                    @click="toggleId(selections.subagentIds, subagent.id)"
+                  >
+                    <el-checkbox
+                      :model-value="isSelected(selections.subagentIds, subagent.id)"
+                      :disabled="!isSubagentEnabled(subagent)"
+                      @click.stop
+                      @change="() => toggleId(selections.subagentIds, subagent.id)"
+                    />
+                    <strong>{{ getSubagentTitle(subagent) }}</strong>
+                    <small>{{ getSubagentType(subagent) }}</small>
+                    <p>{{ getSubagentDesc(subagent) }}</p>
+                    <em :class="{ unavailable: !isSubagentEnabled(subagent) }">
+                      {{ isSubagentEnabled(subagent) ? '可用' : '未启用' }}
+                    </em>
+                  </button>
+                  <el-empty v-if="!subagentRows.length" description="暂无子智能体" :image-size="72" />
+                </div>
+              </article>
+
+              <div class="capability-summary-bar">
+                <span><el-icon><Tools /></el-icon> 工具 <strong>{{ selections.toolIds.length }}</strong></span>
+                <span><el-icon><MagicStick /></el-icon> 技能 <strong>{{ selections.skillIds.length }}</strong></span>
+                <span><el-icon><Connection /></el-icon> 子智能体 <strong>{{ selections.subagentIds.length }}</strong></span>
+                <button type="button" :disabled="!capabilityTotal" @click="clearCapabilitySelections">
+                  <el-icon><Delete /></el-icon> 清空选择
+                </button>
+              </div>
+
+              <div class="basic-info-tip">
+                <el-icon><InfoFilled /></el-icon>
+                <span>当前配置可暂时不选择任何能力，点击下一步继续绑定知识库。</span>
               </div>
             </section>
 
-            <section v-else-if="wizardStep === 4" class="wizard-section">
-              <h4>知识库与 MCP</h4>
-              <p>为智能体连接企业知识、外部 MCP 服务和协作子智能体。</p>
-              <div class="knowledge-list">
-                <article
-                  v-for="card in knowledgeCards"
-                  :key="card.title"
-                  class="knowledge-card resource-card"
-                  :class="{ expanded: expandedResource === card.key }"
-                >
-                  <button class="resource-card-head" type="button" @click="expandedResource = expandedResource === card.key ? '' : card.key">
-                    <span class="type-icon">
-                      <el-icon><component :is="card.icon" /></el-icon>
-                    </span>
-                    <span>
-                      <h5>{{ card.title }}</h5>
-                      <p>{{ card.desc }}</p>
-                    </span>
-                    <em>{{ card.action }} <el-icon><ArrowRight /></el-icon></em>
+            <section v-else-if="wizardStep === 4" class="wizard-section capability-step knowledge-mcp-step">
+              <header class="capability-step-head">
+                <div>
+                  <h4>知识库与 MCP</h4>
+                  <p>为智能体绑定可检索的知识库，并连接可调用的 MCP 服务。</p>
+                </div>
+                <strong>{{ knowledgeMcpSummaryText }}</strong>
+              </header>
+
+              <article class="capability-section">
+                <button type="button" class="capability-section-title capability-section-toggle" @click="knowledgeBaseExpanded = !knowledgeBaseExpanded">
+                  <span class="capability-section-icon"><el-icon><Collection /></el-icon></span>
+                  <h5>知识库</h5>
+                  <p>智能体可从已绑定的知识库中检索内容，并在回答中引用来源</p>
+                  <el-icon class="capability-section-arrow"><component :is="knowledgeBaseExpanded ? ArrowUp : ArrowDown" /></el-icon>
+                </button>
+                <div v-show="knowledgeBaseExpanded" class="capability-select-grid knowledge">
+                  <button
+                    v-for="item in knowledgeRows"
+                    :key="item.id"
+                    type="button"
+                    class="capability-select-card knowledge-source"
+                    :class="{ selected: isSelected(selections.knowledgeBaseIds, item.id), disabled: !isKnowledgeEnabled(item) }"
+                    :disabled="!isKnowledgeEnabled(item)"
+                    @click="toggleId(selections.knowledgeBaseIds, item.id)"
+                  >
+                    <el-checkbox
+                      :model-value="isSelected(selections.knowledgeBaseIds, item.id)"
+                      :disabled="!isKnowledgeEnabled(item)"
+                      @click.stop
+                      @change="() => toggleId(selections.knowledgeBaseIds, item.id)"
+                    />
+                    <strong>{{ getKnowledgeTitle(item) }}</strong>
+                    <p>{{ getKnowledgeDesc(item) }}</p>
+                    <small>{{ getKnowledgeMeta(item) }}</small>
+                    <em class="resource-status" :class="getKnowledgeStatus(item).tone">
+                      {{ getKnowledgeStatus(item).text }}
+                    </em>
                   </button>
-                  <div v-if="card.key === 'knowledge' && expandedResource === 'knowledge'" class="resource-list">
-                    <label v-for="item in knowledgeRows" :key="item.id" class="resource-option">
-                      <el-checkbox
-                        :model-value="isSelected(selections.knowledgeBaseIds, item.id)"
-                        @change="() => toggleId(selections.knowledgeBaseIds, item.id)"
-                      />
-                      <span>
-                        <strong>{{ item.knowledgeName || item.name || `知识库 #${item.id}` }}</strong>
-                        <small>{{ item.description || item.collectionName || item.chunkStrategy }}</small>
-                      </span>
-                    </label>
-                    <el-empty v-if="!knowledgeRows.length" description="暂无知识库" :image-size="72" />
-                  </div>
-                  <div v-if="card.key === 'subagents' && expandedResource === 'subagents'" class="resource-list">
-                    <label v-for="item in subagentRows" :key="item.id" class="resource-option">
-                      <el-checkbox
-                        :model-value="isSelected(selections.subagentIds, item.id)"
-                        @change="() => toggleId(selections.subagentIds, item.id)"
-                      />
-                      <span>
-                        <strong>{{ item.subagentName || item.subagentKey || `子智能体 #${item.id}` }}</strong>
-                        <small>{{ item.description || item.workspacePath || item.modelId }}</small>
-                      </span>
-                    </label>
-                    <el-empty v-if="!subagentRows.length" description="暂无子智能体" :image-size="72" />
-                  </div>
-                </article>
+                  <el-empty v-if="!knowledgeRows.length" description="暂无知识库" :image-size="72" />
+                </div>
+              </article>
+
+              <article class="capability-section">
+                <button type="button" class="capability-section-title capability-section-toggle" @click="mcpServiceExpanded = !mcpServiceExpanded">
+                  <span class="capability-section-icon"><el-icon><Connection /></el-icon></span>
+                  <h5>MCP 服务</h5>
+                  <p>连接遵循 Model Context Protocol 的外部服务，为智能体提供标准化工具能力</p>
+                  <el-icon class="capability-section-arrow"><component :is="mcpServiceExpanded ? ArrowUp : ArrowDown" /></el-icon>
+                </button>
+                <div v-show="mcpServiceExpanded" class="capability-select-grid mcp">
+                  <button
+                    v-for="item in mcpRows"
+                    :key="item.id"
+                    type="button"
+                    class="capability-select-card mcp-service"
+                    :class="{ selected: isSelected(selections.mcp, item.id), disabled: !isMcpEnabled(item) }"
+                    :disabled="!isMcpEnabled(item)"
+                    @click="toggleId(selections.mcp, item.id)"
+                  >
+                    <el-checkbox
+                      :model-value="isSelected(selections.mcp, item.id)"
+                      :disabled="!isMcpEnabled(item)"
+                      @click.stop
+                      @change="() => toggleId(selections.mcp, item.id)"
+                    />
+                    <strong>{{ item.name }}</strong>
+                    <small>{{ getMcpEndpoint(item) }}</small>
+                    <p>{{ item.description }}</p>
+                    <span class="mcp-card-footer">
+                      <b>{{ item.toolCount }} 个工具</b>
+                      <em class="resource-status" :class="item.connected ? 'ready' : 'muted'">
+                        {{ item.connected ? '已连接' : '未连接' }}
+                      </em>
+                    </span>
+                  </button>
+                </div>
+              </article>
+
+              <div class="mcp-warning-tip">
+                <el-icon><Lock /></el-icon>
+                <span>MCP 服务暴露的工具仍受智能体权限策略控制，敏感操作可在运行时请求确认。</span>
+              </div>
+
+              <div class="capability-summary-bar">
+                <span><el-icon><Collection /></el-icon> 知识库 <strong>{{ selections.knowledgeBaseIds.length }}</strong></span>
+                <span><el-icon><Connection /></el-icon> MCP 服务 <strong>{{ selections.mcp.length }}</strong></span>
+                <span><el-icon><Tools /></el-icon> 可用 MCP 工具 <strong>{{ selectedMcpToolCount }}</strong></span>
+                <button type="button" :disabled="!knowledgeMcpTotal" @click="clearKnowledgeMcpSelections">
+                  <el-icon><Delete /></el-icon> 清空选择
+                </button>
+              </div>
+
+              <div class="basic-info-tip">
+                <el-icon><InfoFilled /></el-icon>
+                <span>知识库和 MCP 服务均可暂时不选择，点击下一步继续高级配置。</span>
               </div>
             </section>
 
