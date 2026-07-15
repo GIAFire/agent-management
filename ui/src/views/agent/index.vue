@@ -3,7 +3,9 @@ import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   Briefcase,
   Check,
   Close,
@@ -13,6 +15,7 @@ import {
   Files,
   FolderOpened,
   Grid,
+  InfoFilled,
   Lightning,
   Lock,
   MagicStick,
@@ -52,6 +55,9 @@ const viewMode = ref('grid')
 const currentPage = ref(1)
 const pageSize = ref(6)
 const expandedResource = ref('')
+const modelConfigExpanded = ref(true)
+const promptTemplateExpanded = ref(true)
+const promptPreviewExpanded = ref(false)
 const modelRows = ref([])
 const promptRows = ref([])
 const toolRows = ref([])
@@ -127,12 +133,11 @@ const rules = {
 }
 
 const wizardSteps = [
-  { title: '选择类型', desc: '选择推理和协作模式' },
-  { title: '基本信息', desc: '配置智能体的基本信息' },
-  { title: '模型与提示词', desc: '选择模型和提示词模板' },
-  { title: '工具与技能', desc: '配置工具TOOL' },
-  { title: '知识库', desc: '配置知识库、MCP 服务和子智能体' },
-  { title: '高级配置', desc: '配置计划、记忆、执行环境和 Studio 等' }
+  { title: '基本信息', desc: '类型、名称与描述' },
+  { title: '模型与提示词', desc: '选择模型和系统提示词' },
+  { title: '工具与 Skill', desc: '配置工具、技能与权限' },
+  { title: '知识库', desc: '绑定知识库与检索策略' },
+  { title: '高级配置', desc: '上下文、记忆与工作区' }
 ]
 
 const agentTypes = [
@@ -168,17 +173,61 @@ const knowledgeCards = computed(() => [
   { key: 'subagents', title: '子智能体', desc: '将任务委派给编程、检索或审查 Agent', action: `已选择 ${selections.subagentIds.length} 个`, icon: Briefcase }
 ])
 
-const modelOptions = computed(() => modelRows.value.map((item) => ({
-  label: [item.modelName, item.description].filter(Boolean).join(' - ') || `模型 #${item.id}`,
-  value: item.id,
-  name: item.modelName || `模型 #${item.id}`
-})))
-
 const promptOptions = computed(() => promptRows.value.map((item) => ({
   label: item.promptName || `提示词 #${item.id}`,
   value: item.id,
   sysPrompt: item.sysPrompt || ''
 })))
+
+const selectedModel = computed(() => {
+  return modelRows.value.find((item) => normalizeId(item.id) === normalizeId(configForm.modelId))
+})
+
+const selectedPrompt = computed(() => {
+  return promptRows.value.find((item) => normalizeId(item.id) === normalizeId(configForm.sysPromptId))
+})
+
+const promptPreviewText = computed(() => {
+  return configForm.sysPrompt || '选择系统提示词模板后，将在这里预览完整提示词内容。'
+})
+
+const formatProvider = (provider) => {
+  if (!provider) {
+    return '模型供应商'
+  }
+  return String(provider)
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+const formatModelContext = (model) => {
+  const value = model?.contextWindow || model?.contextTokens || model?.maxContextTokens || model?.maxTokens
+  if (!value) {
+    return '上下文 默认'
+  }
+  const numberValue = Number(value)
+  if (!Number.isFinite(numberValue)) {
+    return `上下文 ${value}`
+  }
+  if (numberValue >= 1000000) {
+    return `上下文 ${Math.round(numberValue / 1000000)}M`
+  }
+  if (numberValue >= 1000) {
+    return `上下文 ${Math.round(numberValue / 1000)}K`
+  }
+  return `上下文 ${numberValue}`
+}
+
+const selectModel = (model) => {
+  configForm.modelId = model.id
+  configForm.modelName = model.modelName || `模型 #${model.id}`
+}
+
+const selectPrompt = (prompt) => {
+  configForm.sysPromptId = prompt.id
+  configForm.promptTemplate = prompt.promptName || `提示词 #${prompt.id}`
+  configForm.sysPrompt = prompt.sysPrompt || ''
+}
 // const permissionOptions = ['DEFAULT', 'ACCEPT_EDITS', 'EXPLORE', 'BYPASS','DONT_ASK']
 const permissionOptions = [
   { label: '所有操作都需要显式规则或用户确认', value: 'DEFAULT' },
@@ -437,13 +486,13 @@ const loadKnowledgeAndSubagents = async () => {
 }
 
 const ensureStepData = async (step) => {
-  if (step === 3) {
+  if (step === 2) {
     await loadModelAndPrompts()
   }
-  if (step === 4) {
+  if (step === 3) {
     await loadTools()
   }
-  if (step === 5) {
+  if (step === 4) {
     await loadKnowledgeAndSubagents()
   }
 }
@@ -455,7 +504,7 @@ const handleAdd = async () => {
   dialogVisible.value = true
   await nextTick()
   formRef.value?.clearValidate()
-  await ensureStepData(3)
+  await ensureStepData(2)
 }
 
 const handleEdit = async (row) => {
@@ -465,7 +514,7 @@ const handleEdit = async (row) => {
   }
 
   dialogTitle.value = '编辑智能体'
-  wizardStep.value = 2
+  wizardStep.value = 1
   resetForm()
   const data = await getAgent(row.id)
   Object.assign(form, {
@@ -556,10 +605,7 @@ const buildCreateAgentPayload = () => ({
 })
 
 const validateCurrentStep = async () => {
-  if (wizardStep.value === 2) {
-    await formRef.value?.validateField(['agentName', 'agentKey'])
-  }
-  if (wizardStep.value === 3 && !configForm.modelId) {
+  if (wizardStep.value === 2 && !configForm.modelId) {
     ElMessage.warning('请选择默认模型')
     throw new Error('model required')
   }
@@ -775,7 +821,7 @@ onMounted(async () => {
         </div>
       </template>
 
-      <div class="wizard-steps wizard-steps-six">
+      <div class="wizard-steps wizard-steps-five">
         <div
           v-for="(step, index) in wizardSteps"
           :key="step.title"
@@ -791,105 +837,160 @@ onMounted(async () => {
       </div>
 
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-        <div v-loading="wizardLoading" class="agent-wizard-body" :class="{ 'with-summary': wizardStep === 6 }">
+        <div v-loading="wizardLoading" class="agent-wizard-body" :class="{ 'with-summary': wizardStep === 5 }">
           <div class="agent-wizard-main">
-            <section v-if="wizardStep === 1" class="wizard-section agent-type-step">
-              <h4>选择智能体类型</h4>
-              <p>不同类型决定 Agent 的推理与工具调用方式，创建后仍可调整。</p>
-              <button
-                v-for="type in agentTypes"
-                :key="type.value"
-                type="button"
-                class="agent-type-card"
-                :class="{ selected: form.agentType === type.value }"
-                @click="form.agentType = type.value"
-              >
-                <span class="type-icon">
-                  <el-icon><component :is="type.icon" /></el-icon>
-                </span>
-                <span>
-                  <strong>{{ type.title }}</strong>
-                  <small>{{ type.desc }}</small>
-                  <em v-if="type.tag">{{ type.tag }}</em>
-                </span>
-                <i class="type-check">
-                  <el-icon><Check /></el-icon>
-                </i>
-              </button>
+            <section v-if="wizardStep === 1" class="wizard-section basic-info-step">
+              <h4>基本信息</h4>
+              <p>选择智能体运行类型，并填写用于识别智能体的基础信息。</p>
+
+              <h5>选择智能体类型</h5>
+              <div class="agent-type-options">
+                <button
+                  v-for="type in agentTypes"
+                  :key="type.value"
+                  type="button"
+                  class="agent-type-card"
+                  :class="{ selected: form.agentType === type.value }"
+                  @click="form.agentType = type.value"
+                >
+                  <span>
+                    <strong>{{ type.title }}</strong>
+                    <em v-if="type.tag">{{ type.tag }}</em>
+                    <small>{{ type.desc }}</small>
+                  </span>
+                  <i class="type-check">
+                    <el-icon><Check /></el-icon>
+                  </i>
+                </button>
+              </div>
+
+              <article class="agent-basic-panel">
+                <h5>填写基本信息</h5>
+                <div class="agent-form-grid">
+                  <el-form-item label="智能体英文名称" prop="agentKey">
+                    <el-input v-model="form.agentKey" placeholder="例如：data-analyst" />
+                    <small class="field-tip">用于 API、日志和运行实例标识，建议使用小写字母与连字符</small>
+                  </el-form-item>
+                  <el-form-item label="智能体中文名称" prop="agentName">
+                    <el-input v-model="form.agentName" placeholder="例如：数据分析师" />
+                    <small class="field-tip">用于页面展示和用户识别</small>
+                  </el-form-item>
+                  <el-form-item class="full" label="智能体描述">
+                    <el-input
+                      v-model="form.description"
+                      type="textarea"
+                      :rows="3"
+                      maxlength="200"
+                      show-word-limit
+                      placeholder="简要描述智能体的职责、核心能力和适用场景..."
+                    />
+                  </el-form-item>
+                </div>
+              </article>
+
+              <div class="basic-info-tip">
+                <el-icon><InfoFilled /></el-icon>
+                <span>所有字段均可暂时留空，点击下一步继续配置模型与提示词。</span>
+              </div>
             </section>
 
             <section v-else-if="wizardStep === 2" class="wizard-section">
-              <h4>基本信息</h4>
-              <p>配置智能体身份、用途和默认运行状态。</p>
-              <div class="agent-form-grid">
-                <el-form-item label="智能体名称" prop="agentName">
-                  <el-input v-model="form.agentName" placeholder="如 数据分析助手" />
-                </el-form-item>
-                <el-form-item label="智能体英文名称" prop="agentKey">
-                  <el-input v-model="form.agentKey" placeholder="如 data-analyst" />
-                </el-form-item>
-                <el-form-item class="full" label="描述">
-                  <el-input
-                    v-model="form.description"
-                    type="textarea"
-                    :rows="5"
-                    placeholder="说明智能体面向的业务场景、边界和目标用户"
-                  />
-                </el-form-item>
+              <article class="model-prompt-panel">
+                <button type="button" class="config-section-head" @click="modelConfigExpanded = !modelConfigExpanded">
+                  <span>
+                    <h4>模型配置</h4>
+                    <small>{{ selectedModel?.modelName || '选择默认模型' }}</small>
+                  </span>
+                  <el-icon><component :is="modelConfigExpanded ? ArrowUp : ArrowDown" /></el-icon>
+                </button>
+
+                <div v-show="modelConfigExpanded" class="model-card-grid">
+                  <button
+                    v-for="model in modelRows"
+                    :key="model.id"
+                    type="button"
+                    class="model-option-card"
+                    :class="{ selected: normalizeId(configForm.modelId) === normalizeId(model.id) }"
+                    @click="selectModel(model)"
+                  >
+                    <i class="option-radio">
+                      <el-icon><Check /></el-icon>
+                    </i>
+                    <span>
+                      <strong>{{ model.modelName || `模型 #${model.id}` }}</strong>
+                      <small>{{ model.description || model.modelType || 'chat' }}</small>
+                      <em>{{ formatModelContext(model) }}</em>
+                    </span>
+                    <b>{{ formatProvider(model.provider) }}</b>
+                  </button>
+                  <el-empty v-if="!modelRows.length" description="暂无可选模型" :image-size="72" />
+                </div>
+
+                <div v-if="selectedModel" class="selected-model-strip">
+                  <span>已选择：<strong>{{ selectedModel.modelName || configForm.modelName }}</strong></span>
+                  <em v-if="selectedModel.streaming">支持流式输出</em>
+                  <em v-if="selectedModel.thinking">支持思考</em>
+                  <button type="button" @click="modelConfigExpanded = true">
+                    查看模型详情 <el-icon><ArrowRight /></el-icon>
+                  </button>
+                </div>
+              </article>
+
+              <article class="model-prompt-panel">
+                <button type="button" class="config-section-head" @click="promptTemplateExpanded = !promptTemplateExpanded">
+                  <span>
+                    <h4>系统提示词模板</h4>
+                    <small>{{ selectedPrompt?.promptName || '选择模板后自动填充预览内容' }}</small>
+                  </span>
+                  <el-icon><component :is="promptTemplateExpanded ? ArrowUp : ArrowDown" /></el-icon>
+                </button>
+
+                <div v-show="promptTemplateExpanded" class="prompt-template-grid">
+                  <button
+                    v-for="prompt in promptRows"
+                    :key="prompt.id"
+                    type="button"
+                    class="prompt-option-card"
+                    :class="{ selected: normalizeId(configForm.sysPromptId) === normalizeId(prompt.id) }"
+                    @click="selectPrompt(prompt)"
+                  >
+                    <i class="option-radio">
+                      <el-icon><Check /></el-icon>
+                    </i>
+                    <span>
+                      <strong>{{ prompt.promptName || `提示词 #${prompt.id}` }}</strong>
+                      <small>{{ prompt.description || '选择后可在下方预览提示词内容' }}</small>
+                    </span>
+                  </button>
+                  <el-empty v-if="!promptRows.length" description="暂无提示词模板" :image-size="72" />
+                </div>
+              </article>
+
+              <article class="prompt-preview-panel" :class="{ expanded: promptPreviewExpanded }">
+                <button type="button" class="prompt-preview-head" @click="promptPreviewExpanded = !promptPreviewExpanded">
+                  <span>
+                    <strong>模板内容预览</strong>
+                    <small v-if="!promptPreviewExpanded">{{ promptPreviewText }}</small>
+                  </span>
+                  <em>{{ promptPreviewExpanded ? '收起预览' : '展开编辑' }} <el-icon><component :is="promptPreviewExpanded ? ArrowUp : ArrowDown" /></el-icon></em>
+                </button>
+                <el-input
+                  v-show="promptPreviewExpanded"
+                  v-model="configForm.sysPrompt"
+                  class="prompt-preview-editor"
+                  type="textarea"
+                  :rows="7"
+                  placeholder="选择系统提示词模板后，可在这里预览并调整完整提示词内容"
+                />
+              </article>
+
+              <div class="basic-info-tip">
+                <el-icon><InfoFilled /></el-icon>
+                <span>模型和提示词模板均可暂时不选择，点击下一步继续配置工具与 Skill。</span>
               </div>
             </section>
 
             <section v-else-if="wizardStep === 3" class="wizard-section">
-              <h4>模型与提示词</h4>
-              <p>选择主模型并定义智能体的角色、目标、边界与回复风格。</p>
-              <div class="agent-form-grid">
-                <el-form-item label="默认模型">
-                  <el-select
-                    v-model="configForm.modelId"
-                    filterable
-                    placeholder="请选择模型"
-                    @change="(value) => configForm.modelName = modelOptions.find((item) => item.value === value)?.name || ''"
-                  >
-                    <el-option
-                      v-for="model in modelOptions"
-                      :key="model.value"
-                      :label="model.label"
-                      :value="model.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item label="提示词模板">
-                  <el-select
-                    v-model="configForm.sysPromptId"
-                    filterable
-                    placeholder="请选择提示词"
-                    @change="(value) => {
-                      const prompt = promptOptions.find((item) => item.value === value)
-                      configForm.promptTemplate = prompt?.label || ''
-                      configForm.sysPrompt = prompt?.sysPrompt || configForm.sysPrompt
-                    }"
-                  >
-                    <el-option
-                      v-for="item in promptOptions"
-                      :key="item.value"
-                      :label="item.label"
-                      :value="item.value"
-                    />
-                  </el-select>
-                </el-form-item>
-                <el-form-item class="full" label="系统提示词">
-                  <el-input
-                    v-model="configForm.sysPrompt"
-                    type="textarea"
-                    :rows="6"
-                    placeholder="建议明确角色、目标、边界和工具使用规则"
-                  />
-                  <small class="field-tip">建议明确角色、目标、边界和工具使用规则</small>
-                </el-form-item>
-              </div>
-            </section>
-
-            <section v-else-if="wizardStep === 4" class="wizard-section">
               <h4>工具与能力</h4>
               <p>按需装配执行能力，权限仍会在运行时按租户和角色校验。</p>
               <div class="capability-grid">
@@ -926,7 +1027,7 @@ onMounted(async () => {
               </div>
             </section>
 
-            <section v-else-if="wizardStep === 5" class="wizard-section">
+            <section v-else-if="wizardStep === 4" class="wizard-section">
               <h4>知识库与 MCP</h4>
               <p>为智能体连接企业知识、外部 MCP 服务和协作子智能体。</p>
               <div class="knowledge-list">
@@ -1151,7 +1252,7 @@ onMounted(async () => {
             </section>
           </div>
 
-          <aside v-if="wizardStep === 6" class="wizard-summary">
+          <aside v-if="wizardStep === 5" class="wizard-summary">
             <strong>{{ configProgress }}%</strong>
             <span>配置完成度</span>
             <div class="progress-track">
@@ -1179,7 +1280,7 @@ onMounted(async () => {
           :icon="ArrowRight"
           @click="nextStep"
         >
-          下一步
+          下一步：{{ wizardSteps[wizardStep]?.title }}
         </el-button>
         <template v-else>
           <el-button :loading="submitting" @click="submitForm">保存草稿</el-button>
