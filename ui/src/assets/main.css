@@ -1328,7 +1328,6 @@
   grid-template-columns: minmax(0, 1fr) 244px;
   gap: 16px;
   padding: 16px 22px;
-  background: #f7fbff;
 }
 
 .agent-wizard-body.with-summary .agent-wizard-main {
@@ -1508,7 +1507,6 @@
   padding: 18px;
   border: 1px solid #d6e2f2;
   border-radius: 8px;
-  background: #fbfdff;
   box-shadow: 0 1px 0 rgba(20, 75, 130, 0.03);
 }
 
@@ -1770,7 +1768,7 @@
   padding: 18px;
   border: 1px solid #d6e2f2;
   border-radius: 8px;
-  background: #fbfdff;
+  /*background: #fbfdff;*/
   box-shadow: 0 1px 0 rgba(20, 75, 130, 0.03);
 }
 
