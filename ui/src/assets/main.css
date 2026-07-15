@@ -1503,9 +1503,10 @@
 
 .model-prompt-panel {
   display: grid;
-  gap: 14px;
+  gap: 0;
+  overflow: hidden;
   margin-bottom: 18px;
-  padding: 18px;
+  padding: 0;
   border: 1px solid #d6e2f2;
   border-radius: 8px;
   box-shadow: 0 1px 0 rgba(20, 75, 130, 0.03);
@@ -1518,10 +1519,12 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  padding: 14px 16px;
   border: 0;
+  border-bottom: 1px solid #e1ebf7;
   color: inherit;
   text-align: left;
-  background: transparent;
+  background: #fbfdff;
   cursor: pointer;
 }
 
@@ -1551,6 +1554,7 @@
   grid-auto-rows: var(--wizard-data-card-height);
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 14px;
+  padding: 16px;
 }
 
 .model-option-card,
@@ -1788,8 +1792,9 @@
 
 .capability-section {
   display: grid;
-  gap: 12px;
-  padding: 18px;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
   border: 1px solid #d6e2f2;
   border-radius: 8px;
   /*background: #fbfdff;*/
@@ -1802,11 +1807,12 @@
   grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: start;
   gap: 4px 12px;
-  padding: 0;
+  padding: 14px 16px;
   border: 0;
+  border-bottom: 1px solid #e1ebf7;
   color: inherit;
   text-align: left;
-  background: transparent;
+  background: #fbfdff;
 }
 
 .capability-section-toggle {
@@ -1851,6 +1857,7 @@
   grid-auto-rows: var(--wizard-data-card-height);
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 14px;
+  padding: 16px;
 }
 
 .capability-select-grid.tools {
