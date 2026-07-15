@@ -1550,23 +1550,6 @@ onMounted(async () => {
               </article>
             </section>
           </div>
-
-          <aside v-if="wizardStep === 5" class="wizard-summary">
-            <strong>{{ configProgress }}%</strong>
-            <span>配置完成度</span>
-            <div class="progress-track">
-              <i :style="{ width: `${configProgress}%` }" />
-            </div>
-            <h5>配置检查</h5>
-            <p class="ok"><el-icon><Check /></el-icon> 模型和提示词已配置</p>
-            <p class="ok"><el-icon><Check /></el-icon> 工具权限策略已选择</p>
-            <p class="ok"><el-icon><Check /></el-icon> 上下文压缩参数合理</p>
-            <p class="warn">! 沙箱尚未启用</p>
-            <div class="summary-note">
-              <b>生产环境建议</b>
-              <span>保持 Shell 禁用，并要求人工确认退出 Plan Mode。</span>
-            </div>
-          </aside>
         </div>
       </el-form>
 

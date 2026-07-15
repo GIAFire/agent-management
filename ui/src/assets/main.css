@@ -1325,7 +1325,6 @@
 }
 
 .agent-wizard-body.with-summary {
-  display: grid;
   grid-template-columns: minmax(0, 1fr) 244px;
   gap: 16px;
   padding: 16px 22px;
