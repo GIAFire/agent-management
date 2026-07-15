@@ -1150,6 +1150,7 @@
 
 .agent-dialog-large {
   --el-dialog-width: min(1180px, calc(100vw - 28px));
+  --wizard-data-card-height: 104px;
 }
 
 .agent-dialog-large.el-dialog {
@@ -1547,6 +1548,7 @@
 .model-card-grid,
 .prompt-template-grid {
   display: grid;
+  grid-auto-rows: var(--wizard-data-card-height);
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: 14px;
 }
@@ -1555,9 +1557,11 @@
 .prompt-option-card {
   display: grid;
   width: 100%;
+  height: var(--wizard-data-card-height);
   align-items: flex-start;
   gap: 12px;
-  min-height: 84px;
+  min-height: var(--wizard-data-card-height);
+  overflow: hidden;
   padding: 18px;
   border: 1px solid #d6e2f2;
   border-radius: 8px;
@@ -1570,7 +1574,6 @@
 
 .model-option-card {
   grid-template-columns: 24px minmax(0, 1fr) auto;
-  min-height: 100px;
 }
 
 .prompt-option-card {
@@ -1605,35 +1608,56 @@
   font-size: 12px;
 }
 
+.model-option-card > span,
+.prompt-option-card > span {
+  min-width: 0;
+  overflow: hidden;
+}
+
 .model-option-card strong {
   display: block;
+  min-width: 0;
+  overflow: hidden;
   color: #0a2547;
   font-size: 14px;
   font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .prompt-option-card strong {
   display: block;
+  min-width: 0;
+  overflow: hidden;
   color: #0a2547;
   font-size: 14px;
   font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .model-option-card small,
 .prompt-option-card small,
 .model-option-card em {
   display: block;
-  margin-top: 8px;
+  min-width: 0;
+  margin-top: 4px;
+  overflow: hidden;
   color: #5f728e;
   font-size: 12px;
   font-style: normal;
   line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .model-option-card b {
+  max-width: 110px;
+  overflow: hidden;
   color: #637b98;
   font-size: 12px;
   font-weight: 400;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1824,6 +1848,7 @@
 
 .capability-select-grid {
   display: grid;
+  grid-auto-rows: var(--wizard-data-card-height);
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 14px;
 }
@@ -1840,7 +1865,9 @@
 .capability-select-card {
   position: relative;
   display: grid;
-  min-height: 86px;
+  height: var(--wizard-data-card-height);
+  min-height: var(--wizard-data-card-height);
+  overflow: hidden;
   padding: 16px 42px 14px 16px;
   border: 1px solid #d6e2f2;
   border-radius: 8px;
@@ -1869,50 +1896,70 @@
 }
 
 .capability-select-card strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
   color: #0a2547;
   font-size: 14px;
   font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .capability-select-card small {
-  margin-top: 6px;
+  min-width: 0;
+  margin-top: 4px;
+  overflow: hidden;
   color: #5f728e;
   font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .capability-select-card p {
-  margin: 6px 0 0;
+  min-width: 0;
+  margin: 4px 0 0;
+  overflow: hidden;
   color: #637b98;
   font-size: 12px;
   line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .capability-select-card.subagent {
-  min-height: 104px;
+  height: var(--wizard-data-card-height);
+  min-height: var(--wizard-data-card-height);
 }
 
 .capability-select-card.knowledge-source,
 .capability-select-card.mcp-service {
-  min-height: 132px;
+  height: var(--wizard-data-card-height);
+  min-height: var(--wizard-data-card-height);
   align-content: start;
 }
 
 .capability-select-card.knowledge-source small {
-  margin-top: 12px;
+  margin-top: 4px;
 }
 
 .resource-status {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 4px;
+  overflow: hidden;
   color: #526981;
   font-size: 12px;
   font-style: normal;
   font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .resource-status::before {
+  flex: 0 0 auto;
   width: 8px;
   height: 8px;
   border-radius: 50%;
@@ -1930,16 +1977,22 @@
 
 .mcp-card-footer {
   display: flex;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 12px;
+  margin-top: 4px;
+  overflow: hidden;
 }
 
 .mcp-card-footer b {
+  min-width: 0;
+  overflow: hidden;
   color: #526981;
   font-size: 12px;
   font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mcp-card-footer .resource-status {
@@ -1948,13 +2001,17 @@
 
 .capability-select-card.subagent em {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
+  margin-top: 4px;
+  overflow: hidden;
   color: #526981;
   font-size: 12px;
   font-style: normal;
   font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .capability-select-card.subagent em::before {
