@@ -13,4 +13,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiSkillInfoService extends IService<AiSkillInfoEntity> {
 
+    AiSkillInfoEntity createSkillPackage(AiSkillInfoEntity entity);
+
+    AiSkillInfoEntity updateSkillPackage(AiSkillInfoEntity entity);
 }

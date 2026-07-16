@@ -55,6 +55,12 @@ export const adminRoutes = [
             meta: { title: '工具管理', icon: 'Tools', section: 'TOOLS & SKILLS' }
           },
           {
+            path: 'skill',
+            name: 'SkillManage',
+            component: () => import('@/views/skill/index.vue'),
+            meta: { title: '技能管理', icon: 'MagicStick', section: 'TOOLS & SKILLS' }
+          },
+          {
             path: 'skill-package',
             name: 'SkillPackageManage',
             component: () => import('@/views/skillPackage/index.vue'),

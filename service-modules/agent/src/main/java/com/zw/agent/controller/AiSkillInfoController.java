@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiSkillInfoEntity;
 import com.zw.agent.service.AiSkillInfoService;
 import com.zw.common.entity.Result;
-import com.zw.common.support.EntityDefaults;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -44,13 +43,13 @@ public class AiSkillInfoController {
     }
 
     @PostMapping("/create")
-    public Result<Boolean> create(@RequestBody AiSkillInfoEntity entity) {
-        return Result.ok(aiSkillInfoService.save(EntityDefaults.create(entity)));
+    public Result<AiSkillInfoEntity> create(@RequestBody AiSkillInfoEntity entity) {
+        return Result.ok(aiSkillInfoService.createSkillPackage(entity));
     }
 
     @PostMapping("/update")
-    public Result<Boolean> update(@RequestBody AiSkillInfoEntity entity) {
-        return Result.ok(aiSkillInfoService.updateById(EntityDefaults.update(entity)));
+    public Result<AiSkillInfoEntity> update(@RequestBody AiSkillInfoEntity entity) {
+        return Result.ok(aiSkillInfoService.updateSkillPackage(entity));
     }
 
     @GetMapping("/delete/{id}")

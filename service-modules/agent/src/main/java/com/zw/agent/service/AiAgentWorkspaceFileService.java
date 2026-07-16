@@ -1,8 +1,8 @@
 package com.zw.agent.service;
 
 import com.zw.agent.entity.AiAgentWorkspaceFileEntity;
+import com.zw.agent.entity.AiSkillInfoEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.zw.agent.runtime.AgentCallContext;
 import io.agentscope.core.agent.RuntimeContext;
 
 /**
@@ -16,4 +16,8 @@ import io.agentscope.core.agent.RuntimeContext;
 public interface AiAgentWorkspaceFileService extends IService<AiAgentWorkspaceFileEntity> {
 
     AiAgentWorkspaceFileEntity saveGeneratedFile(RuntimeContext runtimeContext, String toolCallId, String fileName, String content);
+
+    AiAgentWorkspaceFileEntity saveSkillPackageFile(AiSkillInfoEntity skill, String relativeSkillPath, String fileName, String content);
+
+    AiAgentWorkspaceFileEntity updateSkillPackageFile(AiAgentWorkspaceFileEntity workspaceFile, AiSkillInfoEntity skill, String relativeSkillPath, String fileName, String content);
 }

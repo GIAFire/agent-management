@@ -2,6 +2,8 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiSkillFileEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.entity.AiAgentWorkspaceFileEntity;
+import com.zw.agent.entity.AiSkillInfoEntity;
 
 /**
  * <p>
@@ -13,4 +15,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiSkillFileService extends IService<AiSkillFileEntity> {
 
+    AiSkillFileEntity getSkillMdFile(Long skillId);
+
+    AiSkillFileEntity saveOrUpdateSkillMdFile(AiSkillInfoEntity skill, AiAgentWorkspaceFileEntity workspaceFile);
 }

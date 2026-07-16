@@ -7,6 +7,7 @@ import {
   Connection,
   Collection,
   Grid,
+  MagicStick,
   Operation,
   Tools,
   User
@@ -19,7 +20,8 @@ const navItems = [
   { title: '智能体', path: '/agent/manage', icon: Briefcase },
   { title: '子智能体', path: '/agent/subagent', icon: Connection },
   { title: '知识库', path: '/agent/knowledge', icon: Collection },
-  { title: '工具', path: '/agent/tool', icon: Tools, match: ['/agent/tool', '/agent/skill-package'] },
+  { title: '工具', path: '/agent/tool', icon: Tools },
+  { title: '技能', path: '/agent/skill', icon: MagicStick, match: ['/agent/skill', '/agent/skill-package'] },
   { title: '模型', path: '/agent/model', icon: Box },
   { title: '沙箱', path: '/agent/mcp', icon: Operation, match: ['/agent/mcp', '/agent/hook', '/agent/sensitive-word'] },
   {
