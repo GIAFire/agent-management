@@ -35,7 +35,7 @@ import java.security.NoSuchAlgorithmException;
 @Service
 public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspaceFileMapper, AiAgentWorkspaceFileEntity> implements AiAgentWorkspaceFileService {
 
-    private static final String SKILL_PACKAGE_ROOT = "skill-packages";
+    private static final String SKILL_PACKAGE_ROOT = ".agentscope/workspace/skills";
     private static final String SKILL_SOURCE_TYPE = "SKILL";
     private static final String SKILL_VISIBILITY = "TENANT";
     private static final Long SKILL_PACKAGE_AGENT_ID = 0L;

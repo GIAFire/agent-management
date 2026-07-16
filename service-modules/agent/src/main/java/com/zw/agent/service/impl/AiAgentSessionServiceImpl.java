@@ -3,9 +3,11 @@ package com.zw.agent.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zw.agent.entity.AiAgentSessionEntity;
 import com.zw.agent.mapper.AiAgentSessionMapper;
+import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.AiAgentSessionService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.context.UserInfo;
+import com.zw.common.support.EntityDefaults;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -24,27 +26,54 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
 
     @Autowired
     private AiAgentSessionMapper agentSessionMapper;
+
     @Override
-    public AiAgentSessionEntity getOrCreateSession(UserInfo userInfo, Long agentId, Long agentConfigId, Long sessionId,String  title) {
-        AiAgentSessionEntity sessionEntity = agentSessionMapper.selectOne(new LambdaQueryWrapper<AiAgentSessionEntity>()
+    public AiAgentSessionEntity createSession(UserInfo userInfo, Long agentId, Long agentConfigId, String title) {
+        AiAgentSessionEntity sessionEntity = buildSession(userInfo, agentId, agentConfigId, title);
+        agentSessionMapper.insert(EntityDefaults.create(sessionEntity));
+        return sessionEntity;
+    }
+
+    @Override
+    public AiAgentSessionEntity getOwnedSession(UserInfo userInfo, Long agentId, Long sessionId) {
+        if (userInfo == null) {
+            throw new IllegalArgumentException("User is not authenticated");
+        }
+        if (agentId == null) {
+            throw new IllegalArgumentException("agentId must not be null");
+        }
+        if (sessionId == null) {
+            throw new IllegalArgumentException("sessionId must not be null");
+        }
+        return agentSessionMapper.selectOne(new LambdaQueryWrapper<AiAgentSessionEntity>()
                 .eq(AiAgentSessionEntity::getTenantId, userInfo.getTenantId())
                 .eq(AiAgentSessionEntity::getUserId, userInfo.getUserId())
+                .eq(AiAgentSessionEntity::getAgentId, agentId)
                 .eq(AiAgentSessionEntity::getId, sessionId));
+    }
 
-        if (sessionEntity != null) {
-            return sessionEntity;
+    private AiAgentSessionEntity buildSession(UserInfo userInfo, Long agentId, Long agentConfigId, String title) {
+        if (userInfo == null) {
+            throw new IllegalArgumentException("User is not authenticated");
         }
-        sessionEntity = new AiAgentSessionEntity();
-        if (sessionId != null) {
-            sessionEntity.setId(sessionId);
+        if (agentId == null) {
+            throw new IllegalArgumentException("agentId must not be null");
         }
+        String normalizedTitle = normalizeTitle(title);
+        AiAgentSessionEntity sessionEntity = new AiAgentSessionEntity();
         sessionEntity.setTenantId(userInfo.getTenantId());
         sessionEntity.setUserId(userInfo.getUserId());
         sessionEntity.setAgentId(agentId);
         sessionEntity.setAgentConfigId(agentConfigId);
-        sessionEntity.setTitle(title.length() >= 10 ? title.substring(0, 15) + "..." : title);
+        sessionEntity.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()));
+        sessionEntity.setTitle(normalizedTitle);
+        sessionEntity.setStatus(1);
         sessionEntity.setLastMessageAt(LocalDateTime.now());
-        agentSessionMapper.insert(sessionEntity);
         return sessionEntity;
+    }
+
+    private String normalizeTitle(String title) {
+        String value = title == null || title.isBlank() ? "New chat" : title.trim();
+        return value.length() > 15 ? value.substring(0, 15) + "..." : value;
     }
 }

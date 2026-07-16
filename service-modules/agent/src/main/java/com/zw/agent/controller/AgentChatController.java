@@ -37,13 +37,7 @@ public class AgentChatController {
 
         AgentConfigDTO agentConfig = agentService.getAgentConfigById(request.getAgentId());
 
-        AiAgentSessionEntity session = agentSessionService.getOrCreateSession(
-                userInfo,
-                request.getAgentId(),
-                agentConfig.getAgentConfigId(),
-                request.getSessionId(),
-                request.getContent()
-        );
+        AiAgentSessionEntity session = requireOwnedSession(userInfo, request.getAgentId(), request.getSessionId());
 
         AiAgentMessageLogEntity userMessage = agentMessageService.saveUserMessage(
                 userInfo,
@@ -71,6 +65,7 @@ public class AgentChatController {
     public Flux<ServerSentEvent<AgentStreamResponse>> userConfirm(@RequestBody AgentInterventionRequest request) {
         UserInfo userInfo = UserContext.get();
         AgentConfigDTO config = agentService.getAgentConfigById(request.getAgentId());
+        requireOwnedSession(userInfo, request.getAgentId(), request.getSessionId());
         return agentChatService.userConfirmStream(config, userInfo, request.getSessionId(), request);
     }
 
@@ -78,7 +73,15 @@ public class AgentChatController {
     public Flux<ServerSentEvent<AgentStreamResponse>> externalExecution(@RequestBody AgentInterventionRequest request) {
         UserInfo userInfo = UserContext.get();
         AgentConfigDTO config = agentService.getAgentConfigById(request.getAgentId());
+        requireOwnedSession(userInfo, request.getAgentId(), request.getSessionId());
         return agentChatService.externalExecutionStream(config, userInfo, request.getSessionId(), request);
     }
 
+    private AiAgentSessionEntity requireOwnedSession(UserInfo userInfo, Long agentId, Long sessionId) {
+        AiAgentSessionEntity session = agentSessionService.getOwnedSession(userInfo, agentId, sessionId);
+        if (session == null) {
+            throw new IllegalArgumentException("Agent session not found");
+        }
+        return session;
+    }
 }

@@ -14,5 +14,7 @@ import com.zw.common.context.UserInfo;
  */
 public interface AiAgentSessionService extends IService<AiAgentSessionEntity> {
 
-    AiAgentSessionEntity getOrCreateSession(UserInfo userInfo, Long agentId, Long agentConfigId, Long sessionId,String  title);
+    AiAgentSessionEntity createSession(UserInfo userInfo, Long agentId, Long agentConfigId, String title);
+
+    AiAgentSessionEntity getOwnedSession(UserInfo userInfo, Long agentId, Long sessionId);
 }

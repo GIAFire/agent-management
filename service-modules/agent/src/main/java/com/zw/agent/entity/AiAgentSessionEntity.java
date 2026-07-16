@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.zw.common.entity.BaseEntity;
 
 import java.time.LocalDateTime;
@@ -28,6 +30,7 @@ public class AiAgentSessionEntity extends BaseEntity {
     /**
      * 会话主键ID
      */
+    @JsonSerialize(using = ToStringSerializer.class)
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 

@@ -1,4 +1,5 @@
 import config from '@/axios/axiosConfig'
+import { post } from '@/axios/request'
 import { getToken, getTokenType } from '@/utils/auth'
 
 const isObject = (value) => typeof value === 'object' && value !== null
@@ -230,6 +231,10 @@ const postStream = async (url, data, handlers = {}, options = {}) => {
 
 export const chatStream = async (data, handlers = {}, options = {}) => {
   return postStream('/agent/chat/chatStream', data, handlers, options)
+}
+
+export const createAgentSession = (data) => {
+  return post('/agent/agentSession/create', data)
 }
 
 export const userConfirmStream = async (data, handlers = {}, options = {}) => {

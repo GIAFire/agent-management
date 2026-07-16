@@ -3,7 +3,12 @@ package com.zw.agent.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiAgentSessionEntity;
+import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.agent.entity.message.AiAgentSessionCreateRequest;
+import com.zw.agent.service.AiAgentService;
 import com.zw.agent.service.AiAgentSessionService;
+import com.zw.common.context.UserContext;
+import com.zw.common.context.UserInfo;
 import com.zw.common.entity.Result;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -22,6 +27,7 @@ import org.springframework.web.bind.annotation.*;
 @AllArgsConstructor
 public class AiAgentSessionController {
     private final AiAgentSessionService aiAgentSessionService;
+    private final AiAgentService aiAgentService;
 
     @GetMapping("/list")
     public Result<List<AiAgentSessionEntity>> list() {
@@ -42,8 +48,18 @@ public class AiAgentSessionController {
     }
 
     @PostMapping("/create")
-    public Result<Boolean> create(@RequestBody AiAgentSessionEntity entity) {
-        return Result.ok(aiAgentSessionService.save(entity));
+    public Result<AiAgentSessionEntity> create(@RequestBody AiAgentSessionCreateRequest request) {
+        if (request == null || request.getAgentId() == null) {
+            return Result.fail("agentId must not be null");
+        }
+        UserInfo userInfo = UserContext.get();
+        AgentConfigDTO agentConfig = aiAgentService.getAgentConfigById(request.getAgentId());
+        return Result.ok(aiAgentSessionService.createSession(
+                userInfo,
+                request.getAgentId(),
+                agentConfig.getAgentConfigId(),
+                request.getTitle()
+        ));
     }
 
     @PostMapping("/update")

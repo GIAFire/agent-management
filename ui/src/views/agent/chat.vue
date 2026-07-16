@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bottom, ChatLineRound, Close, Delete, MoreFilled, Plus, Promotion, Search } from '@element-plus/icons-vue'
 import MarkdownIt from 'markdown-it'
-import { chatStream, userConfirmStream } from '@/axios/chat'
+import { chatStream, createAgentSession, userConfirmStream } from '@/axios/chat'
 
 const route = useRoute()
 const markdownRenderer = new MarkdownIt({
@@ -26,6 +26,7 @@ const inputMessage = ref('')
 const sessionKeyword = ref('')
 const planDrawerOpen = ref(false)
 const streaming = ref(false)
+const sessionCreating = ref(false)
 const autoScrollEnabled = ref(true)
 const messageListRef = ref()
 const abortController = ref(null)
@@ -33,25 +34,8 @@ const abortController = ref(null)
 let saveTimer = null
 let scrollFrame = null
 let pendingScrollForce = false
-let snowflakeLastTimestamp = -1n
-let snowflakeSequence = 0n
-let snowflakeWorkerId = null
-let snowflakeDatacenterId = null
 
 const SCROLL_BOTTOM_THRESHOLD = 64
-const SNOWFLAKE_EPOCH = 1288834974657n
-const SNOWFLAKE_WORKER_ID_BITS = 5n
-const SNOWFLAKE_DATACENTER_ID_BITS = 5n
-const SNOWFLAKE_SEQUENCE_BITS = 12n
-const SNOWFLAKE_MAX_WORKER_ID = (1n << SNOWFLAKE_WORKER_ID_BITS) - 1n
-const SNOWFLAKE_MAX_DATACENTER_ID = (1n << SNOWFLAKE_DATACENTER_ID_BITS) - 1n
-const SNOWFLAKE_SEQUENCE_MASK = (1n << SNOWFLAKE_SEQUENCE_BITS) - 1n
-const SNOWFLAKE_WORKER_ID_SHIFT = SNOWFLAKE_SEQUENCE_BITS
-const SNOWFLAKE_DATACENTER_ID_SHIFT = SNOWFLAKE_SEQUENCE_BITS + SNOWFLAKE_WORKER_ID_BITS
-const SNOWFLAKE_TIMESTAMP_SHIFT = SNOWFLAKE_SEQUENCE_BITS + SNOWFLAKE_WORKER_ID_BITS + SNOWFLAKE_DATACENTER_ID_BITS
-const SNOWFLAKE_LONG_ID_PATTERN = /^\d{16,19}$/
-const SNOWFLAKE_WORKER_STORAGE_KEY = 'agent_chat_snowflake_worker_id'
-const SNOWFLAKE_DATACENTER_STORAGE_KEY = 'agent_chat_snowflake_datacenter_id'
 
 const agentInfo = reactive({
   id: null,
@@ -84,7 +68,7 @@ const filteredSessions = computed(() => {
 })
 
 const canSend = computed(() => {
-  return Boolean(inputMessage.value.trim()) && !streaming.value && Boolean(agentId.value)
+  return Boolean(inputMessage.value.trim()) && !streaming.value && !sessionCreating.value && Boolean(agentId.value)
 })
 
 const STREAM_STAGE_META = {
@@ -2091,86 +2075,35 @@ const nowText = () => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
-const randomSnowflakePart = () => {
-  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
-    const array = new Uint32Array(1)
-    crypto.getRandomValues(array)
-    return BigInt(array[0] % 32)
-  }
-  return BigInt(Math.floor(Math.random() * 32))
-}
-
-const getStoredSnowflakePart = (key, maxValue) => {
-  const storedValue = localStorage.getItem(key)
-  if (/^\d+$/.test(storedValue || '')) {
-    const parsedValue = BigInt(storedValue)
-    if (parsedValue >= 0n && parsedValue <= maxValue) {
-      return parsedValue
-    }
-  }
-
-  const value = randomSnowflakePart()
-  localStorage.setItem(key, value.toString())
-  return value
-}
-
-const waitNextSnowflakeMillis = (lastTimestamp) => {
-  let timestamp = BigInt(Date.now())
-  while (timestamp <= lastTimestamp) {
-    timestamp = BigInt(Date.now())
-  }
-  return timestamp
-}
-
-const createSnowflakeId = () => {
-  if (snowflakeWorkerId == null) {
-    snowflakeWorkerId = getStoredSnowflakePart(SNOWFLAKE_WORKER_STORAGE_KEY, SNOWFLAKE_MAX_WORKER_ID)
-  }
-  if (snowflakeDatacenterId == null) {
-    snowflakeDatacenterId = getStoredSnowflakePart(SNOWFLAKE_DATACENTER_STORAGE_KEY, SNOWFLAKE_MAX_DATACENTER_ID)
-  }
-
-  let timestamp = BigInt(Date.now())
-  if (timestamp < snowflakeLastTimestamp) {
-    timestamp = snowflakeLastTimestamp
-  }
-
-  if (timestamp === snowflakeLastTimestamp) {
-    snowflakeSequence = (snowflakeSequence + 1n) & SNOWFLAKE_SEQUENCE_MASK
-    if (snowflakeSequence === 0n) {
-      timestamp = waitNextSnowflakeMillis(snowflakeLastTimestamp)
-    }
-  } else {
-    snowflakeSequence = 0n
-  }
-
-  snowflakeLastTimestamp = timestamp
-
-  return (((timestamp - SNOWFLAKE_EPOCH) << SNOWFLAKE_TIMESTAMP_SHIFT) |
-    (snowflakeDatacenterId << SNOWFLAKE_DATACENTER_ID_SHIFT) |
-    (snowflakeWorkerId << SNOWFLAKE_WORKER_ID_SHIFT) |
-    snowflakeSequence).toString()
-}
-
-const createSessionId = () => {
-  return createSnowflakeId()
-}
-
-const getBackendSessionId = (session) => {
-  const existingId = String(session?.backendSessionId ?? session?.id ?? '')
-  if (SNOWFLAKE_LONG_ID_PATTERN.test(existingId)) {
-    return existingId
-  }
-
-  const sessionId = createSnowflakeId()
-  if (session) {
-    session.backendSessionId = sessionId
-  }
-  return sessionId
-}
-
 const getDefaultTitle = () => {
   return `${agentInfo.name || '智能体'}会话`
+}
+
+const normalizeSessionId = (value) => {
+  return value === undefined || value === null ? '' : String(value)
+}
+
+const buildLocalSession = (backendSession, fallbackTitle = getDefaultTitle()) => {
+  const sessionId = normalizeSessionId(backendSession?.id)
+  if (!sessionId) {
+    throw new Error('Backend session id is empty')
+  }
+
+  return {
+    id: sessionId,
+    backendSessionId: sessionId,
+    title: backendSession?.title || fallbackTitle,
+    updatedAt: backendSession?.lastMessageAt || backendSession?.updatedAt || backendSession?.createdAt || nowText(),
+    messages: []
+  }
+}
+
+const requestBackendSession = async (title = getDefaultTitle()) => {
+  const backendSession = await createAgentSession({
+    agentId: agentId.value,
+    title
+  })
+  return buildLocalSession(backendSession, title)
 }
 
 const saveSessions = () => {
@@ -2265,25 +2198,29 @@ const applyRouteAgentInfo = () => {
   agentInfo.key = route.query.agentKey || ''
 }
 
-const createSession = () => {
-  const sessionId = createSessionId()
-  const session = {
-    id: sessionId,
-    backendSessionId: sessionId,
-    title: getDefaultTitle(),
-    updatedAt: nowText(),
-    messages: []
+const createSession = async () => {
+  if (!agentId.value || sessionCreating.value) {
+    return null
   }
 
-  sessions.value.unshift(session)
-  activeSessionId.value = session.id
-  autoScrollEnabled.value = true
-  saveSessions()
-  scrollToBottom(true)
-  return session
+  sessionCreating.value = true
+  try {
+    const session = await requestBackendSession()
+    sessions.value.unshift(session)
+    activeSessionId.value = session.id
+    autoScrollEnabled.value = true
+    saveSessions()
+    await scrollToBottom(true)
+    return session
+  } catch (error) {
+    ElMessage.error(error.message || 'Create session failed')
+    return null
+  } finally {
+    sessionCreating.value = false
+  }
 }
 
-const loadSessions = () => {
+const loadSessions = async () => {
   let storedSessions = []
 
   try {
@@ -2292,10 +2229,12 @@ const loadSessions = () => {
     storedSessions = []
   }
 
-  // 兼容旧会话数据：历史消息可能没有 displayContent 字段。
+  // 恢复本地消息展示字段，保证刷新后仍能渲染流式输出的辅助信息。
   sessions.value = Array.isArray(storedSessions)
     ? storedSessions.map((session) => ({
       ...session,
+      id: normalizeSessionId(session.id),
+      backendSessionId: normalizeSessionId(session.backendSessionId),
       messages: Array.isArray(session.messages)
         ? session.messages.map((message) => {
           const toolCalls = normalizeStoredToolCalls(message)
@@ -2334,7 +2273,7 @@ const loadSessions = () => {
     : []
 
   if (!sessions.value.length) {
-    createSession()
+    await createSession()
     return
   }
 
@@ -2392,11 +2331,14 @@ const clearSessions = async () => {
 
   sessions.value = []
   sessionKeyword.value = ''
-  createSession()
+  await createSession()
 }
 
 const appendMessage = (role, content, extra = {}, options = {}) => {
-  const session = activeSession.value || createSession()
+  const session = activeSession.value
+  if (!session) {
+    throw new Error('Active session is empty')
+  }
   const message = {
     id: `${role}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
     role,
@@ -2656,6 +2598,13 @@ const sendMessage = async () => {
     return
   }
 
+  const session = activeSession.value || await createSession()
+  const backendSessionId = normalizeSessionId(session?.backendSessionId)
+  if (!session || !backendSessionId) {
+    ElMessage.error('请先新建对话')
+    return
+  }
+
   inputMessage.value = ''
   autoScrollEnabled.value = true
   appendMessage('user', content, {}, { forceScroll: true })
@@ -2691,8 +2640,6 @@ const sendMessage = async () => {
     },
     { forceScroll: true }
   )
-  const session = activeSession.value
-  const backendSessionId = getBackendSessionId(session)
   saveSessions()
 
   streaming.value = true
@@ -2739,11 +2686,11 @@ const sendMessage = async () => {
 
 watch(
   () => route.params.agentId,
-  () => {
+  async () => {
     stopStream()
     planDrawerOpen.value = false
     applyRouteAgentInfo()
-    loadSessions()
+    await loadSessions()
   },
   { immediate: true }
 )
@@ -2775,6 +2722,8 @@ onBeforeUnmount(() => {
         type="primary"
         plain
         :icon="Plus"
+        :loading="sessionCreating"
+        :disabled="sessionCreating"
         @click="createSession"
       >
         新建对话
