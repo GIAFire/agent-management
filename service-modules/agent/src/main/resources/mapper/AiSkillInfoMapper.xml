@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zw.agent.mapper.AiSkillInfoMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.zw.agent.entity.AiSkillInfoEntity">
+        <id column="id" property="id" />
+        <result column="skill_key" property="skillKey" />
+        <result column="skill_name" property="skillName" />
+        <result column="description" property="description" />
+        <result column="skill_md_content" property="skillMdContent" />
+        <result column="risk_level" property="riskLevel" />
+        <result column="requires_shell" property="requiresShell" />
+        <result column="requires_sandbox" property="requiresSandbox" />
+        <result column="scope_type" property="scopeType" />
+        <result column="scope_value" property="scopeValue" />
+        <result column="category" property="category" />
+        <result column="tags_json" property="tagsJson" />
+        <result column="status" property="status" />
+    </resultMap>
+
+</mapper>

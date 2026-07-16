@@ -591,8 +591,7 @@
 .dot,
 .chart-legend i,
 .flow-dot,
-.status-badge i,
-.agent-stat-card i {
+.status-badge i {
   display: inline-block;
   width: 7px;
   height: 7px;
@@ -782,13 +781,25 @@
 }
 
 .agent-stat-card .metric-icon {
+  display: grid;
   width: 64px;
   height: 64px;
+  place-items: center;
   border: 1px solid #d7e7ff;
   border-radius: 50%;
   color: #0969ff;
   background: #edf5ff;
   font-size: 29px;
+}
+
+.agent-stat-card .metric-icon .el-icon {
+  display: inline-flex;
+  width: 1em;
+  height: 1em;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: transparent;
 }
 
 .agent-stat-card .metric-icon.green {

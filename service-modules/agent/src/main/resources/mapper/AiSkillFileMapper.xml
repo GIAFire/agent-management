@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zw.agent.mapper.AiSkillFileMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.zw.agent.entity.AiSkillFileEntity">
+        <id column="id" property="id" />
+        <result column="skill_id" property="skillId" />
+        <result column="file_role" property="fileRole" />
+        <result column="file_name" property="fileName" />
+        <result column="relative_path" property="relativePath" />
+        <result column="mime_type" property="mimeType" />
+        <result column="file_ext" property="fileExt" />
+        <result column="size_bytes" property="sizeBytes" />
+        <result column="checksum" property="checksum" />
+        <result column="storage_backend" property="storageBackend" />
+        <result column="storage_key" property="storageKey" />
+        <result column="workspace_file_id" property="workspaceFileId" />
+        <result column="executable" property="executable" />
+    </resultMap>
+
+</mapper>

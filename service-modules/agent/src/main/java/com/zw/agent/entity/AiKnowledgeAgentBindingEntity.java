@@ -30,7 +30,7 @@ public class AiKnowledgeAgentBindingEntity extends BaseEntity {
     /**
      * Agent知识库绑定主键ID
      */
-    @TableId(value = "id", type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
     /**

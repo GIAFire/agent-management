@@ -25,16 +25,16 @@ export const adminRoutes = [
             meta: { title: '智能体', icon: 'Cpu' }
           },
           {
+            path: 'subagent',
+            name: 'SubagentManage',
+            component: () => import('@/views/subagent/index.vue'),
+            meta: { title: '子智能体', icon: 'Connection', section: 'SUBAGENTS' }
+          },
+          {
             path: 'chat/:agentId',
             name: 'AgentChat',
             component: () => import('@/views/agent/chat.vue'),
             meta: { title: '智能体对话', hidden: true, activeMenu: '/agent/manage' }
-          },
-          {
-            path: 'agent-config',
-            name: 'agentConfigManage',
-            component: () => import('@/views/agentConfig/index.vue'),
-            meta: { title: '运行中心', icon: 'Document', section: 'RUNTIME CENTER' }
           },
           {
             path: 'model',

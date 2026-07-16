@@ -27,7 +27,7 @@ public class AiKnowledgeDocumentEntity extends BaseEntity {
     /**
      * 知识库文档主键ID
      */
-    @TableId(value = "id", type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
     /**

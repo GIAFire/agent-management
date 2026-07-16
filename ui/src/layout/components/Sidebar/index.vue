@@ -4,9 +4,9 @@ import { useRoute } from 'vue-router'
 import {
   Box,
   Briefcase,
+  Connection,
   Collection,
   Grid,
-  Monitor,
   Operation,
   Tools,
   User
@@ -17,9 +17,9 @@ const route = useRoute()
 const navItems = [
   { title: '总览', path: '/overview', icon: Grid },
   { title: '智能体', path: '/agent/manage', icon: Briefcase },
-  { title: '运行中心', path: '/agent/agent-config', icon: Monitor },
+  { title: '子智能体', path: '/agent/subagent', icon: Connection },
   { title: '知识库', path: '/agent/knowledge', icon: Collection },
-  { title: '工具与技能', path: '/agent/tool', icon: Tools, match: ['/agent/tool', '/agent/skill-package'] },
+  { title: '工具', path: '/agent/tool', icon: Tools, match: ['/agent/tool', '/agent/skill-package'] },
   { title: '模型', path: '/agent/model', icon: Box },
   { title: '沙箱', path: '/agent/mcp', icon: Operation, match: ['/agent/mcp', '/agent/hook', '/agent/sensitive-word'] },
   {

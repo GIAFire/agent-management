@@ -27,7 +27,7 @@ public class AiKnowledgeBackendConfigEntity extends BaseEntity {
     /**
      * 向量存储配置主键ID
      */
-    @TableId(value = "id", type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
     private Long agentId;

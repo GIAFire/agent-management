@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zw.agent.mapper.AiSkillLogMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.zw.agent.entity.AiSkillLogEntity">
+        <id column="id" property="id" />
+        <result column="user_id" property="userId" />
+        <result column="agent_id" property="agentId" />
+        <result column="agent_config_id" property="agentConfigId" />
+        <result column="session_id" property="sessionId" />
+        <result column="run_id" property="runId" />
+        <result column="skill_id" property="skillId" />
+        <result column="skill_runtime_id" property="skillRuntimeId" />
+        <result column="operation" property="operation" />
+        <result column="success" property="success" />
+        <result column="error_message" property="errorMessage" />
+    </resultMap>
+
+</mapper>

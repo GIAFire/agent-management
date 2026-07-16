@@ -27,9 +27,9 @@ public class AiAgentSysPromptEntity extends BaseEntity {
     private static final long serialVersionUID = 1L;
 
     /**
-     * Agent 主键ID
+     * 提示词主键ID
      */
-    @TableId(value = "id", type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
     /**

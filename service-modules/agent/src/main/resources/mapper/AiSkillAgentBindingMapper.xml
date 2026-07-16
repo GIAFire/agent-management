@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zw.agent.mapper.AiSkillAgentBindingMapper">
+
+    <!-- 通用查询映射结果 -->
+    <resultMap id="BaseResultMap" type="com.zw.agent.entity.AiSkillAgentBindingEntity">
+        <id column="id" property="id" />
+        <result column="agent_id" property="agentId" />
+        <result column="agent_config_id" property="agentConfigId" />
+        <result column="skill_id" property="skillId" />
+        <result column="install_user_id" property="installUserId" />
+        <result column="load_mode" property="loadMode" />
+        <result column="override_policy" property="overridePolicy" />
+    </resultMap>
+
+</mapper>
