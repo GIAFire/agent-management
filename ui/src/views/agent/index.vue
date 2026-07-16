@@ -158,11 +158,11 @@ const configForm = reactive({
   versionNo: 'v1',
   sysPromptId: null,
   modelId: 1,
-  modelName: 'Qwen3-235B',
-  promptTemplate: '企业通用助手',
-  sysPrompt: '你是一名专业、可靠的企业智能助手。请先理解用户目标，再合理使用工具完成任务。',
+  modelName: '',
+  promptTemplate: '',
+  sysPrompt: '',
   maxIters: 10,
-  workspacePath: '.agentscope/workspace',
+  workspacePath: '',
   permissionMode: 'ACCEPT_EDITS',
   visualSchemaJson: '',
   agentPermissionPolicyId: null,
@@ -175,8 +175,8 @@ const configForm = reactive({
   flushBeforeCompact: 1,
   offloadBeforeCompact: 1,
   compactionModelConfigId: null,
-  truncateArgsEnabled: 0,
-  truncateArgsMaxChars: null,
+  truncateArgsEnabled: 1,
+  truncateArgsMaxChars: 2000,
   toolResultEvictionEnabled: 1,
   toolResultMaxChars: 20000,
   memoryEnable: 1,
@@ -481,12 +481,12 @@ const resetConfigForm = () => {
   Object.assign(configForm, {
     versionNo: 'v1',
     sysPromptId: null,
-    modelId: 1,
-    modelName: 'Qwen3-235B',
-    promptTemplate: '企业通用助手',
-    sysPrompt: '你是一名专业、可靠的企业智能助手。请先理解用户目标，再合理使用工具完成任务。',
+    modelId: null,
+    modelName: '',
+    promptTemplate: '',
+    sysPrompt: '',
     maxIters: 10,
-    workspacePath: '.agentscope/workspace',
+    workspacePath: '',
     permissionMode: 'ACCEPT_EDITS',
     visualSchemaJson: '',
     agentPermissionPolicyId: null,
@@ -495,12 +495,12 @@ const resetConfigForm = () => {
     triggerMessages: 30,
     keepMessages: 10,
     triggerTokens: 6000,
-    keepTokens: 0,
+    keepTokens: 800,
     flushBeforeCompact: 1,
     offloadBeforeCompact: 1,
     compactionModelConfigId: null,
-    truncateArgsEnabled: 0,
-    truncateArgsMaxChars: null,
+    truncateArgsEnabled: 1,
+    truncateArgsMaxChars: 2000,
     toolResultEvictionEnabled: 1,
     toolResultMaxChars: 20000,
     memoryEnable: 1,
@@ -1377,21 +1377,21 @@ onMounted(async () => {
             </section>
 
             <section v-else class="wizard-section advanced-section">
-              <h4>高级设置</h4>
+              <h4>高级配置</h4>
               <p>配置版本运行参数、上下文治理、长期记忆、Plan Mode 与沙箱执行环境。</p>
 
               <article class="advanced-card">
                 <header>
                   <span class="type-icon"><el-icon><SetUp /></el-icon></span>
                   <div>
-                    <h5>版本与运行</h5>
+                    <h5>运行配置</h5>
                     <p>基础运行边界和默认权限</p>
                   </div>
                 </header>
                 <div class="agent-form-grid">
-                  <el-form-item label="版本号">
-                    <el-input v-model="configForm.versionNo" />
-                  </el-form-item>
+<!--                  <el-form-item label="版本号">-->
+<!--                    <el-input v-model="configForm.versionNo" />-->
+<!--                  </el-form-item>-->
                   <el-form-item label="最大循环次数">
                     <el-input-number v-model="configForm.maxIters" :min="1" :max="100" :controls="false" />
                   </el-form-item>
@@ -1406,24 +1406,26 @@ onMounted(async () => {
                   <el-form-item label="全局权限策略">
                     <el-input v-model="configForm.agentPermissionPolicyId" placeholder="可留空" />
                   </el-form-item>
-                  <el-form-item label="发布状态">
-                    <el-select v-model="configForm.publishStatus">
-                      <el-option v-for="item in publishOptions" :key="item.value" :label="item.label" :value="item.value" />
-                    </el-select>
-                  </el-form-item>
+<!--                  <el-form-item label="发布状态">-->
+<!--                    <el-select v-model="configForm.publishStatus">-->
+<!--                      <el-option v-for="item in publishOptions" :key="item.value" :label="item.label" :value="item.value" />-->
+<!--                    </el-select>-->
+<!--                  </el-form-item>-->
                 </div>
               </article>
 
-              <article class="advanced-card">
+              <article class="advanced-card" :class="{ collapsed: !configForm.contextEnabled }">
                 <header>
                   <span class="type-icon"><el-icon><Notebook /></el-icon></span>
-                  <div>
-                    <h5>上下文压缩</h5>
+                  <div class="advanced-card-copy">
+                    <div class="advanced-title-inline">
+                      <h5>上下文压缩</h5>
+                      <el-switch v-model="configForm.contextEnabled" :active-value="1" :inactive-value="0" />
+                    </div>
                     <p>控制长会话的压缩触发和保留范围</p>
                   </div>
-                  <el-switch v-model="configForm.contextEnabled" :active-value="1" :inactive-value="0" />
                 </header>
-                <div class="agent-form-grid four">
+                <div v-show="configForm.contextEnabled" class="agent-form-grid four">
                   <el-form-item label="触发消息数">
                     <el-input-number v-model="configForm.triggerMessages" :min="1" :controls="false" />
                   </el-form-item>
@@ -1444,12 +1446,12 @@ onMounted(async () => {
                     <span>压缩前卸载大结果</span>
                     <el-switch v-model="configForm.offloadBeforeCompact" :active-value="1" :inactive-value="0" />
                   </label>
-                  <el-form-item class="full" label="摘要模型">
-                    <el-select v-model="configForm.compactionModelConfigId" placeholder="为空时使用 Agent 主模型" clearable>
-                      <el-option label="使用主模型" :value="null" />
-                      <el-option label="轻量摘要模型 #2" :value="2" />
-                    </el-select>
-                  </el-form-item>
+<!--                  <el-form-item class="full" label="摘要模型">-->
+<!--                    <el-select v-model="configForm.compactionModelConfigId" placeholder="为空时使用 Agent 主模型" clearable>-->
+<!--                      <el-option label="使用主模型" :value="null" />-->
+<!--                      <el-option label="轻量摘要模型 #2" :value="2" />-->
+<!--                    </el-select>-->
+<!--                  </el-form-item>-->
                 </div>
               </article>
 
@@ -1469,10 +1471,9 @@ onMounted(async () => {
                   <el-form-item label="参数最大字符数">
                     <el-input-number
                       v-model="configForm.truncateArgsMaxChars"
-                      :disabled="!configForm.truncateArgsEnabled"
+                      :disabled="configForm.truncateArgsEnabled"
                       :min="0"
                       :controls="false"
-                      placeholder="例如 10000"
                     />
                   </el-form-item>
                   <label class="setting-toggle">
@@ -1525,16 +1526,18 @@ onMounted(async () => {
                 </div>
               </article>
 
-              <article class="advanced-card">
+              <article class="advanced-card" :class="{ collapsed: !configForm.sandboxEnabled }">
                 <header>
                   <span class="type-icon"><el-icon><Monitor /></el-icon></span>
-                  <div>
-                    <h5>沙箱与可视化</h5>
+                  <div class="advanced-card-copy">
+                    <div class="advanced-title-inline">
+                      <h5>沙箱与可视化</h5>
+                      <el-switch v-model="configForm.sandboxEnabled" :active-value="1" :inactive-value="0" />
+                    </div>
                     <p>执行隔离和 Studio 画布快照</p>
                   </div>
-                  <el-switch v-model="configForm.sandboxEnabled" :active-value="1" :inactive-value="0" />
                 </header>
-                <div class="agent-form-grid">
+                <div v-show="configForm.sandboxEnabled" class="agent-form-grid">
                   <el-form-item label="沙箱配置ID">
                     <el-input v-model="configForm.sandboxConfigId" placeholder="可留空" />
                   </el-form-item>

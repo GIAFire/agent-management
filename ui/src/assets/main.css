@@ -2223,12 +2223,39 @@
 
 .advanced-card header {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
   border-bottom: 1px solid #e1ebf7;
   background: #fbfdff;
+}
+
+.advanced-card.collapsed header {
+  border-bottom: 0;
+}
+
+.advanced-card-copy {
+  min-width: 0;
+}
+
+.advanced-title-inline {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 20px;
+}
+
+.advanced-title-inline h5 {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.advanced-title-inline .el-switch {
+  flex: 0 0 auto;
 }
 
 .advanced-card > .agent-form-grid,
