@@ -1,7 +1,14 @@
 package com.zw.agent.controller;
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zw.agent.entity.AiSkillFileEntity;
+import com.zw.agent.service.AiSkillFileService;
+import com.zw.common.entity.Result;
+import com.zw.common.support.EntityDefaults;
+import lombok.AllArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+import java.util.List;
 
 /**
  * <p>
@@ -13,6 +20,42 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/skillFile")
+@AllArgsConstructor
 public class AiSkillFileController {
+
+    private final AiSkillFileService aiSkillFileService;
+
+    @GetMapping("/list")
+    public Result<List<AiSkillFileEntity>> list() {
+        return Result.ok(aiSkillFileService.list());
+    }
+
+    @GetMapping("/page")
+    public Result<IPage<AiSkillFileEntity>> page(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size
+    ) {
+        return Result.ok(aiSkillFileService.page(new Page<>(current, size)));
+    }
+
+    @GetMapping("/{id}")
+    public Result<AiSkillFileEntity> getById(@PathVariable Long id) {
+        return Result.ok(aiSkillFileService.getById(id));
+    }
+
+    @PostMapping("/create")
+    public Result<Boolean> create(@RequestBody AiSkillFileEntity entity) {
+        return Result.ok(aiSkillFileService.save(EntityDefaults.create(entity)));
+    }
+
+    @PostMapping("/update")
+    public Result<Boolean> update(@RequestBody AiSkillFileEntity entity) {
+        return Result.ok(aiSkillFileService.updateById(EntityDefaults.update(entity)));
+    }
+
+    @GetMapping("/delete/{id}")
+    public Result<Boolean> delete(@PathVariable Long id) {
+        return Result.ok(aiSkillFileService.removeById(id));
+    }
 
 }
