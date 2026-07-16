@@ -180,9 +180,9 @@ const configForm = reactive({
   toolResultEvictionEnabled: 1,
   toolResultMaxChars: 20000,
   memoryEnable: 1,
-  planModeEnabled: 0,
+  planModeEnabled: 1,
   planFileDirectory: 'plans',
-  taskListEnabled: 0,
+  taskListEnabled: 1,
   allowShellInPlanMode: 0,
   planExitApprovalRequired: 1,
   planMaxSteps: 20,
@@ -504,9 +504,9 @@ const resetConfigForm = () => {
     toolResultEvictionEnabled: 1,
     toolResultMaxChars: 20000,
     memoryEnable: 1,
-    planModeEnabled: 0,
+    planModeEnabled: 1,
     planFileDirectory: 'plans',
-    taskListEnabled: 0,
+    taskListEnabled: 1,
     allowShellInPlanMode: 0,
     planExitApprovalRequired: 1,
     planMaxSteps: 20,
@@ -1378,7 +1378,7 @@ onMounted(async () => {
 
             <section v-else class="wizard-section advanced-section">
               <h4>高级配置</h4>
-              <p>配置版本运行参数、上下文治理、长期记忆、Plan Mode 与沙箱执行环境。</p>
+              <p>配置版本运行参数、上下文治理、长期记忆、计划模式与沙箱执行环境。</p>
 
               <article class="advanced-card">
                 <header>
@@ -1389,23 +1389,22 @@ onMounted(async () => {
                   </div>
                 </header>
                 <div class="agent-form-grid">
-<!--                  <el-form-item label="版本号">-->
-<!--                    <el-input v-model="configForm.versionNo" />-->
-<!--                  </el-form-item>-->
+                  <label class="setting-toggle">
+                    <span>长期记忆</span>
+                    <el-switch v-model="configForm.memoryEnable" :active-value="1" :inactive-value="0" />
+                  </label>
                   <el-form-item label="最大循环次数">
                     <el-input-number v-model="configForm.maxIters" :min="1" :max="100" :controls="false" />
                   </el-form-item>
                   <el-form-item label="工作区目录">
-                    <el-input v-model="configForm.workspacePath" />
+                    <el-input v-model="configForm.workspacePath" placeholder="可为空"/>
                   </el-form-item>
                   <el-form-item label="默认权限模式">
                     <el-select v-model="configForm.permissionMode">
                       <el-option v-for="item in permissionOptions" :key="item.value" :label="item.label" :value="item.value" />
                     </el-select>
                   </el-form-item>
-                  <el-form-item label="全局权限策略">
-                    <el-input v-model="configForm.agentPermissionPolicyId" placeholder="可留空" />
-                  </el-form-item>
+
 <!--                  <el-form-item label="发布状态">-->
 <!--                    <el-select v-model="configForm.publishStatus">-->
 <!--                      <el-option v-for="item in publishOptions" :key="item.value" :label="item.label" :value="item.value" />-->
@@ -1471,50 +1470,51 @@ onMounted(async () => {
                   <el-form-item label="参数最大字符数">
                     <el-input-number
                       v-model="configForm.truncateArgsMaxChars"
-                      :disabled="configForm.truncateArgsEnabled"
+                      :disabled="!configForm.truncateArgsEnabled"
                       :min="0"
                       :controls="false"
                     />
                   </el-form-item>
                   <label class="setting-toggle">
                     <span>大工具结果卸载</span>
-                    <el-switch v-model="configForm.toolResultEvictionEnabled" :active-value="1" :inactive-value="0" />
+                    <el-switch
+                        v-model="configForm.toolResultEvictionEnabled"
+                        :active-value="1"
+                        :inactive-value="0" />
                   </label>
                   <el-form-item label="结果最大字符数">
-                    <el-input-number v-model="configForm.toolResultMaxChars" :min="0" :controls="false" />
+                    <el-input-number
+                        v-model="configForm.toolResultMaxChars"
+                        :disabled="!configForm.toolResultEvictionEnabled"
+                        :min="0" :controls="false" />
                   </el-form-item>
                 </div>
               </article>
 
-              <article class="advanced-card">
+              <article class="advanced-card" :class="{ collapsed: !configForm.planModeEnabled }">
                 <header>
                   <span class="type-icon"><el-icon><FolderOpened /></el-icon></span>
-                  <div>
-                    <h5>记忆与 Plan Mode</h5>
-                    <p>管理长期记忆和结构化任务计划</p>
+                  <div class="advanced-card-copy">
+                    <div class="advanced-title-inline">
+                      <h5>计划模式</h5>
+                      <el-switch v-model="configForm.planModeEnabled" :active-value="1" :inactive-value="0" />
+                    </div>
+                    <p>管理结构化任务计划和执行约束</p>
                   </div>
                 </header>
-                <div class="advanced-toggle-row">
-                  <label><span>长期记忆</span><el-switch v-model="configForm.memoryEnable" :active-value="1" :inactive-value="0" /></label>
-                  <label><span>Plan Mode</span><el-switch v-model="configForm.planModeEnabled" :active-value="1" :inactive-value="0" /></label>
-                  <label><span>任务列表</span><el-switch v-model="configForm.taskListEnabled" :active-value="1" :inactive-value="0" /></label>
-                  <label><span>自主进入 Plan</span><el-switch v-model="configForm.planAutoEnterEnabled" :active-value="1" :inactive-value="0" /></label>
+                <div v-show="configForm.planModeEnabled" class="advanced-toggle-row">
+                  <label><span>开启任务列表</span><el-switch v-model="configForm.taskListEnabled" :active-value="1" :inactive-value="0" /></label>
+                  <label><span>复杂任务自主进入Plan</span><el-switch v-model="configForm.planAutoEnterEnabled" :active-value="1" :inactive-value="0" /></label>
+                  <label><span>Plan 阶段允许使用Shell命令</span><el-switch v-model="configForm.allowShellInPlanMode" :active-value="1" :inactive-value="0" /></label>
+                  <label><span>计划制定完毕后是否需要人工确认</span><el-switch v-model="configForm.planExitApprovalRequired" :active-value="1" :inactive-value="0" /></label>
                 </div>
-                <div class="agent-form-grid">
+                <div v-show="configForm.planModeEnabled" class="agent-form-grid">
                   <el-form-item label="计划文件目录">
                     <el-input v-model="configForm.planFileDirectory" />
                   </el-form-item>
                   <el-form-item label="计划最大步骤">
                     <el-input-number v-model="configForm.planMaxSteps" :min="1" :max="200" :controls="false" />
                   </el-form-item>
-                  <label class="setting-toggle">
-                    <span>Plan 阶段允许 Shell</span>
-                    <el-switch v-model="configForm.allowShellInPlanMode" :active-value="1" :inactive-value="0" />
-                  </label>
-                  <label class="setting-toggle">
-                    <span>退出 Plan 需人工确认</span>
-                    <el-switch v-model="configForm.planExitApprovalRequired" :active-value="1" :inactive-value="0" />
-                  </label>
                   <el-form-item class="full" label="Plan Mode 额外提示词">
                     <el-input
                       v-model="configForm.planPrompt"
@@ -1532,7 +1532,10 @@ onMounted(async () => {
                   <div class="advanced-card-copy">
                     <div class="advanced-title-inline">
                       <h5>沙箱与可视化</h5>
-                      <el-switch v-model="configForm.sandboxEnabled" :active-value="1" :inactive-value="0" />
+                      <el-switch
+                          v-model="configForm.sandboxEnabled"
+                          :disabled="!configForm.sandboxEnabled"
+                          :active-value="1" :inactive-value="0" />
                     </div>
                     <p>执行隔离和 Studio 画布快照</p>
                   </div>
