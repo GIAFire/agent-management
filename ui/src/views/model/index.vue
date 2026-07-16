@@ -967,9 +967,8 @@ onMounted(loadModelList)
 .model-card {
   position: relative;
   display: grid;
-  min-height: 260px;
+  min-height: 160px;
   grid-template-rows: auto minmax(78px, 1fr) auto;
-  gap: 18px;
   padding: 18px;
   border: 1px solid #e0eaf6;
   border-radius: 8px;

@@ -26,7 +26,6 @@ import {
 
 const loading = ref(false)
 const creating = ref(false)
-const createDialogVisible = ref(false)
 const logDialogVisible = ref(false)
 const permissionDialogVisible = ref(false)
 const tools = ref([])
@@ -363,30 +362,7 @@ const resetCreateForm = () => {
   })
 }
 
-const openCreateDialog = () => {
-  resetCreateForm()
-  createDialogVisible.value = true
-}
 
-const handleCreateTool = async () => {
-  if (!createForm.toolName.trim()) {
-    ElMessage.warning('请输入工具名称')
-    return
-  }
-  creating.value = true
-  try {
-    await createTool({ ...createForm })
-    ElMessage.success('工具创建成功')
-    createDialogVisible.value = false
-    await loadDashboard()
-  } finally {
-    creating.value = false
-  }
-}
-
-const openLogDialog = () => {
-  logDialogVisible.value = true
-}
 
 const openPermissionDialog = () => {
   permissionPagination.currentPage = 1
@@ -516,7 +492,6 @@ onMounted(loadDashboard)
               <el-option label="停用" value="disabled" />
             </el-select>
             <el-button :icon="Refresh" @click="loadDashboard">刷新</el-button>
-            <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建工具</el-button>
           </div>
         </div>
 
@@ -540,7 +515,7 @@ onMounted(loadDashboard)
             </header>
             <div class="tool-card-stats">
               <div>
-                <span>调用</span>
+                <span>调用次数</span>
                 <strong>{{ formatNumber(tool.calls) }}</strong>
               </div>
               <div>
@@ -548,7 +523,7 @@ onMounted(loadDashboard)
                 <strong>{{ tool.agents }}</strong>
               </div>
               <div>
-                <span>耗时</span>
+                <span>平均耗时</span>
                 <strong>{{ tool.avgLatency }}ms</strong>
               </div>
             </div>
@@ -558,14 +533,13 @@ onMounted(loadDashboard)
                 {{ riskLabel(tool.riskLevel) }}
               </span>
               <nav>
-                <el-button link type="primary" @click="configureTool(tool)">配置</el-button>
                 <el-dropdown trigger="click">
                   <button class="more-button" type="button" aria-label="更多操作">
                     <el-icon><MoreFilled /></el-icon>
                   </button>
                   <template #dropdown>
                     <el-dropdown-menu>
-                      <el-dropdown-item @click="configureTool(tool)">配置策略</el-dropdown-item>
+                      <el-dropdown-item @click="configureTool(tool)">权限配置</el-dropdown-item>
                       <el-dropdown-item>查看调用</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
@@ -624,89 +598,6 @@ onMounted(loadDashboard)
         </section>
       </aside>
     </div>
-
-    <el-dialog
-      v-model="createDialogVisible"
-      title="新建工具"
-      width="760px"
-      destroy-on-close
-      class="tool-dialog"
-    >
-      <el-form label-width="112px" class="tool-form">
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="工具名称" required>
-              <el-input v-model="createForm.toolName" placeholder="如：query_order" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="显示说明">
-              <el-input v-model="createForm.toolNameExplain" placeholder="如：查询订单及明细信息" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="工具类型">
-              <el-select v-model="createForm.toolType">
-                <el-option label="HTTP" value="HTTP" />
-                <el-option label="JAVA_BEAN" value="JAVA_BEAN" />
-                <el-option label="MCP" value="MCP" />
-                <el-option label="SQL" value="SQL" />
-                <el-option label="RPC" value="RPC" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="工具分组">
-              <el-select v-model="createForm.groupId" clearable placeholder="选择工具分组">
-                <el-option v-for="group in groupRows" :key="group.id" :label="group.groupName" :value="group.id" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="权限码">
-              <el-input v-model="createForm.permissionCode" placeholder="如：tool:order:query" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="风险等级">
-              <el-select v-model="createForm.riskLevel">
-                <el-option label="低风险" value="LOW" />
-                <el-option label="中风险" value="MEDIUM" />
-                <el-option label="高风险" value="HIGH" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="超时毫秒">
-              <el-input-number v-model="createForm.timeoutMs" :min="1000" :step="1000" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="最大重试">
-              <el-input-number v-model="createForm.maxRetries" :min="0" :max="5" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="调用特性">
-              <div class="switch-row">
-                <el-checkbox v-model="createForm.readOnly">只读工具</el-checkbox>
-                <el-checkbox v-model="createForm.concurrency">允许并发</el-checkbox>
-                <el-checkbox v-model="createForm.enabled">启用</el-checkbox>
-              </div>
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="描述">
-              <el-input v-model="createForm.description" type="textarea" :rows="3" placeholder="描述工具能力、参数约束和适用场景" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
-      <template #footer>
-        <el-button @click="createDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="creating" @click="handleCreateTool">创建</el-button>
-      </template>
-    </el-dialog>
 
     <el-dialog
       v-model="logDialogVisible"
@@ -890,8 +781,6 @@ onMounted(loadDashboard)
 }
 
 .tool-library-panel {
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
@@ -962,9 +851,8 @@ onMounted(loadDashboard)
 .tool-row {
   position: relative;
   display: grid;
-  min-height: 260px;
+  min-height: 160px;
   grid-template-rows: auto minmax(78px, 1fr) auto;
-  gap: 18px;
   padding: 18px;
   border: 1px solid #e0eaf6;
   border-radius: 8px;
