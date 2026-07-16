@@ -35,3 +35,4 @@ workspace/
 skill-packages/
 **/resources/rebel.xml
 /.agentscope/
+/doc

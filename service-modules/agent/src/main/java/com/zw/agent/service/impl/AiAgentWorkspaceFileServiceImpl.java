@@ -136,6 +136,45 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
         return entity;
     }
 
+    @Override
+    public String readSkillPackageFile(String storageKey) {
+        Path path = resolveLocalSkillPackagePath(storageKey);
+        if (!Files.exists(path) || Files.isDirectory(path)) {
+            return "";
+        }
+        try {
+            return Files.readString(path, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException("读取技能包文件失败", e);
+        }
+    }
+
+    @Override
+    public void deleteSkillPackageStorage(String storageKey) {
+        if (!StringUtils.hasText(storageKey)) {
+            return;
+        }
+        Path path = resolveLocalSkillPackagePath(storageKey);
+        try {
+            if (Files.isDirectory(path)) {
+                try (java.util.stream.Stream<Path> stream = Files.walk(path)) {
+                    stream.sorted(java.util.Comparator.reverseOrder())
+                            .forEach(item -> {
+                                try {
+                                    Files.deleteIfExists(item);
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+                }
+                return;
+            }
+            Files.deleteIfExists(path);
+        } catch (IOException e) {
+            throw new RuntimeException("删除技能包文件失败", e);
+        }
+    }
+
     private void fillSkillPackageFile(
             AiAgentWorkspaceFileEntity entity,
             AiSkillInfoEntity skill,
@@ -150,7 +189,7 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
         byte[] bytes = normalizedContent.getBytes(StandardCharsets.UTF_8);
         String extension = StringUtils.getFilenameExtension(fileName);
         String title = StringUtils.stripFilenameExtension(fileName);
-        String storagePath = buildSkillStoragePath(tenantId, skill.getSkillKey(), relativeSkillPath, fileName);
+        String storagePath = buildSkillStoragePath(tenantId, skill, relativeSkillPath, fileName);
 
         writeLocalFile(storagePath, normalizedContent);
 
@@ -178,9 +217,10 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
         }
     }
 
-    private String buildSkillStoragePath(Long tenantId, String skillKey, String relativeSkillPath, String fileName) {
+    private String buildSkillStoragePath(Long tenantId, AiSkillInfoEntity skill, String relativeSkillPath, String fileName) {
         String tenantSegment = tenantId == null ? "tenant_default" : "tenant_" + tenantId;
-        String skillSegment = sanitizePathSegment(skillKey);
+        String skillName = StringUtils.hasText(skill.getSkillName()) ? skill.getSkillName() : skill.getSkillKey();
+        String skillSegment = sanitizePathSegment(skillName);
         String filePath = StringUtils.hasText(relativeSkillPath) ? relativeSkillPath : fileName;
         filePath = filePath.replace("\\", "/").replaceAll("^/+", "");
         return String.join("/", SKILL_PACKAGE_ROOT, tenantSegment, skillSegment, filePath);
@@ -188,18 +228,13 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
 
     private String sanitizePathSegment(String value) {
         String text = value == null ? "skill" : value.trim();
-        text = text.replace("\\", "/").replaceAll("^/+", "").replaceAll("/+$", "");
-        text = text.replaceAll("[^a-zA-Z0-9._-]+", "-");
+        text = text.replaceAll("[\\\\/:*?\"<>|\\p{Cntrl}]+", "-");
         text = text.replaceAll("^-+|-+$", "");
         return StringUtils.hasText(text) ? text : "skill";
     }
 
     private void writeLocalFile(String relativePath, String content) {
-        Path projectRoot = Paths.get("").toAbsolutePath().normalize();
-        Path targetPath = projectRoot.resolve(relativePath).normalize();
-        if (!targetPath.startsWith(projectRoot)) {
-            throw new IllegalArgumentException("非法文件路径");
-        }
+        Path targetPath = resolveLocalSkillPackagePath(relativePath);
 
         try {
             Files.createDirectories(targetPath.getParent());
@@ -207,6 +242,16 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
         } catch (IOException e) {
             throw new RuntimeException("写入技能包文件失败", e);
         }
+    }
+
+    private Path resolveLocalSkillPackagePath(String relativePath) {
+        Path projectRoot = Paths.get("").toAbsolutePath().normalize();
+        Path targetPath = projectRoot.resolve(relativePath).normalize();
+        Path storageRoot = projectRoot.resolve(SKILL_PACKAGE_ROOT).normalize();
+        if (!targetPath.startsWith(storageRoot)) {
+            throw new IllegalArgumentException("非法文件路径");
+        }
+        return targetPath;
     }
 
     private String resolveMimeType(String extension) {

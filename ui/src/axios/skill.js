@@ -26,7 +26,26 @@ export const deleteSkill = (id) => {
   return get(`${baseUrl}/skillInfo/delete/${stringifyId(id)}`)
 }
 
+export const listSkillFilesBySkill = (skillId) => {
+  return get(`${baseUrl}/skillFile/skill/${stringifyId(skillId)}`)
+}
+
+export const getSkillFileContent = (id) => {
+  return get(`${baseUrl}/skillFile/content/${stringifyId(id)}`)
+}
+
+export const createSkillPackageNode = (data) => {
+  return post(`${baseUrl}/skillFile/createPackageNode`, data)
+}
+
+export const updateSkillPackageFile = (data) => {
+  return post(`${baseUrl}/skillFile/updatePackageFile`, data)
+}
+
+export const deleteSkillPackageNode = (id) => {
+  return get(`${baseUrl}/skillFile/deletePackageNode/${stringifyId(id)}`)
+}
+
 export const listSkillLogs = () => {
   return get(`${baseUrl}/skillLog/list`)
 }
-

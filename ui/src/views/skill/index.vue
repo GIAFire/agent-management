@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowRight,
@@ -22,14 +22,20 @@ import {
   Refresh,
   Search,
   Stopwatch,
+  Upload,
   User,
   WarningFilled
 } from '@element-plus/icons-vue'
 import {
+  createSkillPackageNode,
   createSkill,
+  deleteSkillPackageNode,
   deleteSkill,
+  getSkillFileContent,
+  listSkillFilesBySkill,
   listSkillLogs,
   listSkills,
+  updateSkillPackageFile,
   updateSkill
 } from '@/axios/skill'
 
@@ -52,6 +58,30 @@ const editorTree = ref([])
 const editorSnapshot = ref([])
 const activeFileId = ref('')
 const editorContent = ref('')
+const nodeDialogVisible = ref(false)
+const nodeDialogType = ref('file')
+const nodeDialogSaving = ref(false)
+const nodeDialogParent = ref(null)
+const uploadInputRef = ref(null)
+const uploadParentNode = ref(null)
+const treeProps = {
+  children: 'children',
+  label: 'name'
+}
+
+const nodeForm = reactive({
+  name: '',
+  parentPath: ''
+})
+
+const contextMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  node: null
+})
+
+let editorScrollLockState = null
 
 const queryParams = reactive({
   keyword: '',
@@ -208,6 +238,37 @@ const activeFile = computed(() => {
   return findTreeNode(editorTree.value, activeFileId.value)
 })
 
+const nodeDialogTitle = computed(() => {
+  return nodeDialogType.value === 'folder' ? '新建文件夹' : '新建文件'
+})
+
+const nodeDialogNameLabel = computed(() => {
+  return nodeDialogType.value === 'folder' ? '文件夹名' : '文件名'
+})
+
+const nodeDialogPlaceholder = computed(() => {
+  return nodeDialogType.value === 'folder' ? '例如：utils' : '例如：helper.py'
+})
+
+const contextMenuActions = computed(() => {
+  if (!contextMenu.node) {
+    return []
+  }
+
+  if (contextMenu.node.type === 'folder') {
+    return [
+      { command: 'new-file', label: '新建文件', icon: DocumentAdd },
+      { command: 'new-folder', label: '新建文件夹', icon: FolderAdd },
+      { command: 'upload', label: '上传文件', icon: Upload },
+      { command: 'delete', label: '删除文件夹', icon: Delete, danger: true }
+    ]
+  }
+
+  return [
+    { command: 'delete', label: '删除文件', icon: Delete, danger: true }
+  ]
+})
+
 const editorLines = computed(() => {
   const count = Math.max(1, editorContent.value.split('\n').length)
   return Array.from({ length: count }, (_, index) => index + 1)
@@ -279,6 +340,10 @@ watch(
     }
   }
 )
+
+watch(editorVisible, (visible) => {
+  setEditorScrollLock(visible)
+})
 
 function normalizeSkill(row, index) {
   const syntheticRuns = [428, 316, 284, 236, 358, 0][index % 6]
@@ -423,7 +488,7 @@ async function handleCreatePackage() {
   }
 }
 
-function openSkillEditor(skill) {
+async function openSkillEditor(skill) {
   const normalizedSkill = normalizeSkill(skill, 0)
   editorSkill.value = normalizedSkill
   editorTree.value = buildEditorTree(normalizedSkill)
@@ -432,13 +497,14 @@ function openSkillEditor(skill) {
   editorSnapshot.value = cloneTree(editorTree.value)
   editorDirty.value = false
   editorVisible.value = true
+  await loadSkillFilesForEditor(normalizedSkill)
 }
 
 function handleEditorInput() {
   editorDirty.value = true
 }
 
-function selectEditorFile(node) {
+async function selectEditorFile(node) {
   if (!node || node.type !== 'file' || node.id === activeFileId.value) {
     return
   }
@@ -446,31 +512,17 @@ function selectEditorFile(node) {
   persistActiveFile()
   activeFileId.value = node.id
   editorContent.value = node.content || ''
+  await ensureFileContent(node)
+  editorContent.value = node.content || ''
 }
 
-function createEditorFile() {
+function createEditorFile(parentNode = null) {
   persistActiveFile()
-  const node = {
-    id: `file-${Date.now()}`,
-    name: nextTreeName('新建文件', '.md'),
-    type: 'file',
-    content: '# 新建文件\n'
-  }
-  editorTree.value.push(node)
-  activeFileId.value = node.id
-  editorContent.value = node.content
-  editorDirty.value = true
+  openNodeDialog('file', parentNode)
 }
 
-function createEditorFolder() {
-  const node = {
-    id: `folder-${Date.now()}`,
-    name: nextTreeName('新建文件夹'),
-    type: 'folder',
-    children: []
-  }
-  editorTree.value.push(node)
-  editorDirty.value = true
+function createEditorFolder(parentNode = null) {
+  openNodeDialog('folder', parentNode)
 }
 
 function discardEditorChanges() {
@@ -498,6 +550,7 @@ async function handleEditorBack() {
 async function handleSaveEditor() {
   persistActiveFile()
   const skill = editorSkill.value
+  const file = activeFile.value
   const skillFile = findTreeNode(editorTree.value, 'skill-md')
   if (!skill) {
     return
@@ -505,28 +558,40 @@ async function handleSaveEditor() {
 
   editorSaving.value = true
   try {
-    await updateSkill({
-      id: normalizeId(skill.id),
-      skillKey: String(skill.skillKey || '').replace(/^\//, ''),
-      skillName: skill.skillName,
-      description: skill.description,
-      skillMdContent: skillFile?.content || editorContent.value,
-      riskLevel: skill.riskLevel || 'LOW',
-      requiresShell: Number(skill.requiresShell ?? 0),
-      requiresSandbox: Number(skill.requiresSandbox ?? 0),
-      scopeType: skill.scopeType || 'TENANT',
-      scopeValue: skill.scopeValue || '',
-      category: skill.category || 'data',
-      tagsJson: skill.tagsJson || '',
-      status: Number(skill.status ?? 1)
-    })
-    editorSkill.value = {
-      ...skill,
-      skillMdContent: skillFile?.content || editorContent.value
+    if (isSkillMdNode(file)) {
+      await updateSkill({
+        id: normalizeId(skill.id),
+        skillKey: String(skill.skillKey || '').replace(/^\//, ''),
+        skillName: skill.skillName,
+        description: skill.description,
+        skillMdContent: skillFile?.content || editorContent.value,
+        riskLevel: skill.riskLevel || 'LOW',
+        requiresShell: Number(skill.requiresShell ?? 0),
+        requiresSandbox: Number(skill.requiresSandbox ?? 0),
+        scopeType: skill.scopeType || 'TENANT',
+        scopeValue: skill.scopeValue || '',
+        category: skill.category || 'data',
+        tagsJson: skill.tagsJson || '',
+        status: Number(skill.status ?? 1)
+      })
+      editorSkill.value = {
+        ...skill,
+        skillMdContent: skillFile?.content || editorContent.value
+      }
+    } else if (file?.skillFileId) {
+      const updatedFile = await updateSkillPackageFile({
+        id: normalizeId(file.skillFileId),
+        content: editorContent.value
+      })
+      mergeSkillFileNode(file, updatedFile)
+    } else {
+      ElMessage.warning('请先创建文件记录后再保存')
+      return
     }
+
     editorSnapshot.value = cloneTree(editorTree.value)
     editorDirty.value = false
-    ElMessage.success('SKILL.md 已保存')
+    ElMessage.success('文件已保存')
     await loadDashboard()
   } finally {
     editorSaving.value = false
@@ -570,6 +635,201 @@ function downloadActiveEditorFile() {
   URL.revokeObjectURL(url)
 }
 
+function openNodeDialog(type, parentNode = null) {
+  const parent = parentNode?.type === 'folder' ? parentNode : null
+  nodeDialogType.value = type
+  nodeDialogParent.value = parent
+  nodeForm.parentPath = parent?.relativePath || ''
+  nodeForm.name = ''
+  nodeDialogVisible.value = true
+  hideTreeContextMenu()
+}
+
+function applyQuickFolderName(name) {
+  nodeForm.name = name
+}
+
+async function handleCreateNode() {
+  const skill = editorSkill.value
+  const name = nodeForm.name.trim()
+  if (!skill?.id) {
+    ElMessage.warning('技能包信息不存在')
+    return
+  }
+
+  if (!name) {
+    ElMessage.warning(`请输入${nodeDialogNameLabel.value}`)
+    return
+  }
+
+  if (name.includes('/') || name.includes('\\')) {
+    ElMessage.warning('名称不能包含路径分隔符')
+    return
+  }
+
+  if (hasSiblingName(nodeDialogParent.value, name)) {
+    ElMessage.warning('同级目录下已存在同名文件或文件夹')
+    return
+  }
+
+  nodeDialogSaving.value = true
+  try {
+    const isFolder = nodeDialogType.value === 'folder'
+    const content = isFolder ? '' : createDefaultFileContent(name)
+    const created = await createSkillPackageNode({
+      skillId: normalizeId(skill.id),
+      parentPath: nodeForm.parentPath,
+      fileName: name,
+      directory: isFolder,
+      content
+    })
+    const node = skillFileToTreeNode(created, skill)
+    if (!isFolder) {
+      node.content = content
+      node.loaded = true
+    }
+    insertTreeNode(node, nodeDialogParent.value)
+    sortTreeNodes(editorTree.value)
+    editorSnapshot.value = cloneTree(editorTree.value)
+    nodeDialogVisible.value = false
+    ElMessage.success(isFolder ? '文件夹已创建' : '文件已创建')
+
+    if (node.type === 'file') {
+      activeFileId.value = node.id
+      editorContent.value = node.content || ''
+    }
+  } finally {
+    nodeDialogSaving.value = false
+  }
+}
+
+function openTreeContextMenu(event, data) {
+  event.preventDefault()
+  event.stopPropagation()
+  contextMenu.node = data
+  contextMenu.x = event.clientX
+  contextMenu.y = event.clientY
+  contextMenu.visible = true
+}
+
+function hideTreeContextMenu() {
+  contextMenu.visible = false
+}
+
+function handleContextAction(command) {
+  const node = contextMenu.node
+  hideTreeContextMenu()
+  if (!node) {
+    return
+  }
+
+  if (command === 'new-file') {
+    createEditorFile(node)
+    return
+  }
+
+  if (command === 'new-folder') {
+    createEditorFolder(node)
+    return
+  }
+
+  if (command === 'upload') {
+    triggerUploadFile(node)
+    return
+  }
+
+  if (command === 'delete') {
+    deleteEditorNode(node)
+  }
+}
+
+function triggerUploadFile(parentNode = null) {
+  uploadParentNode.value = parentNode?.type === 'folder' ? parentNode : null
+  if (uploadInputRef.value) {
+    uploadInputRef.value.value = ''
+    uploadInputRef.value.click()
+  }
+}
+
+async function handleUploadFile(event) {
+  const file = event.target.files?.[0]
+  const skill = editorSkill.value
+  const parent = uploadParentNode.value
+  if (!file || !skill?.id) {
+    return
+  }
+
+  if (hasSiblingName(parent, file.name)) {
+    ElMessage.warning('同级目录下已存在同名文件或文件夹')
+    return
+  }
+
+  const content = await file.text()
+  const created = await createSkillPackageNode({
+    skillId: normalizeId(skill.id),
+    parentPath: parent?.relativePath || '',
+    fileName: file.name,
+    directory: false,
+    content
+  })
+  const node = skillFileToTreeNode(created, skill)
+  node.content = content
+  node.loaded = true
+  insertTreeNode(node, parent)
+  sortTreeNodes(editorTree.value)
+  editorSnapshot.value = cloneTree(editorTree.value)
+  activeFileId.value = node.id
+  editorContent.value = node.content || ''
+  ElMessage.success('文件已上传')
+}
+
+async function deleteEditorNode(node) {
+  if (!node) {
+    return
+  }
+
+  if (isSkillMdNode(node)) {
+    ElMessage.warning('SKILL.md 是技能入口文件，不能删除')
+    return
+  }
+
+  const label = node.type === 'folder' ? '文件夹' : '文件'
+  try {
+    await ElMessageBox.confirm(`确认删除${label}「${node.name}」吗？`, '删除确认', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消'
+    })
+  } catch {
+    return
+  }
+
+  const removedIds = new Set(flattenTree([node]).map((item) => item.id))
+  if (node.skillFileId) {
+    await deleteSkillPackageNode(node.skillFileId)
+  } else {
+    const persistedChildren = flattenTree(node.children)
+      .filter((item) => item.skillFileId && !isSkillMdNode(item))
+      .sort((left, right) => String(right.relativePath || '').length - String(left.relativePath || '').length)
+    for (const item of persistedChildren) {
+      await deleteSkillPackageNode(item.skillFileId)
+    }
+  }
+  removeTreeNode(editorTree.value, node.id)
+  if (removedIds.has(activeFileId.value)) {
+    const fallback = findFirstFile(editorTree.value)
+    activeFileId.value = ''
+    if (fallback) {
+      await selectEditorFile(fallback)
+    } else {
+      editorContent.value = ''
+    }
+  }
+  editorSnapshot.value = cloneTree(editorTree.value)
+  editorDirty.value = false
+  ElMessage.success(`${label}已删除`)
+}
+
 function closeSkillEditor() {
   editorVisible.value = false
   editorSkill.value = null
@@ -578,6 +838,49 @@ function closeSkillEditor() {
   activeFileId.value = ''
   editorContent.value = ''
   editorDirty.value = false
+  nodeDialogVisible.value = false
+  nodeDialogParent.value = null
+  uploadParentNode.value = null
+  hideTreeContextMenu()
+}
+
+function setEditorScrollLock(locked) {
+  if (typeof document === 'undefined') {
+    return
+  }
+
+  const appMain = document.querySelector('.app-main')
+  if (locked) {
+    if (editorScrollLockState) {
+      return
+    }
+    editorScrollLockState = {
+      bodyOverflow: document.body.style.overflow,
+      htmlOverflow: document.documentElement.style.overflow,
+      appMain,
+      appMainOverflow: appMain?.style.overflow || ''
+    }
+    document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+    if (appMain) {
+      appMain.style.overflow = 'hidden'
+    }
+    return
+  }
+
+  if (!editorScrollLockState) {
+    return
+  }
+  document.body.style.overflow = editorScrollLockState.bodyOverflow
+  document.documentElement.style.overflow = editorScrollLockState.htmlOverflow
+  if (editorScrollLockState.appMain) {
+    editorScrollLockState.appMain.style.overflow = editorScrollLockState.appMainOverflow
+  }
+  editorScrollLockState = null
+}
+
+function handleEditorWheel(event) {
+  event.stopPropagation()
 }
 
 async function handleDelete(row) {
@@ -655,15 +958,163 @@ function resolveCreatedSkill(payload, result) {
   }
 }
 
-function buildEditorTree(skill) {
-  return [
-    {
+async function loadSkillFilesForEditor(skill) {
+  if (!skill?.id) {
+    return
+  }
+
+  try {
+    const files = await listSkillFilesBySkill(skill.id)
+    if (!Array.isArray(files) || !files.length) {
+      return
+    }
+    editorTree.value = buildEditorTree(skill, files)
+    const nextActive = findTreeNode(editorTree.value, 'skill-md') || findFirstFile(editorTree.value)
+    activeFileId.value = nextActive?.id || ''
+    if (nextActive) {
+      await ensureFileContent(nextActive)
+      editorContent.value = nextActive.content || ''
+    }
+    editorSnapshot.value = cloneTree(editorTree.value)
+    editorDirty.value = false
+  } catch {
+    editorSnapshot.value = cloneTree(editorTree.value)
+  }
+}
+
+function buildEditorTree(skill, files = []) {
+  const root = []
+  const pathMap = new Map()
+  const sortedFiles = [...files].sort((left, right) => {
+    const leftPath = String(left.relativePath || left.fileName || '')
+    const rightPath = String(right.relativePath || right.fileName || '')
+    const leftDepth = leftPath.split('/').length
+    const rightDepth = rightPath.split('/').length
+    return leftDepth - rightDepth || leftPath.localeCompare(rightPath)
+  })
+
+  sortedFiles.forEach((file) => {
+    const node = skillFileToTreeNode(file, skill)
+    addNodeByPath(root, pathMap, node)
+  })
+
+  if (!pathMap.has('SKILL.md')) {
+    addNodeByPath(root, pathMap, {
       id: 'skill-md',
       name: 'SKILL.md',
       type: 'file',
-      content: skill.skillMdContent || createDefaultSkillContent(skill)
-    }
-  ]
+      relativePath: 'SKILL.md',
+      fileRole: 'SKILL_MD',
+      content: skill.skillMdContent || createDefaultSkillContent(skill),
+      loaded: true,
+      children: []
+    })
+  }
+
+  sortTreeNodes(root)
+  return root
+}
+
+function skillFileToTreeNode(file, skill) {
+  const relativePath = normalizeTreePath(file?.relativePath || file?.fileName || 'SKILL.md')
+  const isDirectory = file?.fileRole === 'DIRECTORY' || file?.mimeType === 'inode/directory' || file?.directory === true
+  const isSkillMd = file?.fileRole === 'SKILL_MD' || relativePath === 'SKILL.md'
+  return {
+    id: isSkillMd ? 'skill-md' : `${isDirectory ? 'folder' : 'file'}-${file?.id || relativePath}`,
+    skillFileId: file?.id || null,
+    workspaceFileId: file?.workspaceFileId || null,
+    storageKey: file?.storageKey || '',
+    name: file?.fileName || pathBasename(relativePath),
+    type: isDirectory ? 'folder' : 'file',
+    relativePath,
+    fileRole: isDirectory ? 'DIRECTORY' : (file?.fileRole || (isSkillMd ? 'SKILL_MD' : 'ASSET')),
+    content: isSkillMd ? (skill.skillMdContent || createDefaultSkillContent(skill)) : (file?.content ?? ''),
+    loaded: isSkillMd || Boolean(file?.content),
+    children: []
+  }
+}
+
+function mergeSkillFileNode(node, file) {
+  const children = node.children || []
+  const next = skillFileToTreeNode(file, editorSkill.value || {})
+  Object.assign(node, {
+    skillFileId: next.skillFileId,
+    workspaceFileId: next.workspaceFileId,
+    storageKey: next.storageKey,
+    relativePath: next.relativePath,
+    fileRole: next.fileRole,
+    name: next.name,
+    content: editorContent.value,
+    loaded: true,
+    children
+  })
+}
+
+function addNodeByPath(root, pathMap, node) {
+  const existing = pathMap.get(node.relativePath)
+  if (existing) {
+    const children = existing.children || []
+    Object.assign(existing, node, { children })
+    return existing
+  }
+
+  const parentPath = pathParent(node.relativePath)
+  const parent = parentPath ? ensureFolderNode(root, pathMap, parentPath) : null
+  if (parent) {
+    parent.children = parent.children || []
+    parent.children.push(node)
+  } else {
+    root.push(node)
+  }
+  pathMap.set(node.relativePath, node)
+  return node
+}
+
+function ensureFolderNode(root, pathMap, folderPath) {
+  const normalizedPath = normalizeTreePath(folderPath)
+  const existing = pathMap.get(normalizedPath)
+  if (existing) {
+    return existing
+  }
+
+  const node = {
+    id: `folder-virtual-${normalizedPath}`,
+    skillFileId: null,
+    name: pathBasename(normalizedPath),
+    type: 'folder',
+    relativePath: normalizedPath,
+    fileRole: 'DIRECTORY',
+    loaded: true,
+    virtual: true,
+    children: []
+  }
+  const parentPath = pathParent(normalizedPath)
+  const parent = parentPath ? ensureFolderNode(root, pathMap, parentPath) : null
+  if (parent) {
+    parent.children.push(node)
+  } else {
+    root.push(node)
+  }
+  pathMap.set(normalizedPath, node)
+  return node
+}
+
+function normalizeTreePath(path) {
+  return String(path || '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '')
+}
+
+function pathParent(path) {
+  const normalizedPath = normalizeTreePath(path)
+  const index = normalizedPath.lastIndexOf('/')
+  return index > 0 ? normalizedPath.slice(0, index) : ''
+}
+
+function pathBasename(path) {
+  const normalizedPath = normalizeTreePath(path)
+  return normalizedPath.split('/').filter(Boolean).pop() || normalizedPath
 }
 
 function createDefaultSkillContent(skill) {
@@ -676,6 +1127,18 @@ function createDefaultSkillContent(skill) {
     `description: ${description}`,
     '---'
   ].join('\n')
+}
+
+function createDefaultFileContent(name) {
+  if (String(name || '').toLowerCase().endsWith('.md')) {
+    const title = StringUtilsTitle(name)
+    return `# ${title}\n`
+  }
+  return ''
+}
+
+function StringUtilsTitle(name) {
+  return String(name || '新建文件').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ')
 }
 
 function generateSkillKey(name) {
@@ -693,6 +1156,25 @@ function persistActiveFile() {
   if (file && file.type === 'file') {
     file.content = editorContent.value
   }
+}
+
+async function ensureFileContent(node) {
+  if (!node || node.type !== 'file' || node.loaded || !node.skillFileId || isSkillMdNode(node)) {
+    return
+  }
+
+  node.loading = true
+  try {
+    const content = await getSkillFileContent(node.skillFileId)
+    node.content = content || ''
+    node.loaded = true
+  } finally {
+    node.loading = false
+  }
+}
+
+function isSkillMdNode(node) {
+  return node?.id === 'skill-md' || node?.fileRole === 'SKILL_MD' || node?.relativePath === 'SKILL.md'
 }
 
 function findTreeNode(nodes, id) {
@@ -715,15 +1197,56 @@ function flattenTree(nodes) {
   return (nodes || []).flatMap((node) => [node, ...flattenTree(node.children)])
 }
 
-function nextTreeName(baseName, extension = '') {
-  const names = new Set(flattenTree(editorTree.value).map((node) => node.name))
-  let index = 1
-  let name = `${baseName}${extension}`
-  while (names.has(name)) {
-    index += 1
-    name = `${baseName}${index}${extension}`
+function findFirstFile(nodes) {
+  for (const node of nodes || []) {
+    if (node.type === 'file') {
+      return node
+    }
+    const child = findFirstFile(node.children)
+    if (child) {
+      return child
+    }
   }
-  return name
+  return null
+}
+
+function insertTreeNode(node, parentNode) {
+  if (parentNode?.type === 'folder') {
+    parentNode.children = parentNode.children || []
+    parentNode.children.push(node)
+    return
+  }
+  editorTree.value.push(node)
+}
+
+function removeTreeNode(nodes, id) {
+  const index = (nodes || []).findIndex((node) => node.id === id)
+  if (index > -1) {
+    nodes.splice(index, 1)
+    return true
+  }
+
+  for (const node of nodes || []) {
+    if (removeTreeNode(node.children || [], id)) {
+      return true
+    }
+  }
+  return false
+}
+
+function hasSiblingName(parentNode, name) {
+  const siblings = parentNode?.type === 'folder' ? parentNode.children || [] : editorTree.value
+  return siblings.some((node) => node.name === name)
+}
+
+function sortTreeNodes(nodes) {
+  ;(nodes || []).sort((left, right) => {
+    if (left.type !== right.type) {
+      return left.type === 'folder' ? -1 : 1
+    }
+    return left.name.localeCompare(right.name)
+  })
+  ;(nodes || []).forEach((node) => sortTreeNodes(node.children))
 }
 
 function cloneTree(tree) {
@@ -834,7 +1357,15 @@ function normalizeId(value) {
   return value === '' || value === undefined || value === null ? null : String(value).trim()
 }
 
-onMounted(loadDashboard)
+onMounted(() => {
+  loadDashboard()
+  document.addEventListener('click', hideTreeContextMenu)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('click', hideTreeContextMenu)
+  setEditorScrollLock(false)
+})
 </script>
 
 <template>
@@ -1035,7 +1566,7 @@ onMounted(loadDashboard)
       </template>
     </el-dialog>
 
-    <div v-if="editorVisible" class="skill-editor-overlay">
+    <div v-if="editorVisible" class="skill-editor-overlay" @wheel="handleEditorWheel">
       <aside class="skill-file-pane">
         <header class="file-pane-head">
           <el-tooltip content="返回技能管理" placement="bottom">
@@ -1064,42 +1595,36 @@ onMounted(loadDashboard)
         </header>
 
         <div class="skill-file-tree">
-          <div
-            v-for="node in editorTree"
-            :key="node.id"
-            class="tree-node-group"
+          <el-tree
+            class="editor-el-tree"
+            :data="editorTree"
+            :props="treeProps"
+            node-key="id"
+            default-expand-all
+            highlight-current
+            :expand-on-click-node="false"
+            @node-click="selectEditorFile"
+            @node-contextmenu="openTreeContextMenu"
           >
-            <button
-              class="tree-node"
-              :class="{ active: node.id === activeFileId, folder: node.type === 'folder' }"
-              type="button"
-              @click="selectEditorFile(node)"
-            >
-              <span class="file-type-icon">
-                <el-icon v-if="node.type === 'folder'"><FolderOpened /></el-icon>
-                <el-icon v-else><Document /></el-icon>
-              </span>
-              <span>{{ node.name }}</span>
-              <el-icon v-if="node.id === activeFileId"><CircleCheck /></el-icon>
-            </button>
-            <div v-if="node.children?.length" class="tree-children">
-              <button
-                v-for="child in node.children"
-                :key="child.id"
-                class="tree-node"
-                :class="{ active: child.id === activeFileId }"
-                type="button"
-                @click="selectEditorFile(child)"
-              >
+            <template #default="{ data }">
+              <div class="tree-node-content" :class="{ active: data.id === activeFileId, folder: data.type === 'folder' }">
                 <span class="file-type-icon">
-                  <el-icon><Document /></el-icon>
+                  <el-icon v-if="data.type === 'folder'"><FolderOpened /></el-icon>
+                  <el-icon v-else><Document /></el-icon>
                 </span>
-                <span>{{ child.name }}</span>
-                <el-icon v-if="child.id === activeFileId"><CircleCheck /></el-icon>
-              </button>
-            </div>
-          </div>
+                <span class="tree-node-label">{{ data.name }}</span>
+                <el-icon v-if="data.id === activeFileId" class="tree-active-icon"><CircleCheck /></el-icon>
+              </div>
+            </template>
+          </el-tree>
         </div>
+
+        <input
+          ref="uploadInputRef"
+          class="hidden-upload-input"
+          type="file"
+          @change="handleUploadFile"
+        />
 
         <button class="delete-package-button" type="button" @click="handleDeleteEditorSkill">
           <el-icon><Delete /></el-icon>
@@ -1128,6 +1653,53 @@ onMounted(loadDashboard)
           />
         </div>
       </section>
+
+      <div
+        v-if="contextMenu.visible"
+        class="tree-context-menu"
+        :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
+        @click.stop
+        @contextmenu.prevent
+      >
+        <button
+          v-for="action in contextMenuActions"
+          :key="action.command"
+          type="button"
+          :class="{ danger: action.danger }"
+          @click="handleContextAction(action.command)"
+        >
+          <el-icon><component :is="action.icon" /></el-icon>
+          <span>{{ action.label }}</span>
+        </button>
+      </div>
+
+      <el-dialog
+        v-model="nodeDialogVisible"
+        :title="nodeDialogTitle"
+        width="520px"
+        destroy-on-close
+        append-to-body
+        class="skill-node-dialog"
+      >
+        <el-form label-position="top" class="skill-node-form">
+          <el-form-item label="父目录">
+            <el-input :model-value="nodeForm.parentPath || '(根目录)'" disabled />
+          </el-form-item>
+          <el-form-item :label="nodeDialogNameLabel" required>
+            <div v-if="nodeDialogType === 'folder'" class="quick-folder-row">
+              <span>快捷选择：</span>
+              <button type="button" @click="applyQuickFolderName('scripts')">scripts</button>
+              <button type="button" @click="applyQuickFolderName('references')">references</button>
+              <button type="button" @click="applyQuickFolderName('examples')">examples</button>
+            </div>
+            <el-input v-model="nodeForm.name" :placeholder="nodeDialogPlaceholder" @keyup.enter="handleCreateNode" />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="nodeDialogVisible = false">取消</el-button>
+          <el-button type="primary" :loading="nodeDialogSaving" @click="handleCreateNode">确定</el-button>
+        </template>
+      </el-dialog>
     </div>
 
     <el-dialog
@@ -1929,42 +2501,40 @@ onMounted(loadDashboard)
   padding: 12px 10px;
 }
 
-.tree-node-group {
-  display: grid;
-  gap: 4px;
+.editor-el-tree {
+  --el-tree-node-hover-bg-color: #edf4ff;
+  color: #15283f;
+  background: transparent;
 }
 
-.tree-node {
+.editor-el-tree :deep(.el-tree-node__content) {
+  height: 38px;
+  border-radius: 6px;
+}
+
+.editor-el-tree :deep(.el-tree-node__expand-icon) {
+  color: #8a9aaf;
+}
+
+.editor-el-tree :deep(.is-current > .el-tree-node__content) {
+  background: #edf4ff;
+}
+
+.tree-node-content {
   display: grid;
   width: 100%;
   min-width: 0;
-  height: 38px;
-  grid-template-columns: 24px minmax(0, 1fr) 22px;
+  grid-template-columns: 24px minmax(0, 1fr) 20px;
   align-items: center;
   gap: 8px;
-  border: 0;
-  border-radius: 6px;
-  color: #15283f;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
 }
 
-.tree-node span:nth-child(2) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tree-node:hover,
-.tree-node.active {
-  background: #edf4ff;
-  color: #0b63f6;
-}
-
-.tree-node.folder {
+.tree-node-content.folder {
   color: #536a85;
+}
+
+.tree-node-content.active {
+  color: #0b63f6;
 }
 
 .file-type-icon {
@@ -1975,10 +2545,89 @@ onMounted(loadDashboard)
   color: #1484d8;
 }
 
-.tree-children {
+.tree-node-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-active-icon {
+  color: #a8b5c6;
+}
+
+.hidden-upload-input {
+  display: none;
+}
+
+.tree-context-menu {
+  position: fixed;
+  z-index: 2400;
   display: grid;
+  min-width: 156px;
   gap: 4px;
-  padding-left: 18px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(16, 38, 68, 0.16);
+}
+
+.tree-context-menu button {
+  display: grid;
+  height: 36px;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 5px;
+  color: #2f3c4d;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.tree-context-menu button:hover {
+  color: #0b63f6;
+  background: #edf4ff;
+}
+
+.tree-context-menu button.danger {
+  margin-top: 8px;
+  color: #ff4242;
+}
+
+.tree-context-menu button.danger:hover {
+  color: #ff4242;
+  background: #fff4f4;
+}
+
+.skill-node-form :deep(.el-input__wrapper),
+.skill-node-form :deep(.el-textarea__inner) {
+  border-radius: 6px;
+  background: #f3f6fa;
+  box-shadow: none;
+}
+
+.quick-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+  color: #8a98aa;
+  font-size: 13px;
+}
+
+.quick-folder-row button {
+  border: 0;
+  color: #303846;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.quick-folder-row button:hover {
+  color: #0b63f6;
 }
 
 .delete-package-button {
