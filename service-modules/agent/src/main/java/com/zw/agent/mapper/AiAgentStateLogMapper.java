@@ -17,5 +17,5 @@ public interface AiAgentStateLogMapper extends BaseMapper<AiAgentStateLogEntity>
 
     Boolean updateByRuntimeKey(AiAgentStateLogEntity update);
 
-    AiAgentStateLogEntity selectByRuntimeKey(String userKey, String sessionKey);
+    AiAgentStateLogEntity selectByRuntimeKey(Long userId, Long sessionId);
 }

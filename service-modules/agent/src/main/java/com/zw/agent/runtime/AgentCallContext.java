@@ -12,6 +12,4 @@ public class AgentCallContext {
     Long sessionId;
     Long runId;
     String workspacePath;
-    String runtimeUserKey;
-    String runtimeSessionKey;
 }

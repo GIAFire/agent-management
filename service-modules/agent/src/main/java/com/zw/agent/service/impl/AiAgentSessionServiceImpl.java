@@ -65,7 +65,6 @@ public class AiAgentSessionServiceImpl extends ServiceImpl<AiAgentSessionMapper,
         sessionEntity.setUserId(userInfo.getUserId());
         sessionEntity.setAgentId(agentId);
         sessionEntity.setAgentConfigId(agentConfigId);
-        sessionEntity.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getUserId()));
         sessionEntity.setTitle(normalizedTitle);
         sessionEntity.setStatus(1);
         sessionEntity.setLastMessageAt(LocalDateTime.now());

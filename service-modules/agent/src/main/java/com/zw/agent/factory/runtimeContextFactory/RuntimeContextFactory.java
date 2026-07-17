@@ -26,20 +26,16 @@ public class RuntimeContextFactory {
     public RuntimeContext buildRuntimeContext(AgentConfigDTO config,
                                                UserInfo userInfo,
                                                Long sessionId,
-                                               Long runId,
-                                               String userKey,
-                                               String sessionKey) {
+                                               Long runId) {
 
         RuntimeContext.Builder builder = RuntimeContext.builder()
-                .userId(userKey)
-                .sessionId(sessionKey);
+                .userId(String.valueOf(userInfo.getUserId()))
+                .sessionId(String.valueOf(sessionId));
         AgentCallContext agentCallContext = new AgentCallContext();
         agentCallContext.setAgentConfig(config);
         agentCallContext.setUserInfo(userInfo);
         agentCallContext.setSessionId(sessionId);
         agentCallContext.setRunId(runId);
-        agentCallContext.setRuntimeUserKey(userKey);
-        agentCallContext.setRuntimeSessionKey(sessionKey);
         builder.put(AgentCallContext.class, agentCallContext);
 
         return builder.build();

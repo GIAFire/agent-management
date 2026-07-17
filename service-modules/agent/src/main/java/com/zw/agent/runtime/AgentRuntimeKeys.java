@@ -14,25 +14,17 @@ public final class AgentRuntimeKeys {
     private AgentRuntimeKeys() {
     }
 
-    public static String buildAgentKey(Long agentId, Long userId, Long configId, Long sessionId) {
-        validateParams(agentId, userId, configId,sessionId);
-        return String.format("%s%s:%s:%s:%s",
-                AGENT_PREFIX,agentId, userId, configId,sessionId);
+    public static String buildAgentKey(Long agentId, Long userId, Long configId) {
+        validateParams(agentId, userId, configId);
+        return String.format("%s%s:%s:%s",
+                AGENT_PREFIX,agentId, userId, configId);
     }
 
-    public static String userKey(Long userId) {
-        return "user_" + userId;
-    }
-
-    public static String sessionKey(Long sessionId) {
-        return "session_" + sessionId;
-    }
-
-    public static String redisStateKey(String runtimeUserKey, String runtimeSessionKey) {
+    public static String redisStateKey(Long userId, Long sessionId) {
         return "agent-state-session_"
-                + runtimeUserKey
+                + userId
                 + "-"
-                + runtimeSessionKey;
+                + sessionId;
     }
 
     private static void validateParams(Object... params) {

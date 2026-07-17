@@ -46,14 +46,8 @@ public class AiAgentStateOpLogEntity extends BaseEntity {
     /**
      * RuntimeContext.userId
      */
-    @TableField("runtime_user_key")
-    private String runtimeUserKey;
-
-    /**
-     * RuntimeContext.sessionId
-     */
-    @TableField("runtime_session_key")
-    private String runtimeSessionKey;
+    @TableField("user_id")
+    private Long userId;
 
     /**
      * 操作类型：LOAD/SAVE/COMPACT/EVICT/DELETE/EXPIRE

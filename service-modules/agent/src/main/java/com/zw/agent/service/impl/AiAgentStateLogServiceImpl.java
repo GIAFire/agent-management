@@ -38,9 +38,7 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
     @Override
     public CompletableFuture<Boolean> saveStateLog(UserInfo userInfo,
                                                         AgentConfigDTO config,
-                                                        Long sessionId,
-                                                        String userKey,
-                                                        String sessionKey) {
+                                                        Long sessionId) {
         try {
             AiAgentStateLogEntity stateLogEntity = new AiAgentStateLogEntity();
             stateLogEntity.setTenantId(userInfo.getTenantId());
@@ -48,10 +46,8 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
             stateLogEntity.setAgentConfigId(config.getAgentConfigId());
             stateLogEntity.setSessionId(sessionId);
             stateLogEntity.setUserId(userInfo.getUserId());
-            stateLogEntity.setRuntimeUserKey(userKey);
-            stateLogEntity.setRuntimeSessionKey(sessionKey);
             stateLogEntity.setStateBackend("REDIS");
-            stateLogEntity.setStateKey(AgentRuntimeKeys.redisStateKey(userKey, sessionKey));
+            stateLogEntity.setStateKey(AgentRuntimeKeys.redisStateKey(userInfo.getUserId(), sessionId));
             stateLogEntity.setLastLoadedAt(LocalDateTime.now());
             stateLogEntity.setExpireAt(LocalDateTime.now().plusDays(30));
             this.saveOrUpdate(stateLogEntity);
@@ -71,8 +67,8 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
             Long runId
     ) {
         AiAgentStateLogEntity updateBefore = agentStateLogMapper.selectByRuntimeKey(
-                AgentRuntimeKeys.userKey(userInfo.getUserId()),
-                AgentRuntimeKeys.sessionKey(sessionId));
+                userInfo.getUserId(),
+                sessionId);
 
         AgentState agentState = agent.getDelegate().getAgentState(runtimeContext);
 
@@ -88,8 +84,8 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
         String json = agentState.toJson();
         AiAgentStateLogEntity updateAfter = new AiAgentStateLogEntity();
         updateAfter.setTenantId(userInfo.getTenantId());
-        updateAfter.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getUserId()));
-        updateAfter.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
+        updateAfter.setUserId(userInfo.getUserId());
+        updateAfter.setSessionId(sessionId);
         updateAfter.setStateSizeBytes((long) json.getBytes(StandardCharsets.UTF_8).length);
         updateAfter.setContextMessageCount(agentState.getContext().isEmpty() ? 0 : agentState.getContext().size());
         updateAfter.setSummaryExists(agentState.getSummary().isEmpty() ? 0 : 1);

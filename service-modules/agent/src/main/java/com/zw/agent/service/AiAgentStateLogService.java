@@ -23,9 +23,7 @@ public interface AiAgentStateLogService extends IService<AiAgentStateLogEntity> 
 
     CompletableFuture<Boolean> saveStateLog(UserInfo userInfo,
                                                  AgentConfigDTO config,
-                                                 Long sessionId,
-                                                 String userKey,
-                                                 String sessionKey);
+                                                 Long sessionId);
 
     Boolean updateState(
             HarnessAgent agent,

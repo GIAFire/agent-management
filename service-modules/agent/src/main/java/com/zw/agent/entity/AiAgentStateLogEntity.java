@@ -57,18 +57,6 @@ public class AiAgentStateLogEntity extends BaseEntity {
     private Long userId;
 
     /**
-     * 传给RuntimeContext.userId的值，例如tenantId-userId
-     */
-    @TableField("runtime_user_key")
-    private String runtimeUserKey;
-
-    /**
-     * 传给RuntimeContext.sessionId的值，需要全局唯一
-     */
-    @TableField("runtime_session_key")
-    private String runtimeSessionKey;
-
-    /**
      * 状态后端：REDIS/MYSQL/OSS/JSON_FILE/IN_MEMORY
      */
     @TableField("state_backend")

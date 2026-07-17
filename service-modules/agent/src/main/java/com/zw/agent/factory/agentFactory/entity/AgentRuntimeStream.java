@@ -13,15 +13,15 @@ public class AgentRuntimeStream {
     HarnessAgent agent;
     RuntimeContext runtimeContext;
     Flux<AgentRuntimeEvent> runtimeEvents;
-    String runtimeUserKey;
-    String runtimeSessionKey;
+    Long userId;
+    Long sessionId;
 
     public AgentRuntimeStream(HarnessAgent agent, Flux<AgentRuntimeEvent> runtimeEvents) {
         this.agent = agent;
         this.runtimeEvents = runtimeEvents;
     }
 
-    public AgentRuntimeStream(HarnessAgent harnessAgent, Flux<AgentRuntimeEvent> runtimeEvent, RuntimeContext context) {
+    public AgentRuntimeStream(HarnessAgent harnessAgent, RuntimeContext context,Flux<AgentRuntimeEvent> runtimeEvent) {
         this.agent = harnessAgent;
         this.runtimeEvents = runtimeEvent;
         this.runtimeContext = context;

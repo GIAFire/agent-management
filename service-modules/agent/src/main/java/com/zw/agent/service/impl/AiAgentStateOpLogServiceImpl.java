@@ -45,13 +45,12 @@ public class AiAgentStateOpLogServiceImpl extends ServiceImpl<AiAgentStateOpLogM
         op.setTenantId(userInfo.getTenantId());
         op.setSessionId(sessionId);
         op.setRunId(runId);
-        op.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getUserId()));
-        op.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
+        op.setUserId(userInfo.getUserId());
         op.setOpType("LOAD");
         op.setStateBackend("REDIS");
         op.setStateKey(AgentRuntimeKeys.redisStateKey(
-                AgentRuntimeKeys.userKey(userInfo.getUserId()),
-                AgentRuntimeKeys.sessionKey(sessionId)
+                userInfo.getUserId(),
+                sessionId
         ));
         op.setSuccess(1);
 
@@ -79,13 +78,12 @@ public class AiAgentStateOpLogServiceImpl extends ServiceImpl<AiAgentStateOpLogM
         op.setTenantId(userInfo.getTenantId());
         op.setSessionId(sessionId);
         op.setRunId(runId);
-        op.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getUserId()));
-        op.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
+        op.setUserId(userInfo.getUserId());
         op.setOpType("SAVE");
         op.setStateBackend("REDIS");
         op.setStateKey(AgentRuntimeKeys.redisStateKey(
-                AgentRuntimeKeys.userKey(userInfo.getUserId()),
-                AgentRuntimeKeys.sessionKey(sessionId)));
+                userInfo.getUserId(),
+                sessionId));
 
         if (before != null) {
             op.setBeforeSizeBytes(before.getStateSizeBytes());
@@ -116,11 +114,10 @@ public class AiAgentStateOpLogServiceImpl extends ServiceImpl<AiAgentStateOpLogM
         op.setTenantId(userInfo.getTenantId());
         op.setSessionId(sessionId);
         op.setRunId(runId);
-        op.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getUserId()));
-        op.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
+        op.setUserId(userInfo.getUserId());
         op.setOpType("COMPACT");
         op.setStateBackend("REDIS");
-        op.setStateKey(AgentRuntimeKeys.redisStateKey(AgentRuntimeKeys.userKey(userInfo.getUserId()), AgentRuntimeKeys.sessionKey(sessionId)));
+        op.setStateKey(AgentRuntimeKeys.redisStateKey(userInfo.getUserId(), sessionId));
         op.setBeforeSizeBytes(before == null ? null : before.getStateSizeBytes());
         op.setAfterSizeBytes(after == null ? null : after.getStateSizeBytes());
         op.setBeforeMessageCount(before == null ? null : before.getContextMessageCount());
@@ -142,11 +139,10 @@ public class AiAgentStateOpLogServiceImpl extends ServiceImpl<AiAgentStateOpLogM
         op.setTenantId(userInfo.getTenantId());
         op.setSessionId(sessionId);
         op.setRunId(runId);
-        op.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getUserId()));
-        op.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
+        op.setUserId(userInfo.getUserId());
         op.setOpType("SAVE");
         op.setStateBackend("REDIS");
-        op.setStateKey(AgentRuntimeKeys.redisStateKey(AgentRuntimeKeys.userKey(userInfo.getUserId()), AgentRuntimeKeys.sessionKey(sessionId)));
+        op.setStateKey(AgentRuntimeKeys.redisStateKey(userInfo.getUserId(), sessionId));
         op.setSuccess(0);
         op.setErrorMessage(errorMessage);
         op.setCreatedAt(LocalDateTime.now());

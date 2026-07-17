@@ -64,8 +64,7 @@ public class AgentRuntimeFactory {
         String agentCacheKey = AgentRuntimeKeys.buildAgentKey(
                 config.getAgentId(),
                 userInfo.getUserId(),
-                config.getAgentConfigId(),
-                sessionId);
+                config.getAgentConfigId());
 
         return agentCache.get(agentCacheKey, key -> {
             Toolkit toolkit = toolkitFactory.buildToolkit(config.getAgentId());
@@ -129,15 +128,13 @@ public class AgentRuntimeFactory {
             Long runId,
             String text
     ) {
-        String userKey = AgentRuntimeKeys.userKey(userInfo.getUserId());
-        String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
         HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
 
-        RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId, userKey, sessionKey);
+        RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId);
 
         UserMessage userMessage = new UserMessage(text);
 
-        agentStateLogService.saveStateLog(userInfo, config, sessionId, userKey, sessionKey);
+        agentStateLogService.saveStateLog(userInfo, config, sessionId);
         Flux<AgentRuntimeEvent> runtimeEvents = harnessAgent
                 .streamEvents(userMessage, runtimeContext)
                 .map(this::toRuntimeEvent);
@@ -146,8 +143,8 @@ public class AgentRuntimeFactory {
                 harnessAgent,
                 runtimeContext,
                 runtimeEvents,
-                userKey,
-                sessionKey
+                userInfo.getUserId(),
+                sessionId
         );
     }
 
@@ -159,9 +156,7 @@ public class AgentRuntimeFactory {
             List<ConfirmResult> confirmResults
     ) {
         HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
-        String userKey = AgentRuntimeKeys.userKey(userInfo.getUserId());
-        String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
-        RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId, userKey, sessionKey);
+        RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId);
 
         Msg confirmMsg = Msg.builder()
                 .name("user")
@@ -173,7 +168,7 @@ public class AgentRuntimeFactory {
         Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(confirmMsg), runtimeContext)
                 .map(this::toRuntimeEvent);
 
-        return new AgentRuntimeStream(harnessAgent, runtimeContext, runtimeEvent, userKey, sessionKey);
+        return new AgentRuntimeStream(harnessAgent, runtimeContext, runtimeEvent);
     }
 
     public AgentRuntimeStream continueWithExternalExecutionResults(
@@ -184,9 +179,7 @@ public class AgentRuntimeFactory {
             List<ToolResultBlock> toolResults
     ) {
         HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
-        String userKey = AgentRuntimeKeys.userKey(userInfo.getUserId());
-        String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
-        RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId, userKey, sessionKey);
+        RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId);
 
         List<ContentBlock> content = new ArrayList<>(toolResults == null ? List.of() : toolResults);
         Msg toolMsg = Msg.builder()
@@ -198,7 +191,7 @@ public class AgentRuntimeFactory {
         Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(toolMsg), runtimeContext)
                 .map(this::toRuntimeEvent);
 
-        return new AgentRuntimeStream(harnessAgent, runtimeContext, runtimeEvent, userKey, sessionKey);
+        return new AgentRuntimeStream(harnessAgent, runtimeContext, runtimeEvent);
     }
 
     private AgentRuntimeEvent toRuntimeEvent(AgentEvent event) {

@@ -69,8 +69,8 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
 
         String relativePath = String.format(
                 "%s/generateFiles/%s/%s",
-                agentCallContext.getRuntimeUserKey(),
-                agentCallContext.getRuntimeSessionKey(),
+                userInfo.getUserId(),
+                agentCallContext.getSessionId(),
                 fileName
         );
 
