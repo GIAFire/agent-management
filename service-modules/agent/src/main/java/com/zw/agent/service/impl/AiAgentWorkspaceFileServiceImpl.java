@@ -1,6 +1,10 @@
 package com.zw.agent.service.impl;
 
+import cn.hutool.core.io.file.PathUtil;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.AiAgentWorkspaceFileEntity;
+import com.zw.agent.entity.AiSkillFileEntity;
 import com.zw.agent.entity.AiSkillInfoEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.mapper.AiAgentWorkspaceFileMapper;
@@ -12,6 +16,7 @@ import com.zw.common.context.UserInfo;
 import com.zw.common.support.EntityDefaults;
 import io.agentscope.core.agent.RuntimeContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.system.ApplicationHome;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -22,6 +27,9 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+
+import static com.zw.agent.constant.AgentConstant.SKILL_PACKAGE_ROOT;
+import static com.zw.agent.constant.AgentConstant.WORK_PACE_PATH;
 
 /**
  * <p>
@@ -35,7 +43,6 @@ import java.security.NoSuchAlgorithmException;
 @Service
 public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspaceFileMapper, AiAgentWorkspaceFileEntity> implements AiAgentWorkspaceFileService {
 
-    private static final String SKILL_PACKAGE_ROOT = ".agentscope/workspace/skills";
     private static final String SKILL_SOURCE_TYPE = "SKILL";
     private static final String SKILL_VISIBILITY = "TENANT";
     private static final Long SKILL_PACKAGE_AGENT_ID = 0L;
@@ -218,12 +225,12 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
     }
 
     private String buildSkillStoragePath(Long tenantId, AiSkillInfoEntity skill, String relativeSkillPath, String fileName) {
-        String tenantSegment = tenantId == null ? "tenant_default" : "tenant_" + tenantId;
         String skillName = StringUtils.hasText(skill.getSkillName()) ? skill.getSkillName() : skill.getSkillKey();
         String skillSegment = sanitizePathSegment(skillName);
         String filePath = StringUtils.hasText(relativeSkillPath) ? relativeSkillPath : fileName;
         filePath = filePath.replace("\\", "/").replaceAll("^/+", "");
-        return String.join("/", SKILL_PACKAGE_ROOT, tenantSegment, skillSegment, filePath);
+        String s = "./" + WORK_PACE_PATH+tenantId + SKILL_PACKAGE_ROOT + "/" + skillSegment + "/" + filePath;
+        return String.join("/", WORK_PACE_PATH+tenantId,SKILL_PACKAGE_ROOT, skillSegment, filePath);
     }
 
     private String sanitizePathSegment(String value) {
@@ -245,9 +252,11 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
     }
 
     private Path resolveLocalSkillPackagePath(String relativePath) {
+        UserInfo userInfo = UserContext.get();
+        ApplicationHome home = new ApplicationHome();
         Path projectRoot = Paths.get("").toAbsolutePath().normalize();
         Path targetPath = projectRoot.resolve(relativePath).normalize();
-        Path storageRoot = projectRoot.resolve(SKILL_PACKAGE_ROOT).normalize();
+        Path storageRoot = projectRoot.resolve(WORK_PACE_PATH + userInfo.getTenantId() + "/"+SKILL_PACKAGE_ROOT).normalize();
         if (!targetPath.startsWith(storageRoot)) {
             throw new IllegalArgumentException("非法文件路径");
         }

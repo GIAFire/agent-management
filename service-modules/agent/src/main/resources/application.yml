@@ -41,6 +41,11 @@ spring:
           #   username: root
           #   password: root
 
+agent:
+  skill:
+    nacos:
+      namespace-id: 418ac824-016b-4eff-bbde-82b7ce26305d
+
 mybatis-plus:
   # 全局配置
   global-config:

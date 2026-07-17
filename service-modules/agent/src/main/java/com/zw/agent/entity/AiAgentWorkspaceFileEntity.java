@@ -67,6 +67,12 @@ public class AiAgentWorkspaceFileEntity extends BaseEntity {
     private String toolCallId;
 
     /**
+     * skillID
+     */
+    @TableField("skill_id")
+    private String skillId;
+
+    /**
      * 展示文件名
      */
     @TableField("file_name")

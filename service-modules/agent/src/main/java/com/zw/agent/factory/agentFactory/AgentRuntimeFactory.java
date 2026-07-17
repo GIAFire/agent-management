@@ -1,6 +1,7 @@
 package com.zw.agent.factory.agentFactory;
 
 import com.github.benmanes.caffeine.cache.Cache;
+import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
@@ -22,7 +23,9 @@ import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.ChatModelBase;
+import io.agentscope.core.nacos.skill.NacosSkillRepository;
 import io.agentscope.core.permission.PermissionContextState;
+import io.agentscope.core.skill.AgentSkill;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
@@ -55,7 +58,7 @@ public class AgentRuntimeFactory {
     private final AiAgentStateLogService agentStateLogService;
     private final RuntimeContextFactory runtimeContextFactory;
     private final SubAgentFactory subAgentFactory;
-    private final String WORKPATH = ".agentscope/workspace";
+    private final NacosSkillRepository nacosSkillRepository;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
         String agentCacheKey = AgentRuntimeKeys.buildAgentKey(
@@ -80,7 +83,8 @@ public class AgentRuntimeFactory {
                     .permissionContext(permissionContextState)
                     .maxIters(config.getMaxIters())
                     .compaction(compactionConfig)
-                    .workspace(Paths.get(config.getWorkspacePath() == null ? WORKPATH + config.getTenantId() : config.getWorkspacePath()))
+                    .skillRepository(nacosSkillRepository)
+                    .workspace(Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath()))
                     .toolResultEviction(toolResultEvictionConfig);
             if (config.getMemoryEnable() == 0){
                 agentBuilder

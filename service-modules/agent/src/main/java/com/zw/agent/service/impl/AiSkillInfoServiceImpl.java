@@ -1,5 +1,7 @@
 package com.zw.agent.service.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.AiAgentWorkspaceFileEntity;
 import com.zw.agent.entity.AiSkillFileEntity;
 import com.zw.agent.entity.AiSkillInfoEntity;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import static com.zw.agent.constant.AgentConstant.DEFAULT_SKILL_MD_FILE;
+
 /**
  * <p>
  * Skill定义表：保存可复用能力包的基础信息和当前发布版本 服务实现类
@@ -28,10 +32,10 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSkillInfoEntity> implements AiSkillInfoService {
 
-    private static final String DEFAULT_SKILL_MD_FILE = "SKILL.md";
 
     private final AiAgentWorkspaceFileService workspaceFileService;
     private final AiSkillFileService skillFileService;
+    private final AiSkillInfoMapper skillInfoMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -171,5 +175,19 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
                 "2. 选择合适的工具或业务流程执行任务。",
                 "3. 输出结构化结果，并说明关键依据。",
                 "");
+    }
+
+
+    @Override
+    public Boolean removeSkillFile(Long id) {
+        skillInfoMapper.deleteById(id);
+        skillFileService.remove(new LambdaQueryWrapper<AiSkillFileEntity>()
+                .eq(AiSkillFileEntity::getSkillId, id));
+        workspaceFileService.remove(new LambdaQueryWrapper<AiAgentWorkspaceFileEntity>()
+                .eq(AiAgentWorkspaceFileEntity::getSkillId, id));
+
+
+        return workspaceFileService.remove(new LambdaQueryWrapper<AiAgentWorkspaceFileEntity>()
+                .eq(AiAgentWorkspaceFileEntity::getSkillId, id));
     }
 }

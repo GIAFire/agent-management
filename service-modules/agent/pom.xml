@@ -19,7 +19,9 @@
         <langchain4j.version>1.17.2</langchain4j.version>
         <langchain4j-community.version>1.17.2-beta27</langchain4j-community.version>
         <grpc.version>1.77.0</grpc.version>
+        <nacos-client.version>3.2.1-2026.03.30</nacos-client.version>
     </properties>
+
     <dependencyManagement>
         <dependencies>
             <!-- 必须统一所有 io.grpc 组件版本 -->
@@ -53,12 +55,28 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <dependency>
+                <groupId>com.alibaba.nacos</groupId>
+                <artifactId>nacos-client</artifactId>
+                <version>${nacos-client.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
     <dependencies>
         <dependency>
             <groupId>io.agentscope</groupId>
             <artifactId>agentscope-harness</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.alibaba.nacos</groupId>
+            <artifactId>nacos-client</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-nacos-skill</artifactId>
         </dependency>
 
         <dependency>
