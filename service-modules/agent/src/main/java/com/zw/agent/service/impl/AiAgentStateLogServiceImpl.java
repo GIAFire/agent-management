@@ -71,7 +71,7 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
             Long runId
     ) {
         AiAgentStateLogEntity updateBefore = agentStateLogMapper.selectByRuntimeKey(
-                AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()),
+                AgentRuntimeKeys.userKey(userInfo.getUserId()),
                 AgentRuntimeKeys.sessionKey(sessionId));
 
         AgentState agentState = agent.getDelegate().getAgentState(runtimeContext);
@@ -88,7 +88,7 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
         String json = agentState.toJson();
         AiAgentStateLogEntity updateAfter = new AiAgentStateLogEntity();
         updateAfter.setTenantId(userInfo.getTenantId());
-        updateAfter.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getTenantId(), userInfo.getUserId()));
+        updateAfter.setRuntimeUserKey(AgentRuntimeKeys.userKey(userInfo.getUserId()));
         updateAfter.setRuntimeSessionKey(AgentRuntimeKeys.sessionKey(sessionId));
         updateAfter.setStateSizeBytes((long) json.getBytes(StandardCharsets.UTF_8).length);
         updateAfter.setContextMessageCount(agentState.getContext().isEmpty() ? 0 : agentState.getContext().size());

@@ -24,10 +24,10 @@ public class CacheKeyBuilder {
     /**
      * 构建Agent缓存Key
      */
-    public String buildAgentKey(Long agentId, Long tenantId,Long userId, Long configId,Long sessionId) {
-        validateParams(agentId, tenantId, userId, configId,sessionId);
-        return String.format("%s%s:%s:%s:%s:%s",
-                AGENT_PREFIX,agentId, tenantId, userId, configId,sessionId);
+    public String buildAgentKey(Long agentId,Long userId, Long configId,Long sessionId) {
+        validateParams(agentId, userId, configId,sessionId);
+        return String.format("%s%s:%s:%s:%s",
+                AGENT_PREFIX,agentId, userId, configId,sessionId);
     }
 
     /**

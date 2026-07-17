@@ -58,11 +58,11 @@ public class AgentRuntimeFactory {
     private final CacheKeyBuilder cacheKeyBuilder;
     private final RuntimeContextFactory runtimeContextFactory;
     private final SubAgentFactory subAgentFactory;
+    private final String WORKPATH = ".agentscope/workspace";
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
         String agentCacheKey = cacheKeyBuilder.buildAgentKey(
                 config.getAgentId(),
-                userInfo.getTenantId(),
                 userInfo.getUserId(),
                 config.getAgentConfigId(),
                 sessionId);
@@ -83,7 +83,7 @@ public class AgentRuntimeFactory {
                     .permissionContext(permissionContextState)
                     .maxIters(config.getMaxIters())
                     .compaction(compactionConfig)
-                    .workspace(Paths.get(config.getWorkspacePath()))
+                    .workspace(Paths.get(config.getWorkspacePath() == null ? WORKPATH + config.getTenantId() : config.getWorkspacePath()))
                     .toolResultEviction(toolResultEvictionConfig);
             if (config.getMemoryEnable() == 0){
                 agentBuilder
@@ -128,7 +128,7 @@ public class AgentRuntimeFactory {
             Long runId,
             String text
     ) {
-        String userKey = AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId());
+        String userKey = AgentRuntimeKeys.userKey(userInfo.getUserId());
         String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
         HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
 
@@ -158,7 +158,7 @@ public class AgentRuntimeFactory {
             List<ConfirmResult> confirmResults
     ) {
         HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
-        String userKey = AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId());
+        String userKey = AgentRuntimeKeys.userKey(userInfo.getUserId());
         String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
         RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId, userKey, sessionKey);
 
@@ -183,7 +183,7 @@ public class AgentRuntimeFactory {
             List<ToolResultBlock> toolResults
     ) {
         HarnessAgent harnessAgent = getOrCreateAgent(config, userInfo, sessionId);
-        String userKey = AgentRuntimeKeys.userKey(config.getTenantId(), userInfo.getUserId());
+        String userKey = AgentRuntimeKeys.userKey(userInfo.getUserId());
         String sessionKey = AgentRuntimeKeys.sessionKey(sessionId);
         RuntimeContext runtimeContext = runtimeContextFactory.buildRuntimeContext(config, userInfo, sessionId, runId, userKey, sessionKey);
 
