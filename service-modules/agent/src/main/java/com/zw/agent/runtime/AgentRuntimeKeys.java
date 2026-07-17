@@ -8,7 +8,16 @@ import java.util.Locale;
 
 public final class AgentRuntimeKeys {
 
+    public static final String AGENT_PREFIX = "agent:";
+
+
     private AgentRuntimeKeys() {
+    }
+
+    public static String buildAgentKey(Long agentId, Long userId, Long configId, Long sessionId) {
+        validateParams(agentId, userId, configId,sessionId);
+        return String.format("%s%s:%s:%s:%s",
+                AGENT_PREFIX,agentId, userId, configId,sessionId);
     }
 
     public static String userKey(Long userId) {
@@ -24,5 +33,13 @@ public final class AgentRuntimeKeys {
                 + runtimeUserKey
                 + "-"
                 + runtimeSessionKey;
+    }
+
+    private static void validateParams(Object... params) {
+        for (Object param : params) {
+            if (param == null) {
+                throw new IllegalArgumentException("缓存Key参数不能为null");
+            }
+        }
     }
 }

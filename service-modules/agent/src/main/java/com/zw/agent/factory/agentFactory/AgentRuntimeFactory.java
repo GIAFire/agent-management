@@ -13,7 +13,6 @@ import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
 import com.zw.agent.service.AiAgentStateLogService;
-import com.zw.common.constant.CacheKeyBuilder;
 import com.zw.common.context.UserInfo;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
@@ -33,7 +32,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.nio.file.Paths;
 import java.util.*;
@@ -55,13 +53,12 @@ public class AgentRuntimeFactory {
     private final ToolResultEvictionFactory toolResultEvictionFactory;
     private final ModelFactory modelFactory;
     private final AiAgentStateLogService agentStateLogService;
-    private final CacheKeyBuilder cacheKeyBuilder;
     private final RuntimeContextFactory runtimeContextFactory;
     private final SubAgentFactory subAgentFactory;
     private final String WORKPATH = ".agentscope/workspace";
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
-        String agentCacheKey = cacheKeyBuilder.buildAgentKey(
+        String agentCacheKey = AgentRuntimeKeys.buildAgentKey(
                 config.getAgentId(),
                 userInfo.getUserId(),
                 config.getAgentConfigId(),
