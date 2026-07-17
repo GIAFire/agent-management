@@ -470,6 +470,57 @@ public class AgentChatServiceImpl implements AgentChatService {
         }
 
         AgentEvent rawEvent = runtimeEvent.getRawEvent();
+        if (rawEvent instanceof ToolCallStartEvent toolCallStartEvent) {
+            return toolPayload(
+                    toolCallStartEvent.getReplyId(),
+                    toolCallStartEvent.getToolCallId(),
+                    null
+            );
+        }
+        if (rawEvent instanceof ToolCallDeltaEvent toolCallDeltaEvent) {
+            return toolPayload(
+                    toolCallDeltaEvent.getReplyId(),
+                    toolCallDeltaEvent.getToolCallId(),
+                    null
+            );
+        }
+        if (rawEvent instanceof ToolCallEndEvent toolCallEndEvent) {
+            return toolPayload(
+                    toolCallEndEvent.getReplyId(),
+                    toolCallEndEvent.getToolCallId(),
+                    null
+            );
+        }
+        if (rawEvent instanceof ToolResultStartEvent toolResultStartEvent) {
+            return toolPayload(
+                    toolResultStartEvent.getReplyId(),
+                    toolResultStartEvent.getToolCallId(),
+                    null
+            );
+        }
+        if (rawEvent instanceof ToolResultTextDeltaEvent toolResultTextDeltaEvent) {
+            return toolPayload(
+                    toolResultTextDeltaEvent.getReplyId(),
+                    toolResultTextDeltaEvent.getToolCallId(),
+                    null
+            );
+        }
+        if (rawEvent instanceof ToolResultDataDeltaEvent toolResultDataDeltaEvent) {
+            Map<String, Object> payload = toolPayload(
+                    toolResultDataDeltaEvent.getReplyId(),
+                    toolResultDataDeltaEvent.getToolCallId(),
+                    null
+            );
+            payload.put("data", toolResultDataDeltaEvent.getData());
+            return payload;
+        }
+        if (rawEvent instanceof ToolResultEndEvent toolResultEndEvent) {
+            return toolPayload(
+                    toolResultEndEvent.getReplyId(),
+                    toolResultEndEvent.getToolCallId(),
+                    toolResultEndEvent.getState() == null ? null : toolResultEndEvent.getState().getValue()
+            );
+        }
         if (rawEvent instanceof RequireUserConfirmEvent requireUserConfirmEvent) {
             return interventionPayload(requireUserConfirmEvent.getReplyId(), requireUserConfirmEvent.getToolCalls());
         }
@@ -502,6 +553,14 @@ public class AgentChatServiceImpl implements AgentChatService {
         }
 
         return null;
+    }
+
+    private Map<String, Object> toolPayload(String replyId, String toolCallId, String state) {
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("replyId", replyId);
+        payload.put("toolCallId", toolCallId);
+        payload.put("state", state);
+        return payload;
     }
 
     private AgentStreamResponse toStreamResponse(

@@ -741,6 +741,7 @@ const applyPlanEventPayload = (message, streamEvent) => {
     occurredAt: planEvent.occurredAt || ''
   }
   message.planExpanded = message.planExpanded ?? true
+  planDrawerOpen.value = true
   if (isPlanExitEvent(planEvent)) {
     planDrawerOpen.value = true
   }
@@ -1413,6 +1414,22 @@ const ensureToolCalls = (message) => {
   return message.toolCalls
 }
 
+const ensureToolBlockIds = (message) => {
+  if (!message.activeToolBlockIds || typeof message.activeToolBlockIds !== 'object') {
+    message.activeToolBlockIds = {}
+  }
+  return message.activeToolBlockIds
+}
+
+const streamPayload = (streamEvent = {}) => {
+  return isRecord(streamEvent.payload) ? streamEvent.payload : {}
+}
+
+const streamToolCallId = (streamEvent = {}) => {
+  const payload = streamPayload(streamEvent)
+  return String(payload.toolCallId || payload.tool_call_id || payload.id || '')
+}
+
 const appendToolLine = (toolCall, key, text) => {
   const value = String(text || '').trim()
   if (!value) {
@@ -1502,15 +1519,28 @@ const appendReasoningEvent = (message, streamEvent) => {
   return true
 }
 
-const getToolBlock = (message, shouldCreate = false, toolName = '') => {
-  let block = shouldCreate ? null : findAuxiliaryBlock(message, message.activeToolBlockId)
+const getToolBlock = (message, shouldCreate = false, toolName = '', toolCallId = '') => {
+  const callId = String(toolCallId || '')
+  const activeIds = ensureToolBlockIds(message)
+  let block = callId ? findAuxiliaryBlock(message, activeIds[callId]) : null
 
-  if (!block && !shouldCreate) {
+  if (!block && callId) {
+    block = ensureAuxiliaryBlocks(message).find((item) => item.kind === 'tool' && item.toolCall?.id === callId) || null
+  }
+
+  if (!block && !callId) {
+    block = shouldCreate ? null : findAuxiliaryBlock(message, message.activeToolBlockId)
+  }
+
+  if (!block && !shouldCreate && !callId) {
     block = findLastRunningBlock(message, 'tool')
   }
 
-  if (!block) {
+  if (!block && (shouldCreate || callId || !message.activeToolBlockId)) {
     block = createAuxiliaryBlock(message, 'tool', { toolCall: createToolCall(toolName) })
+    if (callId) {
+      block.toolCall.id = callId
+    }
     ensureAuxiliaryBlocks(message).push(block)
     ensureToolCalls(message).push(block.toolCall)
     appendAuxiliaryBlockSegment(message, block)
@@ -1518,6 +1548,12 @@ const getToolBlock = (message, shouldCreate = false, toolName = '') => {
 
   if (block) {
     message.activeToolBlockId = block.id
+    if (callId) {
+      activeIds[callId] = block.id
+      if (block.toolCall) {
+        block.toolCall.id = callId
+      }
+    }
   }
 
   return block
@@ -1543,8 +1579,12 @@ const appendToolEvent = (message, streamEvent) => {
 
   const delta = streamEvent?.delta == null ? '' : String(streamEvent.delta)
   const isStartEvent = isToolCallStartEvent(streamEvent)
-  const block = getToolBlock(message, isStartEvent, isStartEvent ? delta : '')
+  const toolCallId = streamToolCallId(streamEvent)
+  const block = getToolBlock(message, isStartEvent, isStartEvent ? delta : '', toolCallId)
   const toolCall = getToolCallFromBlock(message, block, isStartEvent ? delta : '')
+  if (toolCallId) {
+    toolCall.id = toolCallId
+  }
   toolCall.updatedAt = getNowMs()
 
   if (isStartEvent) {
@@ -1599,7 +1639,12 @@ const appendToolEvent = (message, streamEvent) => {
   if (isToolResultEndEvent(streamEvent)) {
     toolCall.status = 'done'
     touchAuxiliaryBlock(block, 'done')
-    message.activeToolBlockId = null
+    if (!toolCallId || message.activeToolBlockId === block.id) {
+      message.activeToolBlockId = null
+    }
+    if (toolCallId) {
+      delete ensureToolBlockIds(message)[toolCallId]
+    }
     return true
   }
 
@@ -1987,6 +2032,7 @@ const finishStreamEvents = (message, status = 'done') => {
 
   message.activeReasoningBlockId = null
   message.activeToolBlockId = null
+  message.activeToolBlockIds = {}
   message.activeSubAgentBlockIds = {}
   message.pendingReasoningStartedAt = null
 
@@ -2249,6 +2295,7 @@ const createHistoryMessageBase = (record = {}, role = 'assistant') => {
     auxiliaryBlocks: [],
     activeReasoningBlockId: null,
     activeToolBlockId: null,
+    activeToolBlockIds: {},
     activeSubAgentBlockIds: {},
     pendingReasoningStartedAt: null,
     pendingIntervention: null,
@@ -2572,7 +2619,13 @@ const appendHistoryRecordToRunMessage = (message, record = {}) => {
     return
   }
 
-  if (type === 'PLAN_SNAPSHOT' || type === 'PLAN_OPERATION') {
+  if (type === 'PLAN_OPERATION') {
+    appendHistoryToolRecord(message, record, contentJson)
+    applyHistoryPlanRecord(message, record, contentJson)
+    return
+  }
+
+  if (type === 'PLAN_SNAPSHOT') {
     applyHistoryPlanRecord(message, record, contentJson)
     return
   }
@@ -2661,7 +2714,10 @@ const normalizeHistoryMessage = (record = {}) => {
     message.contentSegments = normalizeContentSegments(message, message.auxiliaryBlocks)
     return message
   }
-  if (type === 'PLAN_SNAPSHOT' || type === 'PLAN_OPERATION') {
+  if (type === 'PLAN_OPERATION') {
+    return normalizeHistoryAuxiliaryMessage(record, contentJson)
+  }
+  if (type === 'PLAN_SNAPSHOT') {
     return normalizeHistoryPlanMessage(record, contentJson)
   }
   if (type === 'ERROR' || type === 'SYSTEM_NOTICE') {
@@ -3246,6 +3302,7 @@ const sendMessage = async () => {
       auxiliaryBlocks: [],
       activeReasoningBlockId: null,
       activeToolBlockId: null,
+      activeToolBlockIds: {},
       activeSubAgentBlockIds: {},
       pendingReasoningStartedAt: null,
       toolExpanded: true,

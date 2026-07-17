@@ -1,6 +1,7 @@
 package com.zw.agent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.AiAgentPlanEntity;
 import com.zw.agent.entity.AiAgentPlanOpLogEntity;
 import com.zw.agent.entity.AiAgentPlanTaskEntity;
@@ -961,7 +962,8 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
                 .filter(StringUtils::hasText)
                 .orElse(DEFAULT_PLAN_DIR) + "/" + DEFAULT_PLAN_FILE;
 
-        Path workspaceRoot = Paths.get(config.getWorkspacePath()).toAbsolutePath().normalize();
+        Path workspaceRoot = Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath())
+                .toAbsolutePath().normalize();
         Path candidatePath = Paths.get(candidate);
         Path absolutePath = candidatePath.isAbsolute()
                 ? candidatePath.normalize()
@@ -979,10 +981,11 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
      * 从 workspace 中读取 AgentScope 已经生成的 PLAN.md 内容；路径不存在时返回空字符串。
      */
     private String readPlanContent(AgentConfigDTO config, String relativePath) throws IOException {
-        if (!StringUtils.hasText(config.getWorkspacePath()) || !StringUtils.hasText(relativePath)) {
+        if (!StringUtils.hasText(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath())
+                || !StringUtils.hasText(relativePath)) {
             return "";
         }
-        Path workspaceRoot = Paths.get(config.getWorkspacePath()).toAbsolutePath().normalize();
+        Path workspaceRoot = Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath()).toAbsolutePath().normalize();
         Path targetPath = workspaceRoot.resolve(relativePath).normalize();
         if (!targetPath.startsWith(workspaceRoot) || !Files.isRegularFile(targetPath)) {
             return "";

@@ -60,7 +60,7 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
         AgentCallContext agentCallContext = runtimeContext.get(AgentCallContext.class);
         AgentConfigDTO agentConfig = agentCallContext.getAgentConfig();
         UserInfo userInfo = agentCallContext.getUserInfo();
-        Path workspaceRoot = Paths.get(agentCallContext.getAgentConfig().getWorkspacePath())
+        Path workspaceRoot = Paths.get(agentCallContext.getAgentConfig().getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + userInfo.getTenantId() : agentCallContext.getAgentConfig().getWorkspacePath())
                 .toAbsolutePath()
                 .normalize();
 
