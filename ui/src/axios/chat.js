@@ -1,5 +1,5 @@
 import config from '@/axios/axiosConfig'
-import { post } from '@/axios/request'
+import { get, post } from '@/axios/request'
 import { getToken, getTokenType } from '@/utils/auth'
 
 const isObject = (value) => typeof value === 'object' && value !== null
@@ -235,6 +235,18 @@ export const chatStream = async (data, handlers = {}, options = {}) => {
 
 export const createAgentSession = (data) => {
   return post('/agent/agentSession/create', data)
+}
+
+export const pageAgentSessions = (params) => {
+  return get('/agent/agentSession/page', params)
+}
+
+export const deleteAgentSession = (id) => {
+  return get(`/agent/agentSession/delete/${id}`)
+}
+
+export const pageAgentMessages = (params) => {
+  return get('/agent/agentMessage/page', params)
 }
 
 export const userConfirmStream = async (data, handlers = {}, options = {}) => {

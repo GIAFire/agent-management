@@ -21,4 +21,6 @@ public interface AiAgentRunLogService extends IService<AiAgentRunLogEntity> {
     void markWaiting(Long runId, String status);
 
     void markFailed(Long runId, String agentRunFailed, String message);
+
+    void markCancelled(Long runId);
 }

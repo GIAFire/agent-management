@@ -4,7 +4,14 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Bottom, ChatLineRound, Close, Delete, MoreFilled, Plus, Promotion, Search } from '@element-plus/icons-vue'
 import MarkdownIt from 'markdown-it'
-import { chatStream, createAgentSession, userConfirmStream } from '@/axios/chat'
+import {
+  chatStream,
+  createAgentSession,
+  deleteAgentSession,
+  pageAgentMessages,
+  pageAgentSessions,
+  userConfirmStream
+} from '@/axios/chat'
 
 const route = useRoute()
 const markdownRenderer = new MarkdownIt({
@@ -28,14 +35,26 @@ const planDrawerOpen = ref(false)
 const streaming = ref(false)
 const sessionCreating = ref(false)
 const autoScrollEnabled = ref(true)
+const sessionListRef = ref()
 const messageListRef = ref()
 const abortController = ref(null)
 
-let saveTimer = null
 let scrollFrame = null
 let pendingScrollForce = false
+let sessionSearchTimer = null
 
 const SCROLL_BOTTOM_THRESHOLD = 64
+const SCROLL_PAGE_THRESHOLD = 80
+const SESSION_PAGE_SIZE = 20
+const MESSAGE_PAGE_SIZE = 30
+
+const sessionPaging = reactive({
+  current: 0,
+  size: SESSION_PAGE_SIZE,
+  total: 0,
+  loading: false,
+  finished: false
+})
 
 const agentInfo = reactive({
   id: null,
@@ -47,7 +66,6 @@ const agentId = computed(() => {
   const value = route.params.agentId
   return Array.isArray(value) ? String(value[0] || '') : String(value || '')
 })
-const storageKey = computed(() => `agent_chat_sessions_${agentId.value || 'unknown'}`)
 
 const activeSession = computed(() => {
   return sessions.value.find((item) => item.id === activeSessionId.value) || null
@@ -58,13 +76,7 @@ const activeMessages = computed(() => {
 })
 
 const filteredSessions = computed(() => {
-  const keyword = sessionKeyword.value.trim().toLowerCase()
-  if (!keyword) {
-    return sessions.value
-  }
-  return sessions.value.filter((session) => {
-    return `${session.title || ''} ${session.updatedAt || ''}`.toLowerCase().includes(keyword)
-  })
+  return sessions.value
 })
 
 const canSend = computed(() => {
@@ -792,13 +804,12 @@ const applyPlanFallbackFromTool = (message) => {
   return false
 }
 
-// 切换 Plan 面板展开状态，并持久化到本地会话缓存。
+// 切换 Plan 面板展开状态。
 const togglePlanPanel = (message) => {
   if (!message) {
     return
   }
   message.planExpanded = !message.planExpanded
-  saveSessions()
 }
 
 const toggleAuxiliaryPanel = (message, key) => {
@@ -809,7 +820,6 @@ const toggleAuxiliaryPanel = (message, key) => {
   if (typeof key === 'object' && key) {
     key.expanded = !key.expanded
     key.expandedByUser = true
-    saveSessions()
     return
   }
 
@@ -820,7 +830,6 @@ const toggleAuxiliaryPanel = (message, key) => {
     message.toolExpanded = !message.toolExpanded
   }
 
-  saveSessions()
 }
 
 const normalizedSseEvent = (streamEvent) => String(streamEvent?.sseEvent || '').toLowerCase()
@@ -1981,7 +1990,6 @@ const finishStreamEvents = (message, status = 'done') => {
   message.activeSubAgentBlockIds = {}
   message.pendingReasoningStartedAt = null
 
-  scheduleSaveSessions()
 }
 
 const assistantMessageItems = (message) => {
@@ -2083,6 +2091,16 @@ const normalizeSessionId = (value) => {
   return value === undefined || value === null ? '' : String(value)
 }
 
+const createMessagePaging = () => ({
+  current: 0,
+  size: MESSAGE_PAGE_SIZE,
+  total: 0,
+  loadedRecords: 0,
+  loading: false,
+  finished: false,
+  initialized: false
+})
+
 const buildLocalSession = (backendSession, fallbackTitle = getDefaultTitle()) => {
   const sessionId = normalizeSessionId(backendSession?.id)
   if (!sessionId) {
@@ -2094,7 +2112,9 @@ const buildLocalSession = (backendSession, fallbackTitle = getDefaultTitle()) =>
     backendSessionId: sessionId,
     title: backendSession?.title || fallbackTitle,
     updatedAt: backendSession?.lastMessageAt || backendSession?.updatedAt || backendSession?.createdAt || nowText(),
-    messages: []
+    messages: [],
+    historyRecords: [],
+    messagePaging: createMessagePaging()
   }
 }
 
@@ -2106,29 +2126,551 @@ const requestBackendSession = async (title = getDefaultTitle()) => {
   return buildLocalSession(backendSession, title)
 }
 
-const saveSessions = () => {
-  localStorage.setItem(storageKey.value, JSON.stringify(sessions.value))
+const normalizePageResult = (page = {}) => {
+  const records = Array.isArray(page.records) ? page.records : []
+  const current = Number(page.current ?? 1) || 1
+  const size = Number(page.size ?? records.length) || records.length || 0
+  const total = Number(page.total ?? records.length) || 0
+  const pages = Number(page.pages ?? (size ? Math.ceil(total / size) : 1)) || 1
+  return { records, current, size, total, pages }
 }
 
-const scheduleSaveSessions = () => {
-  if (saveTimer) {
+const historyRecordId = (record = {}) => {
+  return normalizeSessionId(record.id || `${record.sessionId || 'session'}-${record.seq || record.createdAt || Math.random()}`)
+}
+
+const historyRecordSeq = (record = {}) => {
+  const seq = Number(record.seq)
+  if (Number.isFinite(seq)) {
+    return seq
+  }
+  const createdAt = Date.parse(record.createdAt || record.startedAt || '')
+  return Number.isFinite(createdAt) ? createdAt : Number.MAX_SAFE_INTEGER
+}
+
+const compareHistoryRecords = (left = {}, right = {}) => {
+  const seqDiff = historyRecordSeq(left) - historyRecordSeq(right)
+  if (seqDiff !== 0) {
+    return seqDiff
+  }
+  return historyRecordId(left).localeCompare(historyRecordId(right))
+}
+
+const sortHistoryRecords = (records = []) => records.slice().sort(compareHistoryRecords)
+
+const mergeHistoryRecords = (existingRecords = [], incomingRecords = []) => {
+  const recordMap = new Map()
+  ;[...existingRecords, ...incomingRecords].forEach((record) => {
+    recordMap.set(historyRecordId(record), record)
+  })
+  return sortHistoryRecords([...recordMap.values()])
+}
+
+const parseJsonValue = (value, fallback = null) => {
+  if (value == null || value === '') {
+    return fallback
+  }
+  if (typeof value === 'object') {
+    return value
+  }
+  try {
+    return JSON.parse(value)
+  } catch {
+    return fallback
+  }
+}
+
+const formatHistoryValue = (value) => {
+  if (value == null || value === '') {
+    return ''
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+const historyBlockStatus = (status = '') => {
+  const normalized = String(status || '').toUpperCase()
+  if (normalized === 'FAILED') {
+    return 'error'
+  }
+  if (normalized === 'CANCELLED') {
+    return 'error'
+  }
+  if (normalized === 'STREAMING') {
+    return 'running'
+  }
+  return 'done'
+}
+
+const normalizeUsage = (usageJson) => {
+  const usage = parseJsonValue(usageJson, {}) || {}
+  return {
+    usageToken: Number(usage.totalTokens ?? usage.total_tokens ?? usage.token ?? 0) || 0,
+    usageTime: Number(usage.time ?? usage.duration ?? usage.durationMs ?? 0) || 0
+  }
+}
+
+const createHistoryMessageBase = (record = {}, role = 'assistant') => {
+  const usage = normalizeUsage(record.usageJson)
+  const seq = historyRecordSeq(record)
+  return {
+    id: normalizeSessionId(record.id),
+    dbId: normalizeSessionId(record.id),
+    runId: normalizeSessionId(record.runId),
+    seqStart: seq,
+    seqEnd: seq,
+    historyGroupKey: '',
+    fromHistory: true,
+    role,
+    messageType: record.messageType || '',
+    messageStatus: record.messageStatus || 'COMPLETED',
+    content: '',
+    displayContent: '',
+    contentSegments: [],
+    createdAt: record.createdAt || record.startedAt || '',
+    usageToken: usage.usageToken,
+    usageTime: usage.usageTime,
+    eventStages: [],
+    streamTiming: null,
+    streamStatus: historyBlockStatus(record.messageStatus),
+    pending: false,
+    typing: false,
+    thinkingContent: '',
+    thinkingExpanded: false,
+    toolResultContent: '',
+    toolResultExpanded: false,
+    toolCalls: [],
+    auxiliaryBlocks: [],
+    activeReasoningBlockId: null,
+    activeToolBlockId: null,
+    activeSubAgentBlockIds: {},
+    pendingReasoningStartedAt: null,
+    pendingIntervention: null,
+    toolExpanded: false,
+    planState: null,
+    planTasks: [],
+    planProgress: buildPlanProgress([]),
+    planExpanded: true,
+    lastPlanEvent: null,
+    error: record.messageType === 'ERROR' || record.messageStatus === 'FAILED'
+  }
+}
+
+const normalizeHistoryTextMessage = (record = {}, role = 'assistant') => {
+  const content = record.textContent || record.errorMessage || ''
+  const message = createHistoryMessageBase(record, role)
+  message.content = content
+  message.displayContent = content
+  message.contentSegments = content
+    ? [{
+      id: `content-${message.id}`,
+      type: 'content',
+      content
+    }]
+    : []
+  return message
+}
+
+const normalizeHistoryAuxiliaryMessage = (record = {}, contentJson = {}) => {
+  const type = String(record.messageType || '').toUpperCase()
+  const message = createHistoryMessageBase(record, 'assistant')
+  const isSubagent = type.startsWith('SUBAGENT')
+  const isResult = type.endsWith('_RESULT') || type === 'TOOL_RESULT'
+  const blockId = `history-block-${message.id}`
+  const toolName = record.senderName || contentJson.toolName || (isSubagent ? '子智能体' : '工具调用')
+  const processText = isResult
+    ? ''
+    : formatHistoryValue(contentJson.arguments ?? contentJson.input ?? record.textContent)
+  const resultText = isResult
+    ? (contentJson.resultText || record.textContent || formatHistoryValue(contentJson.dataBlocks))
+    : ''
+
+  if (isSubagent) {
+    const block = {
+      id: blockId,
+      kind: 'subagent',
+      title: record.senderName || '子智能体',
+      status: historyBlockStatus(record.messageStatus),
+      expanded: false,
+      durationMs: record.durationMs || 0,
+      content: resultText || processText || record.textContent || '',
+      subAgentName: record.senderName || contentJson.subAgentName || '子智能体'
+    }
+    message.auxiliaryBlocks = [block]
+  } else {
+    const toolCall = {
+      id: record.refKey || contentJson.toolCallId || blockId,
+      name: toolName,
+      status: historyBlockStatus(record.messageStatus),
+      process: processText,
+      result: resultText,
+      updatedAt: Date.now()
+    }
+    const block = {
+      id: blockId,
+      kind: 'tool',
+      title: toolName,
+      status: toolCall.status,
+      expanded: false,
+      durationMs: record.durationMs || 0,
+      toolCall
+    }
+    message.toolCalls = [toolCall]
+    message.auxiliaryBlocks = [block]
+    message.toolExpanded = false
+  }
+
+  message.contentSegments = normalizeContentSegments(message, message.auxiliaryBlocks)
+  return message
+}
+
+const normalizeHistoryPlanMessage = (record = {}, contentJson = {}) => {
+  const message = normalizeHistoryTextMessage(record, 'assistant')
+  const tasks = Array.isArray(contentJson.tasks)
+    ? contentJson.tasks.map(normalizePlanTask)
+    : []
+  message.planState = contentJson.plan || null
+  message.planTasks = tasks
+  message.planProgress = normalizePlanProgress(contentJson.progress || {}, tasks)
+  message.lastPlanEvent = {
+    type: contentJson.type || record.messageType,
+    toolName: contentJson.toolName || record.senderName || '',
+    toolCallId: contentJson.toolCallId || record.refKey || ''
+  }
+  message.planExpanded = true
+  if (!message.content && (message.planState?.title || message.planState?.planNo)) {
+    message.content = `执行计划：${message.planState.title || message.planState.planNo}`
+    message.displayContent = message.content
+    message.contentSegments = [{
+      id: `content-${message.id}`,
+      type: 'content',
+      content: message.content
+    }]
+  }
+  return message
+}
+
+const historyRunGroupKey = (record = {}) => {
+  const runId = normalizeSessionId(record.runId)
+  return runId ? `run-${runId}` : `message-${historyRecordId(record)}`
+}
+
+const updateHistoryMessageRange = (message, record = {}) => {
+  const seq = historyRecordSeq(record)
+  message.seqStart = Math.min(message.seqStart ?? seq, seq)
+  message.seqEnd = Math.max(message.seqEnd ?? seq, seq)
+  const usage = normalizeUsage(record.usageJson)
+  if (usage.usageToken || usage.usageTime) {
+    message.usageToken = usage.usageToken
+    message.usageTime = usage.usageTime
+  }
+}
+
+const createHistoryRunMessage = (record = {}, groupKey = historyRunGroupKey(record)) => {
+  const message = createHistoryMessageBase(record, 'assistant')
+  message.id = groupKey
+  message.dbId = historyRecordId(record)
+  message.historyGroupKey = groupKey
+  message.messageType = 'ASSISTANT_RUN'
+  message.contentFormat = 'COMPOSITE'
+  return message
+}
+
+const appendHistoryContent = (message, record = {}, content = '') => {
+  const text = content == null ? '' : String(content)
+  if (!text) {
+    return
+  }
+  message.content = message.content ? `${message.content}\n${text}` : text
+  message.displayContent = message.content
+  ensureContentSegments(message).push({
+    id: `history-content-${historyRecordId(record)}`,
+    type: 'content',
+    content: text
+  })
+}
+
+const appendHistoryAuxiliarySegment = (message, block, record = {}) => {
+  if (!message || !block?.id) {
+    return
+  }
+  const segments = ensureContentSegments(message)
+  if (segments.some((segment) => segment.type === 'auxiliary' && segment.blockId === block.id)) {
+    return
+  }
+  segments.push({
+    id: `history-auxiliary-${historyRecordId(record)}-${block.id}`,
+    type: 'auxiliary',
+    blockId: block.id
+  })
+}
+
+const historyToolCallId = (record = {}, contentJson = {}) => {
+  return normalizeSessionId(
+    record.refKey ||
+    contentJson.toolCallId ||
+    contentJson.tool_call_id ||
+    contentJson.id ||
+    record.parentMessageId ||
+    record.id
+  )
+}
+
+const historyToolName = (record = {}, contentJson = {}, fallback = '工具调用') => {
+  return record.senderName || contentJson.toolName || contentJson.tool_name || contentJson.name || fallback
+}
+
+const getOrCreateHistoryToolBlock = (message, record = {}, contentJson = {}) => {
+  const callId = historyToolCallId(record, contentJson)
+  const blockId = `history-tool-${callId}`
+  let block = findAuxiliaryBlock(message, blockId)
+  if (!block) {
+    const toolCall = createToolCall(historyToolName(record, contentJson))
+    toolCall.id = callId
+    toolCall.status = historyBlockStatus(record.messageStatus)
+    block = normalizeAuxiliaryBlock({
+      id: blockId,
+      kind: 'tool',
+      title: historyToolName(record, contentJson),
+      status: toolCall.status,
+      durationMs: record.durationMs || 0,
+      toolCall
+    }, ensureAuxiliaryBlocks(message).length)
+    ensureAuxiliaryBlocks(message).push(block)
+    ensureToolCalls(message).push(block.toolCall)
+    appendHistoryAuxiliarySegment(message, block, record)
+  }
+  if (block.toolCall && historyToolName(record, contentJson)) {
+    block.toolCall.name = historyToolName(record, contentJson)
+  }
+  return block
+}
+
+const getOrCreateHistorySubagentBlock = (message, record = {}, contentJson = {}) => {
+  const callId = historyToolCallId(record, contentJson)
+  const blockId = `history-subagent-${callId}`
+  let block = findAuxiliaryBlock(message, blockId)
+  if (!block) {
+    block = normalizeAuxiliaryBlock({
+      id: blockId,
+      kind: 'subagent',
+      title: record.senderName || contentJson.subAgentName || '子智能体',
+      status: historyBlockStatus(record.messageStatus),
+      durationMs: record.durationMs || 0,
+      content: '',
+      subAgentName: record.senderName || contentJson.subAgentName || '子智能体'
+    }, ensureAuxiliaryBlocks(message).length)
+    ensureAuxiliaryBlocks(message).push(block)
+    appendHistoryAuxiliarySegment(message, block, record)
+  }
+  return block
+}
+
+const appendHistoryReasoningRecord = (message, record = {}) => {
+  const content = record.textContent || ''
+  if (!content) {
+    return
+  }
+  const block = normalizeAuxiliaryBlock({
+    id: `history-reasoning-${historyRecordId(record)}`,
+    kind: 'reasoning',
+    title: '推理过程',
+    status: historyBlockStatus(record.messageStatus),
+    durationMs: record.durationMs || 0,
+    content
+  }, ensureAuxiliaryBlocks(message).length)
+  message.thinkingContent = message.thinkingContent ? `${message.thinkingContent}\n${content}` : content
+  ensureAuxiliaryBlocks(message).push(block)
+  appendHistoryAuxiliarySegment(message, block, record)
+}
+
+const appendHistoryToolRecord = (message, record = {}, contentJson = {}) => {
+  const type = String(record.messageType || '').toUpperCase()
+  const block = getOrCreateHistoryToolBlock(message, record, contentJson)
+  const toolCall = block.toolCall || getToolCallFromBlock(message, block, historyToolName(record, contentJson))
+  const isResult = type.endsWith('_RESULT') || type === 'TOOL_RESULT'
+
+  if (isResult) {
+    const resultText = contentJson.resultText ||
+      record.textContent ||
+      formatHistoryValue(contentJson.dataBlocks ?? contentJson.output ?? contentJson.result)
+    if (resultText) {
+      toolCall.result = resultText
+      toolCall.rawResult = resultText
+    }
+    toolCall.resultStarted = true
+    toolCall.status = historyBlockStatus(record.messageStatus)
+    block.status = toolCall.status
+    block.durationMs = Math.max(block.durationMs || 0, record.durationMs || 0)
     return
   }
 
-  // 打字过程中只低频持久化，避免 localStorage 同步写入拖慢渲染。
-  saveTimer = setTimeout(() => {
-    saveTimer = null
-    saveSessions()
-  }, 1000)
+  const processText = formatHistoryValue(contentJson.arguments ?? contentJson.input ?? record.textContent)
+  if (processText) {
+    toolCall.process = processText
+    toolCall.rawInput = processText
+    toolCall.argumentStarted = true
+  }
+  toolCall.status = historyBlockStatus(record.messageStatus)
+  block.status = toolCall.status
 }
 
-const flushScheduledSave = () => {
-  if (saveTimer) {
-    clearTimeout(saveTimer)
-    saveTimer = null
+const appendHistorySubagentRecord = (message, record = {}, contentJson = {}) => {
+  const type = String(record.messageType || '').toUpperCase()
+  const block = getOrCreateHistorySubagentBlock(message, record, contentJson)
+  const text = type.endsWith('_RESULT')
+    ? (contentJson.resultText || record.textContent || formatHistoryValue(contentJson.dataBlocks ?? contentJson.result))
+    : formatHistoryValue(contentJson.arguments ?? contentJson.input ?? record.textContent)
+  if (text) {
+    block.content = block.content ? `${block.content}\n${text}` : text
+  }
+  block.status = historyBlockStatus(record.messageStatus)
+  block.durationMs = Math.max(block.durationMs || 0, record.durationMs || 0)
+}
+
+const applyHistoryPlanRecord = (message, record = {}, contentJson = {}) => {
+  const tasks = Array.isArray(contentJson.tasks)
+    ? contentJson.tasks.map(normalizePlanTask)
+    : []
+  if (contentJson.plan) {
+    message.planState = {
+      ...(message.planState || {}),
+      ...contentJson.plan
+    }
+  }
+  if (tasks.length) {
+    message.planTasks = tasks
+  }
+  message.planProgress = normalizePlanProgress(contentJson.progress || {}, message.planTasks || [])
+  message.lastPlanEvent = {
+    type: contentJson.type || record.messageType,
+    toolName: contentJson.toolName || record.senderName || '',
+    toolCallId: contentJson.toolCallId || record.refKey || '',
+    occurredAt: contentJson.occurredAt || record.finishedAt || record.createdAt || ''
+  }
+  message.planExpanded = true
+}
+
+const appendHistoryRecordToRunMessage = (message, record = {}) => {
+  updateHistoryMessageRange(message, record)
+  const type = String(record.messageType || '').toUpperCase()
+  const contentJson = parseJsonValue(record.contentJson, {}) || {}
+
+  if (type === 'ASSISTANT_TEXT') {
+    appendHistoryContent(message, record, record.textContent || record.errorMessage || '')
+    return
   }
 
-  saveSessions()
+  if (type === 'ASSISTANT_THINKING') {
+    appendHistoryReasoningRecord(message, record)
+    return
+  }
+
+  if (type === 'PLAN_SNAPSHOT' || type === 'PLAN_OPERATION') {
+    applyHistoryPlanRecord(message, record, contentJson)
+    return
+  }
+
+  if (type.includes('SUBAGENT')) {
+    appendHistorySubagentRecord(message, record, contentJson)
+    return
+  }
+
+  if (type.includes('TOOL') || type.includes('SKILL') || type.includes('CONFIRM') || type.includes('EXTERNAL_EXECUTION')) {
+    appendHistoryToolRecord(message, record, contentJson)
+    return
+  }
+
+  if (type === 'ERROR' || type === 'SYSTEM_NOTICE') {
+    appendHistoryContent(message, record, record.textContent || record.errorMessage || '')
+  }
+}
+
+const finalizeHistoryRunMessage = (message) => {
+  message.auxiliaryBlocks = compactAuxiliaryBlocks(message.auxiliaryBlocks || [])
+  syncContentSegmentsWithBlocks(message)
+  if (!message.contentSegments.length && (message.planState?.title || message.planState?.planNo)) {
+    appendHistoryContent(message, { id: `${message.id}-plan`, seq: message.seqEnd }, `执行计划：${message.planState.title || message.planState.planNo}`)
+  }
+  return message
+}
+
+const buildHistoryMessagesFromRecords = (records = []) => {
+  const messages = []
+  const runMessages = new Map()
+
+  sortHistoryRecords(records).forEach((record) => {
+    const type = String(record.messageType || '').toUpperCase()
+    const role = String(record.role || '').toUpperCase()
+    if (type === 'USER_TEXT' || role === 'USER') {
+      const userMessage = normalizeHistoryTextMessage(record, 'user')
+      userMessage.historyGroupKey = `message-${historyRecordId(record)}`
+      messages.push(userMessage)
+      return
+    }
+
+    const groupKey = historyRunGroupKey(record)
+    let message = runMessages.get(groupKey)
+    if (!message) {
+      message = createHistoryRunMessage(record, groupKey)
+      runMessages.set(groupKey, message)
+      messages.push(message)
+    }
+    appendHistoryRecordToRunMessage(message, record)
+  })
+
+  runMessages.forEach(finalizeHistoryRunMessage)
+  return messages.sort((left, right) => {
+    const seqDiff = (left.seqStart ?? Number.MAX_SAFE_INTEGER) - (right.seqStart ?? Number.MAX_SAFE_INTEGER)
+    if (seqDiff !== 0) {
+      return seqDiff
+    }
+    return String(left.id).localeCompare(String(right.id))
+  })
+}
+
+const normalizeHistoryMessage = (record = {}) => {
+  const type = String(record.messageType || '').toUpperCase()
+  const contentJson = parseJsonValue(record.contentJson, {}) || {}
+
+  if (type === 'USER_TEXT' || String(record.role || '').toUpperCase() === 'USER') {
+    return normalizeHistoryTextMessage(record, 'user')
+  }
+  if (type === 'ASSISTANT_TEXT') {
+    return normalizeHistoryTextMessage(record, 'assistant')
+  }
+  if (type === 'ASSISTANT_THINKING') {
+    const message = createHistoryMessageBase(record, 'assistant')
+    const block = {
+      id: `history-block-${message.id}`,
+      kind: 'reasoning',
+      title: '推理过程',
+      status: historyBlockStatus(record.messageStatus),
+      expanded: false,
+      durationMs: record.durationMs || 0,
+      content: record.textContent || ''
+    }
+    message.thinkingContent = block.content
+    message.auxiliaryBlocks = [block]
+    message.contentSegments = normalizeContentSegments(message, message.auxiliaryBlocks)
+    return message
+  }
+  if (type === 'PLAN_SNAPSHOT' || type === 'PLAN_OPERATION') {
+    return normalizeHistoryPlanMessage(record, contentJson)
+  }
+  if (type === 'ERROR' || type === 'SYSTEM_NOTICE') {
+    return normalizeHistoryTextMessage(record, 'assistant')
+  }
+  if (type.includes('TOOL') || type.includes('SKILL') || type.includes('SUBAGENT') || type.includes('CONFIRM') || type.includes('EXTERNAL_EXECUTION')) {
+    return normalizeHistoryAuxiliaryMessage(record, contentJson)
+  }
+  return normalizeHistoryTextMessage(record, 'assistant')
 }
 
 const isNearBottom = (container) => {
@@ -2139,6 +2681,20 @@ const handleMessageScroll = () => {
   const container = messageListRef.value
   if (container) {
     autoScrollEnabled.value = isNearBottom(container)
+    if (container.scrollTop <= SCROLL_PAGE_THRESHOLD) {
+      loadMoreMessages()
+    }
+  }
+}
+
+const handleSessionScroll = () => {
+  const container = sessionListRef.value
+  if (!container || sessionPaging.loading || sessionPaging.finished) {
+    return
+  }
+  const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+  if (distanceToBottom <= SCROLL_PAGE_THRESHOLD) {
+    loadSessions()
   }
 }
 
@@ -2188,7 +2744,6 @@ const appendStreamText = (message, session, delta) => {
 }
 
 const flushStreamText = () => {
-  flushScheduledSave()
   scheduleScrollToBottom()
 }
 
@@ -2209,7 +2764,6 @@ const createSession = async () => {
     sessions.value.unshift(session)
     activeSessionId.value = session.id
     autoScrollEnabled.value = true
-    saveSessions()
     await scrollToBottom(true)
     return session
   } catch (error) {
@@ -2220,80 +2774,144 @@ const createSession = async () => {
   }
 }
 
-const loadSessions = async () => {
-  let storedSessions = []
+const resetSessionPaging = () => {
+  sessionPaging.current = 0
+  sessionPaging.total = 0
+  sessionPaging.loading = false
+  sessionPaging.finished = false
+}
 
-  try {
-    storedSessions = JSON.parse(localStorage.getItem(storageKey.value) || '[]')
-  } catch {
-    storedSessions = []
+const mergeSessionPage = (incomingSessions = [], reset = false) => {
+  if (reset) {
+    sessions.value = []
   }
+  const existingIds = new Set(sessions.value.map((session) => session.id))
+  incomingSessions.forEach((session) => {
+    if (!existingIds.has(session.id)) {
+      sessions.value.push(session)
+      existingIds.add(session.id)
+    }
+  })
+}
 
-  // 恢复本地消息展示字段，保证刷新后仍能渲染流式输出的辅助信息。
-  sessions.value = Array.isArray(storedSessions)
-    ? storedSessions.map((session) => ({
-      ...session,
-      id: normalizeSessionId(session.id),
-      backendSessionId: normalizeSessionId(session.backendSessionId),
-      messages: Array.isArray(session.messages)
-        ? session.messages.map((message) => {
-          const toolCalls = normalizeStoredToolCalls(message)
-          const auxiliaryBlocks = normalizeStoredAuxiliaryBlocks(message, toolCalls)
-          const planTasks = Array.isArray(message.planTasks)
-            ? message.planTasks.map(normalizePlanTask)
-            : []
-          return {
-            ...message,
-            displayContent: message.displayContent ?? message.content ?? '',
-            contentSegments: normalizeContentSegments(message, auxiliaryBlocks),
-            usageToken: Number(message.usageToken) || 0,
-            usageTime: Number(message.usageTime) || 0,
-            thinkingContent: message.thinkingContent ?? '',
-            thinkingExpanded: message.thinkingExpanded ?? Boolean(message.thinkingContent),
-            toolResultContent: message.toolResultContent ?? '',
-            toolResultExpanded: message.toolResultExpanded ?? Boolean(message.toolResultContent),
-            toolCalls,
-            auxiliaryBlocks,
-            activeReasoningBlockId: null,
-            activeToolBlockId: null,
-            activeSubAgentBlockIds: {},
-            pendingReasoningStartedAt: null,
-            pendingIntervention: null,
-            toolExpanded: message.toolExpanded ?? message.toolResultExpanded ?? Boolean(toolCalls.length),
-            eventStages: Array.isArray(message.eventStages) ? message.eventStages : [],
-            planState: message.planState || null,
-            planTasks,
-            planProgress: normalizePlanProgress(message.planProgress, planTasks),
-            planExpanded: message.planExpanded ?? Boolean(message.planState || planTasks.length),
-            lastPlanEvent: message.lastPlanEvent || null
-          }
-        })
-        : []
-    }))
-    : []
-
-  if (!sessions.value.length) {
-    await createSession()
+const loadSessions = async ({ reset = false } = {}) => {
+  if (!agentId.value || sessionPaging.loading) {
+    return
+  }
+  if (reset) {
+    resetSessionPaging()
+    sessions.value = []
+    activeSessionId.value = ''
+  } else if (sessionPaging.finished) {
     return
   }
 
-  activeSessionId.value = sessions.value[0].id
-  autoScrollEnabled.value = true
-  scrollToBottom(true)
+  sessionPaging.loading = true
+  try {
+    const page = normalizePageResult(await pageAgentSessions({
+      current: sessionPaging.current + 1,
+      size: sessionPaging.size,
+      agentId: agentId.value,
+      keyword: sessionKeyword.value.trim()
+    }))
+    const nextSessions = page.records.map((record) => buildLocalSession(record))
+    mergeSessionPage(nextSessions, reset)
+    sessionPaging.current = page.current
+    sessionPaging.total = page.total
+    sessionPaging.finished = page.current >= page.pages || sessions.value.length >= page.total || nextSessions.length < page.size
+
+    if (reset) {
+      const firstSession = sessions.value[0] || null
+      activeSessionId.value = firstSession?.id || ''
+      if (firstSession) {
+        await loadSessionMessages(firstSession, { reset: true, scrollToLatest: true })
+      }
+    }
+  } catch (error) {
+    ElMessage.error(error.message || '加载会话失败')
+  } finally {
+    sessionPaging.loading = false
+  }
 }
 
-const selectSession = (session) => {
+const loadSessionMessages = async (session, { reset = false, scrollToLatest = false } = {}) => {
+  if (!session?.backendSessionId) {
+    return
+  }
+  if (!session.messagePaging) {
+    session.messagePaging = createMessagePaging()
+  }
+  const paging = session.messagePaging
+  if (paging.loading) {
+    return
+  }
+  if (reset) {
+    session.messages = []
+    session.historyRecords = []
+    Object.assign(paging, createMessagePaging())
+  } else if (paging.finished) {
+    return
+  }
+
+  const container = messageListRef.value
+  const previousHeight = container?.scrollHeight || 0
+  const previousTop = container?.scrollTop || 0
+
+  paging.loading = true
+  try {
+    const page = normalizePageResult(await pageAgentMessages({
+      current: paging.current + 1,
+      size: paging.size,
+      sessionId: session.backendSessionId
+    }))
+    session.historyRecords = reset
+      ? sortHistoryRecords(page.records)
+      : mergeHistoryRecords(session.historyRecords || [], page.records)
+    const historyMessages = buildHistoryMessagesFromRecords(session.historyRecords)
+    const liveMessages = reset
+      ? []
+      : session.messages.filter((message) => !message.fromHistory)
+
+    session.messages = [...historyMessages, ...liveMessages]
+
+    paging.current = page.current
+    paging.total = page.total
+    paging.loadedRecords = session.historyRecords.length
+    paging.finished = page.current >= page.pages || paging.loadedRecords >= page.total || page.records.length < page.size
+    paging.initialized = true
+
+    await nextTick()
+    if (scrollToLatest) {
+      await scrollToBottom(true)
+    } else if (!reset && container) {
+      container.scrollTop = container.scrollHeight - previousHeight + previousTop
+    }
+  } catch (error) {
+    ElMessage.error(error.message || '加载消息失败')
+  } finally {
+    paging.loading = false
+  }
+}
+
+const loadMoreMessages = async () => {
+  const session = activeSession.value
+  if (!session?.messagePaging?.initialized || session.messagePaging.loading || session.messagePaging.finished) {
+    return
+  }
+  await loadSessionMessages(session)
+}
+
+const selectSession = async (session) => {
   activeSessionId.value = session.id
   autoScrollEnabled.value = true
-  scrollToBottom(true)
+  if (!session.messagePaging?.initialized) {
+    await loadSessionMessages(session, { reset: true, scrollToLatest: true })
+  } else {
+    await scrollToBottom(true)
+  }
 }
 
 const removeSession = async (session) => {
-  if (sessions.value.length <= 1) {
-    ElMessage.warning('至少保留一个会话')
-    return
-  }
-
   try {
     await ElMessageBox.confirm(`确认删除会话「${session.title}」吗？`, '删除确认', {
       type: 'warning',
@@ -2304,14 +2922,17 @@ const removeSession = async (session) => {
     return
   }
 
+  await deleteAgentSession(session.backendSessionId || session.id)
   const index = sessions.value.findIndex((item) => item.id === session.id)
   sessions.value.splice(index, 1)
 
   if (activeSessionId.value === session.id) {
     activeSessionId.value = sessions.value[Math.max(index - 1, 0)]?.id || sessions.value[0]?.id
+    const nextSession = activeSession.value
+    if (nextSession && !nextSession.messagePaging?.initialized) {
+      await loadSessionMessages(nextSession, { reset: true, scrollToLatest: true })
+    }
   }
-
-  saveSessions()
 }
 
 const clearSessions = async () => {
@@ -2329,9 +2950,12 @@ const clearSessions = async () => {
     return
   }
 
+  const loadedSessions = [...sessions.value]
+  await Promise.all(loadedSessions.map((session) => deleteAgentSession(session.backendSessionId || session.id)))
   sessions.value = []
+  activeSessionId.value = ''
   sessionKeyword.value = ''
-  await createSession()
+  await loadSessions({ reset: true })
 }
 
 const appendMessage = (role, content, extra = {}, options = {}) => {
@@ -2360,7 +2984,6 @@ const appendMessage = (role, content, extra = {}, options = {}) => {
     session.title = content.slice(0, 18) || getDefaultTitle()
   }
 
-  saveSessions()
   scrollToBottom(Boolean(options.forceScroll))
   return session.messages[session.messages.length - 1]
 }
@@ -2461,7 +3084,6 @@ const markInterventionDecision = (message, intervention, confirmed) => {
 
   message.pendingIntervention = null
   message.streamStatus = 'running'
-  saveSessions()
 }
 
 const runAssistantStream = async (streamer, data, assistantMessage, session) => {
@@ -2494,7 +3116,6 @@ const runAssistantStream = async (streamer, data, assistantMessage, session) => 
         assistantMessage.error = true
         assistantMessage.pendingIntervention = null
         session.updatedAt = nowText()
-        saveSessions()
         scrollToBottom()
       },
       onDone: (streamEvent) => {
@@ -2512,7 +3133,6 @@ const runAssistantStream = async (streamer, data, assistantMessage, session) => 
   assistantMessage.typing = false
   assistantMessage.displayContent = assistantMessage.content
   session.updatedAt = nowText()
-  flushScheduledSave()
 
   return pendingIntervention
 }
@@ -2561,7 +3181,6 @@ const handleExternalExecutionIntervention = async (assistantMessage, interventio
   assistantMessage.pendingIntervention = intervention
   assistantMessage.streamStatus = 'waiting'
   ElMessage.warning('智能体正在等待外部系统回传工具执行结果')
-  saveSessions()
   return null
 }
 
@@ -2640,7 +3259,6 @@ const sendMessage = async () => {
     },
     { forceScroll: true }
   )
-  saveSessions()
 
   streaming.value = true
   abortController.value = new AbortController()
@@ -2676,7 +3294,6 @@ const sendMessage = async () => {
     }
     assistantMessage.pending = false
     assistantMessage.typing = false
-    flushScheduledSave()
   } finally {
     streaming.value = false
     abortController.value = null
@@ -2690,17 +3307,30 @@ watch(
     stopStream()
     planDrawerOpen.value = false
     applyRouteAgentInfo()
-    await loadSessions()
+    await loadSessions({ reset: true })
   },
   { immediate: true }
+)
+
+watch(
+  sessionKeyword,
+  () => {
+    if (sessionSearchTimer) {
+      clearTimeout(sessionSearchTimer)
+    }
+    sessionSearchTimer = setTimeout(() => {
+      sessionSearchTimer = null
+      loadSessions({ reset: true })
+    }, 300)
+  }
 )
 
 onBeforeUnmount(() => {
   stopStream()
 
-  if (saveTimer) {
-    clearTimeout(saveTimer)
-    saveTimer = null
+  if (sessionSearchTimer) {
+    clearTimeout(sessionSearchTimer)
+    sessionSearchTimer = null
   }
 
   if (scrollFrame) {
@@ -2737,7 +3367,11 @@ onBeforeUnmount(() => {
         placeholder="搜索历史对话"
       />
 
-      <div class="session-list">
+      <div
+        ref="sessionListRef"
+        class="session-list"
+        @scroll="handleSessionScroll"
+      >
         <div class="session-group-title">
           {{ sessionKeyword ? '搜索结果' : '今天' }}
         </div>
@@ -2767,7 +3401,13 @@ onBeforeUnmount(() => {
           v-if="!filteredSessions.length"
           class="session-empty"
         >
-          未找到相关对话
+          {{ sessionPaging.loading ? '正在加载会话...' : '未找到相关对话' }}
+        </div>
+        <div
+          v-else-if="sessionPaging.loading || !sessionPaging.finished"
+          class="session-empty session-page-state"
+        >
+          {{ sessionPaging.loading ? '正在加载更多...' : '向下滚动加载更多' }}
         </div>
       </div>
 
@@ -2806,6 +3446,12 @@ onBeforeUnmount(() => {
         class="message-list"
         @scroll="handleMessageScroll"
       >
+        <div
+          v-if="activeSession?.messagePaging?.loading && activeMessages.length"
+          class="message-page-state"
+        >
+          正在加载更早消息...
+        </div>
         <div
           v-for="message in activeMessages"
           :key="message.id"
@@ -2908,7 +3554,7 @@ onBeforeUnmount(() => {
           </div>
         </div>
         <div v-if="!activeMessages.length" class="empty-chat">
-          暂无消息
+          {{ activeSession?.messagePaging?.loading ? '正在加载消息...' : '暂无消息' }}
         </div>
       </div>
 
@@ -3179,6 +3825,11 @@ onBeforeUnmount(() => {
   font-size: 13px;
 }
 
+.session-page-state {
+  min-height: 36px;
+  padding-bottom: 8px;
+}
+
 .clear-session-button {
   display: inline-flex;
   align-items: center;
@@ -3253,6 +3904,13 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   padding: 28px 34px 22px;
   background: linear-gradient(180deg, #f7fbff 0%, #ffffff 38%, #f8fbff 100%);
+}
+
+.message-page-state {
+  padding: 8px 0 18px;
+  color: #8a96aa;
+  font-size: 12px;
+  text-align: center;
 }
 
 .back-bottom-button {

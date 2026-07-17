@@ -2,7 +2,10 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiAgentMessageEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.runtime.message.RuntimeMessageDraft;
 import com.zw.common.context.UserInfo;
+
+import java.util.List;
 
 /**
  * <p>
@@ -16,5 +19,14 @@ public interface AiAgentMessageService extends IService<AiAgentMessageEntity> {
 
     AiAgentMessageEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content);
 
-    void saveAssistantMessage(UserInfo userInfo, Long sessionId, Long runId, String msg,String agentName, Integer usageToken, Double usageTime);
+    void bindRunId(Long messageId, Long runId);
+
+    AiAgentMessageEntity saveRunMessages(
+            UserInfo userInfo,
+            Long sessionId,
+            Long runId,
+            List<RuntimeMessageDraft> drafts,
+            Integer usageToken,
+            Double usageTime
+    );
 }

@@ -3,6 +3,8 @@ package com.zw.agent.mapper;
 import com.zw.agent.entity.AiAgentSessionEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * <p>
@@ -15,4 +17,12 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiAgentSessionMapper extends BaseMapper<AiAgentSessionEntity> {
 
+    @Select("""
+            SELECT id
+            FROM ai_agent_session
+            WHERE tenant_id = #{tenantId}
+              AND id = #{sessionId}
+            FOR UPDATE
+            """)
+    Long lockSessionForUpdate(@Param("tenantId") Long tenantId, @Param("sessionId") Long sessionId);
 }

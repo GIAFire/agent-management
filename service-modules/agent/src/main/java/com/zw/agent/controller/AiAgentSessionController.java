@@ -1,5 +1,6 @@
 package com.zw.agent.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiAgentSessionEntity;
@@ -12,6 +13,7 @@ import com.zw.common.context.UserInfo;
 import com.zw.common.entity.Result;
 import java.util.List;
 import lombok.AllArgsConstructor;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -37,9 +39,24 @@ public class AiAgentSessionController {
     @GetMapping("/page")
     public Result<IPage<AiAgentSessionEntity>> page(
             @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "10") long size
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long agentId,
+            @RequestParam(required = false) String keyword
     ) {
-        return Result.ok(aiAgentSessionService.page(new Page<>(current, size)));
+        UserInfo userInfo = UserContext.get();
+        LambdaQueryWrapper<AiAgentSessionEntity> query = new LambdaQueryWrapper<>();
+        query.eq(AiAgentSessionEntity::getTenantId, userInfo.getTenantId())
+                .eq(AiAgentSessionEntity::getUserId, userInfo.getUserId());
+        if (agentId != null) {
+            query.eq(AiAgentSessionEntity::getAgentId, agentId);
+        }
+        if (StringUtils.hasText(keyword)) {
+            query.like(AiAgentSessionEntity::getTitle, keyword.trim());
+        }
+        query.orderByDesc(AiAgentSessionEntity::getLastMessageAt)
+                .orderByDesc(AiAgentSessionEntity::getUpdatedAt)
+                .orderByDesc(AiAgentSessionEntity::getCreatedAt);
+        return Result.ok(aiAgentSessionService.page(new Page<>(current, size), query));
     }
 
     @GetMapping("/{id}")

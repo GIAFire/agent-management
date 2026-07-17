@@ -1,9 +1,12 @@
 package com.zw.agent.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiAgentMessageEntity;
 import com.zw.agent.service.AiAgentMessageService;
+import com.zw.common.context.UserContext;
+import com.zw.common.context.UserInfo;
 import com.zw.common.entity.Result;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -31,9 +34,21 @@ public class AiAgentMessageController {
     @GetMapping("/page")
     public Result<IPage<AiAgentMessageEntity>> page(
             @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "10") long size
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long sessionId
     ) {
-        return Result.ok(aiAgentMessageService.page(new Page<>(current, size)));
+        UserInfo userInfo = UserContext.get();
+        LambdaQueryWrapper<AiAgentMessageEntity> query = new LambdaQueryWrapper<>();
+        query.eq(AiAgentMessageEntity::getTenantId, userInfo.getTenantId());
+        if (sessionId != null) {
+            query.eq(AiAgentMessageEntity::getSessionId, sessionId);
+        }
+        query.and(wrapper -> wrapper.eq(AiAgentMessageEntity::getDeleted, 0)
+                        .or()
+                        .isNull(AiAgentMessageEntity::getDeleted))
+                .orderByDesc(AiAgentMessageEntity::getSeq)
+                .orderByDesc(AiAgentMessageEntity::getCreatedAt);
+        return Result.ok(aiAgentMessageService.page(new Page<>(current, size), query));
     }
 
     @GetMapping("/{id}")

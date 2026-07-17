@@ -52,6 +52,7 @@ public class AgentChatController {
                 session.getId(),
                 userMessage.getId()
         );
+        agentMessageService.bindRunId(userMessage.getId(), run.getId());
 
         log.warn("Controller 里同步 DB 初始化耗时, runId={}, initCostMs={}",
                 run.getId(),

@@ -1,5 +1,6 @@
 package com.zw.agent.service.impl;
 
+import com.zw.agent.entity.AiAgentMessageEntity;
 import com.zw.agent.entity.AiToolCallLogEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentInterventionRequest;
@@ -7,6 +8,9 @@ import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.factory.agentFactory.AgentRuntimeFactory;
 import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
+import com.zw.agent.runtime.message.RunMessageTracker;
+import com.zw.agent.runtime.message.RuntimeEventEnvelope;
+import com.zw.agent.runtime.message.RuntimeMessageDraft;
 import com.zw.agent.service.*;
 import com.zw.agent.service.plan.PlanRuntimeEventTracker;
 import com.zw.common.context.UserContext;
@@ -27,6 +31,7 @@ import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.SignalType;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.*;
@@ -132,44 +137,40 @@ public class AgentChatServiceImpl implements AgentChatService {
             Long sessionId,
             Long runId
     ) {
-        StringBuilder assistantBuffer = new StringBuilder();
         AtomicReference<Integer> usageToken = new AtomicReference<>(0);
         AtomicReference<Double> usageTime = new AtomicReference<>(0.0);
         AtomicReference<String> waitingEventType = new AtomicReference<>();
+        AtomicReference<Throwable> streamError = new AtomicReference<>();
         Map<String, AiToolCallLogEntity> toolAuditMap = new ConcurrentHashMap<>();
-        AtomicLong seq = new AtomicLong(0);
+        AtomicLong sseSeq = new AtomicLong(0);
         AtomicBoolean terminalEventSeen = new AtomicBoolean(false);
-        AtomicBoolean completionSaved = new AtomicBoolean(false);
+        AtomicBoolean finalizationStarted = new AtomicBoolean(false);
         PlanRuntimeEventTracker planEventTracker = agentPlanRuntimeService.newTracker();
+        RunMessageTracker messageTracker = new RunMessageTracker(config.getAgentName());
 
         Set<String> loggedEventTypes = ConcurrentHashMap.newKeySet();
 
         AtomicBoolean stateLoadOpLogged = new AtomicBoolean(false);
-        Flux<ServerSentEvent<AgentStreamResponse>> serverSentEventFlux = runtimeEvents
-                .doOnNext(runtimeEvent -> UserContext.runAs(userInfo, () -> {
+        return runtimeEvents
+                .map(runtimeEvent -> UserContext.callAs(userInfo, () -> {
+                    Map<String, Object> planPayload = agentPlanRuntimeService.handleRuntimeEvent(
+                            agent,
+                            runtimeContext,
+                            runtimeEvent,
+                            config,
+                            userInfo,
+                            sessionId,
+                            runId,
+                            planEventTracker
+                    );
+                    return new RuntimeEventEnvelope(runtimeEvent, planPayload);
+                }))
+                .doOnNext(envelope -> UserContext.runAs(userInfo, () -> {
+                    AgentRuntimeEvent runtimeEvent = envelope.runtimeEvent();
                     if (stateLoadOpLogged.compareAndSet(false, true)) {
-                        Mono.fromRunnable(() -> UserContext.runAs(userInfo, () ->
-                                        agentStateOpLogService.recordLoad(
-                                                agent,
-                                                userInfo,
-                                                config,
-                                                runtimeContext,
-                                                sessionId,
-                                                runId
-                                        )
-                                ))
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .subscribe(
-                                        null,
-                                        ex -> log.warn("Record AgentState LOAD op failed, runId={}", runId, ex)
-                                );
+                        recordStateLoadAsync(agent, runtimeContext, config, userInfo, sessionId, runId);
                     }
                     String eventType = runtimeEvent.getEventType();
-                    if (!isSubAgentRuntimeEvent(runtimeEvent)
-                            && eventType.equals(AgentEventType.TEXT_BLOCK_DELTA.getValue())
-                            && runtimeEvent.getDelta() != null) {
-                        assistantBuffer.append(runtimeEvent.getDelta());
-                    }
 
                     if (eventType.equals(AgentEventType.MODEL_CALL_END.getValue())) {
                         ModelCallEndEvent modelCallEndEvent = (ModelCallEndEvent) runtimeEvent.getRawEvent();
@@ -188,47 +189,23 @@ public class AgentChatServiceImpl implements AgentChatService {
                     if (isWaitingEvent(eventType)) {
                         waitingEventType.set(eventType);
                     }
+                    messageTracker.accept(runtimeEvent, envelope.planPayload());
                     loggedEventTypes.add(eventType);
                 }))
-                .map(runtimeEvent -> UserContext.callAs(userInfo, () -> {
-                    // Plan 事件快照随原始事件一起下发，前端无需额外轮询计划和任务表。
-                    Map<String, Object> planPayload = agentPlanRuntimeService.handleRuntimeEvent(
-                            agent,
-                            runtimeContext,
-                            runtimeEvent,
-                            config,
-                            userInfo,
-                            sessionId,
-                            runId,
-                            planEventTracker
-                    );
+                .map(envelope -> {
+                    AgentRuntimeEvent runtimeEvent = envelope.runtimeEvent();
                     return ServerSentEvent.<AgentStreamResponse>builder()
                         .event(toSseEventName(runtimeEvent))
                         .data(toStreamResponse(
                                 runId,
                                 runtimeEvent,
-                                seq.incrementAndGet(),
-                                mergePayload(toPayload(runtimeEvent), planPayload)
+                                sseSeq.incrementAndGet(),
+                                mergePayload(toPayload(runtimeEvent), envelope.planPayload())
                         ))
                         .build();
-                }))
+                })
+                .doOnError(streamError::set)
                 .onErrorResume(e -> {
-                    Mono.fromRunnable(() -> UserContext.runAs(userInfo, () -> {
-                                        agentRunService.markFailed(
-                                                runId,
-                                                "FAILED",
-                                                e.getMessage()
-                                        );
-                                        agentStateOpLogService.recordSaveFailed(
-                                                userInfo,
-                                                sessionId,
-                                                runId,
-                                                e.getMessage()
-                                        );
-                                    }))
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .subscribe(null,ex -> log.error("记录 agent run 失败, runId={}", runId, ex));
-
                     return Flux.just(ServerSentEvent.<AgentStreamResponse>builder()
                             .event("error")
                             .data(new AgentStreamResponse(
@@ -240,62 +217,154 @@ public class AgentChatServiceImpl implements AgentChatService {
                             .build());
                 })
                 .doFinally(signalType -> {
-                    if ((terminalEventSeen.get() || waitingEventType.get() != null)
-                            && completionSaved.compareAndSet(false, true)) {
-                        List<AiToolCallLogEntity> audits = new ArrayList<>(toolAuditMap.values());
-                        toolAuditMap.clear();
+                    if (!finalizationStarted.compareAndSet(false, true)) {
+                        return;
+                    }
 
-                        Mono.fromRunnable(() -> UserContext.runAs(userInfo, () -> {
-                                    agentMessageService.saveAssistantMessage(
-                                            userInfo,
-                                            sessionId,
-                                            runId,
-                                            assistantBuffer.toString(),
-                                            config.getAgentName(),
-                                            usageToken.get(),
-                                            usageTime.get()
-                                    );
-                                    agentStateLogService.updateState(
+                    List<AiToolCallLogEntity> audits = new ArrayList<>(toolAuditMap.values());
+                    toolAuditMap.clear();
+
+                    Throwable error = streamError.get();
+                    String waitingType = waitingEventType.get();
+                    messageTracker.finishOpenMessages(signalType, error, waitingType);
+                    List<RuntimeMessageDraft> messageDrafts = messageTracker.snapshot();
+                    String runtimeEventTypes = eventTypes(loggedEventTypes);
+
+                    Mono.fromRunnable(() -> UserContext.runAs(userInfo, () ->
+                                    finalizeRuntime(
                                             agent,
                                             runtimeContext,
                                             config,
                                             userInfo,
                                             sessionId,
-                                            runId
-                                    );
-
-                                    if (waitingEventType.get() != null) {
-                                        agentRunService.markWaiting(runId, waitingRunStatus(waitingEventType.get()));
-                                    }
-
-                                    if (!audits.isEmpty()) {
-                                        toolCallAuditService.saveBatch(audits);
-                                    }
-                                }))
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .subscribe(
-                                        null,
-                                        ex -> log.warn("保存 agent stream 收尾信息失败, runId={}", runId, ex)
-                                );
-                    }
-
-                    String runtimeEventTypes = String.join("-", loggedEventTypes);
-
-                    Mono.fromRunnable(() -> UserContext.runAs(userInfo, () ->
-                                    agentRunEventService.saveEvent(
-                                            userInfo,
                                             runId,
-                                            sessionId,
-                                            runtimeEventTypes
+                                            messageDrafts,
+                                            usageToken.get(),
+                                            usageTime.get(),
+                                            audits,
+                                            runtimeEventTypes,
+                                            terminalEventSeen.get(),
+                                            waitingType,
+                                            error,
+                                            signalType
                                     )
                             ))
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe(
                                     null,
-                                    ex -> log.warn("保存 agent run 运行事件失败, runId={}", runId, ex)
+                                    ex -> log.error("Agent运行收尾失败, runId={}", runId, ex)
                             );
                 });
-        return serverSentEventFlux;
+    }
+
+    private void recordStateLoadAsync(
+            HarnessAgent agent,
+            RuntimeContext runtimeContext,
+            AgentConfigDTO config,
+            UserInfo userInfo,
+            Long sessionId,
+            Long runId
+    ) {
+        Mono.fromRunnable(() -> UserContext.runAs(userInfo, () ->
+                        agentStateOpLogService.recordLoad(
+                                agent,
+                                userInfo,
+                                config,
+                                runtimeContext,
+                                sessionId,
+                                runId
+                        )
+                ))
+                .subscribeOn(Schedulers.boundedElastic())
+                .subscribe(
+                        null,
+                        ex -> log.warn("Record AgentState LOAD op failed, runId={}", runId, ex)
+                );
+    }
+
+    private void finalizeRuntime(
+            HarnessAgent agent,
+            RuntimeContext runtimeContext,
+            AgentConfigDTO config,
+            UserInfo userInfo,
+            Long sessionId,
+            Long runId,
+            List<RuntimeMessageDraft> messageDrafts,
+            Integer usageToken,
+            Double usageTime,
+            List<AiToolCallLogEntity> audits,
+            String runtimeEventTypes,
+            boolean terminalEventSeen,
+            String waitingEventType,
+            Throwable error,
+            SignalType signalType
+    ) {
+        if (audits != null && !audits.isEmpty()) {
+            toolCallAuditService.saveBatch(audits);
+        }
+
+        AiAgentMessageEntity outputMessage = agentMessageService.saveRunMessages(
+                userInfo,
+                sessionId,
+                runId,
+                messageDrafts,
+                usageToken,
+                usageTime
+        );
+
+        if (error == null && !SignalType.CANCEL.equals(signalType)) {
+            try {
+                agentStateLogService.updateState(
+                        agent,
+                        runtimeContext,
+                        config,
+                        userInfo,
+                        sessionId,
+                        runId
+                );
+            } catch (Exception ex) {
+                log.warn("保存 AgentState 失败, runId={}", runId, ex);
+                agentStateOpLogService.recordSaveFailed(userInfo, sessionId, runId, safeErrorMessage(ex));
+            }
+        }
+
+        if (error != null) {
+            agentRunService.markFailed(runId, "FAILED", safeErrorMessage(error));
+            agentStateOpLogService.recordSaveFailed(userInfo, sessionId, runId, safeErrorMessage(error));
+        } else if (waitingEventType != null) {
+            agentRunService.markWaiting(runId, waitingRunStatus(waitingEventType));
+        } else if (SignalType.CANCEL.equals(signalType)) {
+            agentRunService.markCancelled(runId);
+        } else if (terminalEventSeen || SignalType.ON_COMPLETE.equals(signalType)) {
+            agentRunService.markSuccess(runId, outputMessage == null ? null : outputMessage.getId());
+        }
+
+        agentRunEventService.saveEvent(userInfo, runId, sessionId, runtimeEventTypes);
+    }
+
+    private String eventTypes(Set<String> loggedEventTypes) {
+        if (loggedEventTypes == null || loggedEventTypes.isEmpty()) {
+            return "";
+        }
+        return loggedEventTypes.stream()
+                .filter(Objects::nonNull)
+                .sorted()
+                .reduce((left, right) -> left + "-" + right)
+                .orElse("");
+    }
+
+    private String safeErrorMessage(Throwable error) {
+        if (error == null) {
+            return null;
+        }
+        String message = error.getMessage();
+        if (message == null || message.isBlank()) {
+            message = error.getClass().getSimpleName();
+        }
+        message = message
+                .replaceAll("(?i)(authorization\\s*[:=]\\s*)(bearer\\s+)?[^\\s,}\\]]+", "$1***")
+                .replaceAll("(?i)(api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)([\"'\\s:=]+)[^,\"'\\s}\\]]+", "$1$2***");
+        return message.length() > 2_000 ? message.substring(0, 2_000) : message;
     }
 
     private Long requireRunId(AgentInterventionRequest request) {

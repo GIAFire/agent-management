@@ -3,6 +3,8 @@ package com.zw.agent.mapper;
 import com.zw.agent.entity.AiAgentMessageEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * <p>
@@ -15,4 +17,12 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiAgentMessageMapper extends BaseMapper<AiAgentMessageEntity> {
 
+    @Select("""
+            SELECT COALESCE(MAX(seq), 0)
+            FROM ai_agent_message
+            WHERE tenant_id = #{tenantId}
+              AND session_id = #{sessionId}
+              AND (deleted = 0 OR deleted IS NULL)
+            """)
+    Long selectMaxSeq(@Param("tenantId") Long tenantId, @Param("sessionId") Long sessionId);
 }

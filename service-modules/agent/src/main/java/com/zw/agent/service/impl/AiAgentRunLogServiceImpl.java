@@ -5,8 +5,11 @@ import com.zw.agent.mapper.AiAgentRunLogMapper;
 import com.zw.agent.service.AiAgentRunLogService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.context.UserInfo;
+import com.zw.common.support.EntityDefaults;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
 
 /**
  * <p>
@@ -30,31 +33,55 @@ public class AiAgentRunLogServiceImpl extends ServiceImpl<AiAgentRunLogMapper, A
         agentRunEntity.setInputMessageId(messageId);
         agentRunEntity.setStatus("RUNNING");
         agentRunEntity.setTenantId(userInfo.getTenantId());
-        agentRunMapper.insert(agentRunEntity);
+        agentRunEntity.setStartedAt(LocalDateTime.now());
+        agentRunEntity.setCreatedBy(userInfo.getUserId());
+        agentRunMapper.insert(EntityDefaults.create(agentRunEntity));
         return agentRunEntity;
     }
 
     @Override
     public void markSuccess(Long runId, Long messageId) {
         AiAgentRunLogEntity aiAgentRunLogEntity = agentRunMapper.selectById(runId);
+        if (aiAgentRunLogEntity == null) {
+            return;
+        }
         aiAgentRunLogEntity.setOutputMessageId(messageId);
         aiAgentRunLogEntity.setStatus("SUCCESS");
-        agentRunMapper.updateById(aiAgentRunLogEntity);
+        aiAgentRunLogEntity.setEndedAt(LocalDateTime.now());
+        agentRunMapper.updateById(EntityDefaults.update(aiAgentRunLogEntity));
     }
 
     @Override
     public void markWaiting(Long runId, String status) {
         AiAgentRunLogEntity aiAgentRunLogEntity = agentRunMapper.selectById(runId);
+        if (aiAgentRunLogEntity == null) {
+            return;
+        }
         aiAgentRunLogEntity.setStatus(status);
-        agentRunMapper.updateById(aiAgentRunLogEntity);
+        agentRunMapper.updateById(EntityDefaults.update(aiAgentRunLogEntity));
     }
 
     @Override
     public void markFailed(Long runId, String agentRunFailed, String message) {
         AiAgentRunLogEntity aiAgentRunLogEntity = agentRunMapper.selectById(runId);
+        if (aiAgentRunLogEntity == null) {
+            return;
+        }
         aiAgentRunLogEntity.setStatus("FAILED");
         aiAgentRunLogEntity.setErrorCode(agentRunFailed);
         aiAgentRunLogEntity.setErrorMessage(message);
-        agentRunMapper.updateById(aiAgentRunLogEntity);
+        aiAgentRunLogEntity.setEndedAt(LocalDateTime.now());
+        agentRunMapper.updateById(EntityDefaults.update(aiAgentRunLogEntity));
+    }
+
+    @Override
+    public void markCancelled(Long runId) {
+        AiAgentRunLogEntity aiAgentRunLogEntity = agentRunMapper.selectById(runId);
+        if (aiAgentRunLogEntity == null) {
+            return;
+        }
+        aiAgentRunLogEntity.setStatus("CANCELLED");
+        aiAgentRunLogEntity.setEndedAt(LocalDateTime.now());
+        agentRunMapper.updateById(EntityDefaults.update(aiAgentRunLogEntity));
     }
 }
