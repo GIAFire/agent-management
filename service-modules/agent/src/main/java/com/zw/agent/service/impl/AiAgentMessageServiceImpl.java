@@ -1,10 +1,10 @@
 package com.zw.agent.service.impl;
 
-import com.zw.agent.entity.AiAgentMessageLogEntity;
+import com.zw.agent.entity.AiAgentMessageEntity;
 import com.zw.agent.entity.AiAgentRunLogEntity;
-import com.zw.agent.mapper.AiAgentMessageLogMapper;
+import com.zw.agent.mapper.AiAgentMessageMapper;
 import com.zw.agent.mapper.AiAgentRunLogMapper;
-import com.zw.agent.service.AiAgentMessageLogService;
+import com.zw.agent.service.AiAgentMessageService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.context.UserInfo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,16 +22,16 @@ import java.time.LocalDateTime;
  * @since 2026-06-20
  */
 @Service
-public class AiAgentMessageLogLogServiceImpl extends ServiceImpl<AiAgentMessageLogMapper, AiAgentMessageLogEntity> implements AiAgentMessageLogService {
+public class AiAgentMessageServiceImpl extends ServiceImpl<AiAgentMessageMapper, AiAgentMessageEntity> implements AiAgentMessageService {
 
     @Autowired
-    private AiAgentMessageLogMapper agentMessageMapper;
+    private AiAgentMessageMapper agentMessageMapper;
     @Autowired
     private AiAgentRunLogMapper agentRunMapper;
 
     @Override
-    public AiAgentMessageLogEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content) {
-        AiAgentMessageLogEntity agentMessageEntity = new AiAgentMessageLogEntity();
+    public AiAgentMessageEntity saveUserMessage(UserInfo userInfo, Long sessionId, String content) {
+        AiAgentMessageEntity agentMessageEntity = new AiAgentMessageEntity();
         agentMessageEntity.setRole("USER");
         agentMessageEntity.setSenderName(userInfo.getUserName());
         agentMessageEntity.setTextContent(content);
@@ -46,15 +46,13 @@ public class AiAgentMessageLogLogServiceImpl extends ServiceImpl<AiAgentMessageL
     @Transactional
     @Override
     public void saveAssistantMessage(UserInfo userInfo, Long sessionId, Long runId, String msg,String agentName, Integer usageToken, Double usageTime) {
-        AiAgentMessageLogEntity agentMessageEntity = new AiAgentMessageLogEntity();
+        AiAgentMessageEntity agentMessageEntity = new AiAgentMessageEntity();
         agentMessageEntity.setRole("ASSISTANT");
         agentMessageEntity.setSenderName(agentName);
         agentMessageEntity.setTextContent(msg);
         agentMessageEntity.setTenantId(userInfo.getTenantId());
         agentMessageEntity.setSessionId(sessionId);
         agentMessageEntity.setRunId(runId);
-        agentMessageEntity.setUsageToken(usageToken);
-        agentMessageEntity.setUsageTime(usageTime);
         agentMessageEntity.setCreatedBy(userInfo.getUserId());
         agentMessageEntity.setCreatedAt(LocalDateTime.now());
         agentMessageMapper.insert(agentMessageEntity);

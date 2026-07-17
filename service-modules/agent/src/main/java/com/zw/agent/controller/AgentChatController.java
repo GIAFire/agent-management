@@ -1,6 +1,6 @@
 package com.zw.agent.controller;
 
-import com.zw.agent.entity.AiAgentMessageLogEntity;
+import com.zw.agent.entity.AiAgentMessageEntity;
 import com.zw.agent.entity.AiAgentRunLogEntity;
 import com.zw.agent.entity.AiAgentSessionEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
@@ -25,7 +25,7 @@ public class AgentChatController {
 
     private final AiAgentService agentService;
     private final AiAgentSessionService agentSessionService;
-    private final AiAgentMessageLogService agentMessageService;
+    private final AiAgentMessageService agentMessageService;
     private final AiAgentRunLogService agentRunService;
     private final AgentChatService agentChatService;
 
@@ -39,7 +39,7 @@ public class AgentChatController {
 
         AiAgentSessionEntity session = requireOwnedSession(userInfo, request.getAgentId(), request.getSessionId());
 
-        AiAgentMessageLogEntity userMessage = agentMessageService.saveUserMessage(
+        AiAgentMessageEntity userMessage = agentMessageService.saveUserMessage(
                 userInfo,
                 session.getId(),
                 request.getContent()
@@ -80,7 +80,7 @@ public class AgentChatController {
     private AiAgentSessionEntity requireOwnedSession(UserInfo userInfo, Long agentId, Long sessionId) {
         AiAgentSessionEntity session = agentSessionService.getOwnedSession(userInfo, agentId, sessionId);
         if (session == null) {
-            throw new IllegalArgumentException("Agent session not found");
+            throw new IllegalArgumentException("当前会话不存在,请重新建立一次对话");
         }
         return session;
     }

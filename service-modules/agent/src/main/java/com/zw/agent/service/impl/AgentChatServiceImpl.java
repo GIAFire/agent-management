@@ -1,6 +1,5 @@
 package com.zw.agent.service.impl;
 
-import com.zw.agent.entity.AiAgentStateLogEntity;
 import com.zw.agent.entity.AiToolCallLogEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.entity.message.AgentInterventionRequest;
@@ -8,7 +7,6 @@ import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.event.AgentStreamResponse;
 import com.zw.agent.factory.agentFactory.AgentRuntimeFactory;
 import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
-import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.service.*;
 import com.zw.agent.service.plan.PlanRuntimeEventTracker;
 import com.zw.common.context.UserContext;
@@ -22,7 +20,6 @@ import io.agentscope.core.message.ToolResultState;
 import io.agentscope.core.message.ToolUseBlock;
 import io.agentscope.core.model.ChatUsage;
 import io.agentscope.core.permission.PermissionRule;
-import io.agentscope.core.state.AgentState;
 import io.agentscope.harness.agent.HarnessAgent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,8 +29,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -55,7 +50,7 @@ public class AgentChatServiceImpl implements AgentChatService {
 
     private final AgentRuntimeFactory agentRuntimeFactory;
     private final AiAgentRunEventLogService agentRunEventService;
-    private final AiAgentMessageLogService agentMessageService;
+    private final AiAgentMessageService agentMessageService;
     private final AiAgentRunLogService agentRunService;
     private final AiToolCallLogService toolCallAuditService;
     private final AiAgentStateLogService agentStateLogService;
