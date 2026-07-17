@@ -1,11 +1,5 @@
 package com.zw.agent.runtime;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
-import java.util.Locale;
-
 public final class AgentRuntimeKeys {
 
     public static final String AGENT_PREFIX = "agent:";
@@ -14,10 +8,10 @@ public final class AgentRuntimeKeys {
     private AgentRuntimeKeys() {
     }
 
-    public static String buildAgentKey(Long agentId, Long userId, Long configId) {
-        validateParams(agentId, userId, configId);
-        return String.format("%s%s:%s:%s",
-                AGENT_PREFIX,agentId, userId, configId);
+    public static String buildAgentKey(Long agentId, Long userId) {
+        validateParams(agentId, userId);
+        return String.format("%s%s:%s",
+                AGENT_PREFIX,agentId, userId);
     }
 
     public static String redisStateKey(Long userId, Long sessionId) {

@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 public interface AiAgentStateLogService extends IService<AiAgentStateLogEntity> {
 
 
-    CompletableFuture<Boolean> saveStateLog(UserInfo userInfo,
+    CompletableFuture<Boolean> saveStateLog(Long runId,UserInfo userInfo,
                                                  AgentConfigDTO config,
                                                  Long sessionId);
 

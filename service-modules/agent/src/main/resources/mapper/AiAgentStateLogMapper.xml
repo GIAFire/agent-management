@@ -18,7 +18,9 @@
     <select id="selectByRuntimeKey" resultType="com.zw.agent.entity.AiAgentStateLogEntity">
         SELECT *
         FROM ai_agent_state_log
-        WHERE user_id = #{userId}
-          AND session_id = #{sessionId}
+        WHERE
+          run_id = #{runId}
+        AND user_id = #{userId}
+        AND session_id = #{sessionId}
     </select>
 </mapper>

@@ -63,8 +63,7 @@ public class AgentRuntimeFactory {
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
         String agentCacheKey = AgentRuntimeKeys.buildAgentKey(
                 config.getAgentId(),
-                userInfo.getUserId(),
-                config.getAgentConfigId());
+                userInfo.getUserId());
 
         return agentCache.get(agentCacheKey, key -> {
             Toolkit toolkit = toolkitFactory.buildToolkit(config.getAgentId());
@@ -134,7 +133,7 @@ public class AgentRuntimeFactory {
 
         UserMessage userMessage = new UserMessage(text);
 
-        agentStateLogService.saveStateLog(userInfo, config, sessionId);
+        agentStateLogService.saveStateLog(runId,userInfo, config, sessionId);
         Flux<AgentRuntimeEvent> runtimeEvents = harnessAgent
                 .streamEvents(userMessage, runtimeContext)
                 .map(this::toRuntimeEvent);

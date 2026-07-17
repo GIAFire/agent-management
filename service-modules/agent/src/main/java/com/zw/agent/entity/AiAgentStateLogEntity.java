@@ -45,6 +45,12 @@ public class AiAgentStateLogEntity extends BaseEntity {
     private Long agentConfigId;
 
     /**
+     * 平台用户ID
+     */
+    @TableField("run_id")
+    private Long runId;
+
+    /**
      * 平台会话ID，关联ai_agent_session.id
      */
     @TableField("session_id")

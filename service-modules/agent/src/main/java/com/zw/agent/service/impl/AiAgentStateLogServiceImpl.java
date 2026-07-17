@@ -36,7 +36,7 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
 
     @Async
     @Override
-    public CompletableFuture<Boolean> saveStateLog(UserInfo userInfo,
+    public CompletableFuture<Boolean> saveStateLog(Long runId,UserInfo userInfo,
                                                         AgentConfigDTO config,
                                                         Long sessionId) {
         try {
@@ -44,6 +44,7 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
             stateLogEntity.setTenantId(userInfo.getTenantId());
             stateLogEntity.setAgentId(config.getAgentId());
             stateLogEntity.setAgentConfigId(config.getAgentConfigId());
+            stateLogEntity.setRunId(runId);
             stateLogEntity.setSessionId(sessionId);
             stateLogEntity.setUserId(userInfo.getUserId());
             stateLogEntity.setStateBackend("REDIS");
@@ -67,6 +68,7 @@ public class AiAgentStateLogServiceImpl extends ServiceImpl<AiAgentStateLogMappe
             Long runId
     ) {
         AiAgentStateLogEntity updateBefore = agentStateLogMapper.selectByRuntimeKey(
+                runId,
                 userInfo.getUserId(),
                 sessionId);
 
