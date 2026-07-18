@@ -252,24 +252,24 @@ public class RunMessageTracker {
         }
 
         Object safeArguments = redact(parseJsonOrText(draft.getTextContent()));
-        draft.getContent().put("arguments", safeArguments);
+        draft.getContent().put("input", safeArguments);
         draft.setTextBuffer(new StringBuilder(toJsonOrString(safeArguments)));
         draft.complete();
     }
 
     private void handleToolResultStart(AgentRuntimeEvent runtimeEvent) {
         ToolResultStartEvent event = (ToolResultStartEvent) runtimeEvent.getRawEvent();
-        String toolName = firstText(event.getToolCallName(), "tool");
-        InvocationKind kind = classify(toolName);
-        if (InvocationKind.PLAN.equals(kind)) {
-            return;
-        }
-
         String toolCallId = toolCallId(event.getToolCallId(), runtimeEvent);
+        String toolName = firstText(toolName(toolCallId), event.getToolCallName(), "tool");
+        InvocationKind kind = classify(toolName);
         String runtimeKey = toolCallId + ":" + kind.resultMessageType;
         Map<String, Object> content = new LinkedHashMap<>();
         content.put("toolName", toolName);
         content.put("toolCallId", toolCallId);
+        Object input = toolInput(toolCallId);
+        if (input != null) {
+            content.put("input", input);
+        }
 
         RuntimeMessageDraft draft = baseDraft(runtimeKey, "TOOL", kind.resultMessageType, toolName, "CARD", runtimeEvent)
                 .parentRuntimeKey(toolCallMessageKeys.get(toolCallId))
@@ -308,8 +308,19 @@ public class RunMessageTracker {
         if (draft == null) {
             return;
         }
-        draft.getContent().put("state", event.getState() == null ? null : event.getState().getValue());
-        draft.getContent().put("resultText", draft.getTextContent());
+        Object input = toolInput(toolCallId);
+        if (input != null) {
+            draft.getContent().put("input", input);
+        }
+        Object output = toolOutput(draft);
+        draft.getContent().remove("dataBlocks");
+        draft.getContent().put("output", output);
+        attachOutputToToolCall(toolCallId, output);
+        if ("PLAN_SNAPSHOT".equals(draft.getMessageType()) && draft.getParentRuntimeKey() != null) {
+            messages.remove(draft.getRuntimeKey());
+            toolResultMessageKeys.remove(toolCallId);
+            return;
+        }
         draft.complete();
     }
 
@@ -477,6 +488,48 @@ public class RunMessageTracker {
         if (draft != null) {
             draft.complete();
         }
+    }
+
+    private Object toolInput(String toolCallId) {
+        RuntimeMessageDraft callDraft = messages.get(toolCallMessageKeys.get(toolCallId));
+        if (callDraft == null || callDraft.getContent() == null) {
+            return null;
+        }
+        return callDraft.getContent().get("input");
+    }
+
+    private String toolName(String toolCallId) {
+        RuntimeMessageDraft callDraft = messages.get(toolCallMessageKeys.get(toolCallId));
+        if (callDraft == null || callDraft.getContent() == null) {
+            return null;
+        }
+        Object toolName = callDraft.getContent().get("toolName");
+        return toolName == null ? null : String.valueOf(toolName);
+    }
+
+    private void attachOutputToToolCall(String toolCallId, Object output) {
+        RuntimeMessageDraft callDraft = messages.get(toolCallMessageKeys.get(toolCallId));
+        if (callDraft == null || callDraft.getContent() == null) {
+            return;
+        }
+        callDraft.getContent().put("output", output);
+    }
+
+    private Object toolOutput(RuntimeMessageDraft draft) {
+        String resultText = draft.getTextContent();
+        Object dataBlocks = draft.getContent() == null ? null : draft.getContent().get("dataBlocks");
+        boolean hasText = resultText != null && !resultText.isBlank();
+        boolean hasData = dataBlocks instanceof List<?> list && !list.isEmpty();
+        if (hasText && hasData) {
+            Map<String, Object> output = new LinkedHashMap<>();
+            output.put("text", resultText);
+            output.put("data", dataBlocks);
+            return output;
+        }
+        if (hasData) {
+            return dataBlocks;
+        }
+        return resultText;
     }
 
     private void appendWithLimit(RuntimeMessageDraft draft, String value, int maxLength) {

@@ -2331,12 +2331,8 @@ const normalizeHistoryAuxiliaryMessage = (record = {}, contentJson = {}) => {
   const isResult = type.endsWith('_RESULT') || type === 'TOOL_RESULT'
   const blockId = `history-block-${message.id}`
   const toolName = record.senderName || contentJson.toolName || (isSubagent ? '子智能体' : '工具调用')
-  const processText = isResult
-    ? ''
-    : formatHistoryValue(contentJson.arguments ?? contentJson.input ?? record.textContent)
-  const resultText = isResult
-    ? (contentJson.resultText || record.textContent || formatHistoryValue(contentJson.dataBlocks))
-    : ''
+  const processText = isResult ? '' : historyToolInputText(record, contentJson)
+  const resultText = historyToolOutputText(record, contentJson, isResult)
 
   if (isSubagent) {
     const block = {
@@ -2473,6 +2469,20 @@ const historyToolName = (record = {}, contentJson = {}, fallback = '工具调用
   return record.senderName || contentJson.toolName || contentJson.tool_name || contentJson.name || fallback
 }
 
+const historyToolInputText = (record = {}, contentJson = {}) => {
+  return formatHistoryValue(contentJson.input ?? contentJson.arguments ?? record.textContent)
+}
+
+const historyToolOutputText = (record = {}, contentJson = {}, includeRecordText = false) => {
+  return formatHistoryValue(
+    contentJson.output ??
+    contentJson.resultText ??
+    contentJson.result ??
+    contentJson.dataBlocks ??
+    (includeRecordText ? record.textContent : '')
+  )
+}
+
 const getOrCreateHistoryToolBlock = (message, record = {}, contentJson = {}) => {
   const callId = historyToolCallId(record, contentJson)
   const blockId = `history-tool-${callId}`
@@ -2544,9 +2554,7 @@ const appendHistoryToolRecord = (message, record = {}, contentJson = {}) => {
   const isResult = type.endsWith('_RESULT') || type === 'TOOL_RESULT'
 
   if (isResult) {
-    const resultText = contentJson.resultText ||
-      record.textContent ||
-      formatHistoryValue(contentJson.dataBlocks ?? contentJson.output ?? contentJson.result)
+    const resultText = historyToolOutputText(record, contentJson, true)
     if (resultText) {
       toolCall.result = resultText
       toolCall.rawResult = resultText
@@ -2558,11 +2566,17 @@ const appendHistoryToolRecord = (message, record = {}, contentJson = {}) => {
     return
   }
 
-  const processText = formatHistoryValue(contentJson.arguments ?? contentJson.input ?? record.textContent)
+  const processText = historyToolInputText(record, contentJson)
   if (processText) {
     toolCall.process = processText
     toolCall.rawInput = processText
     toolCall.argumentStarted = true
+  }
+  const outputText = historyToolOutputText(record, contentJson)
+  if (outputText) {
+    toolCall.result = outputText
+    toolCall.rawResult = outputText
+    toolCall.resultStarted = true
   }
   toolCall.status = historyBlockStatus(record.messageStatus)
   block.status = toolCall.status
@@ -2572,8 +2586,8 @@ const appendHistorySubagentRecord = (message, record = {}, contentJson = {}) => 
   const type = String(record.messageType || '').toUpperCase()
   const block = getOrCreateHistorySubagentBlock(message, record, contentJson)
   const text = type.endsWith('_RESULT')
-    ? (contentJson.resultText || record.textContent || formatHistoryValue(contentJson.dataBlocks ?? contentJson.result))
-    : formatHistoryValue(contentJson.arguments ?? contentJson.input ?? record.textContent)
+    ? historyToolOutputText(record, contentJson, true)
+    : historyToolInputText(record, contentJson)
   if (text) {
     block.content = block.content ? `${block.content}\n${text}` : text
   }
