@@ -10,6 +10,7 @@ import io.agentscope.harness.agent.subagent.WorkspaceMode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -34,7 +35,7 @@ public class SubAgentFactory {
                     .name(subagent.getSubagentName())
                     .description(subagent.getDescription())
                     .inlineAgentsBody(subagent.getSystemPrompt())
-                    .workspace(subagent.getWorkspacePath() != null ? Path.of(subagent.getWorkspacePath()) : null)
+//                    .workspace(subagent.getWorkspacePath() != null ? Path.of(subagent.getWorkspacePath()) : null)
                     .workspaceMode(WorkspaceMode.SHARED)
                     .model(config.getModelName())
                     .persistSession(subagent.getPersistSession() == 1)

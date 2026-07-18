@@ -50,7 +50,7 @@ const form = reactive({
   provider: '',
   description: '',
   modelName: '',
-  modelType: 'CHAT',
+  modelType: [],
   streaming: 1,
   thinking: 0,
   temperature: 0.7,
@@ -65,9 +65,9 @@ const form = reactive({
 const rules = {
   apiKey: [{ required: true, message: '请输入 API Key', trigger: 'blur' }],
   baseURL: [{ required: true, message: '请输入模型 URL 地址', trigger: 'blur' }],
-  provider: [{ required: true, message: '请选择或输入供应商', trigger: 'blur' }],
+  provider: [{ required: true, message: '请选择供应商', trigger: 'change' }],
   modelName: [{ required: true, message: '请输入真实模型名称', trigger: 'blur' }],
-  modelType: [{ required: true, message: '请选择模型类型', trigger: 'change' }],
+  modelType: [{ type: 'array', required: true, message: '请选择模型类型', trigger: 'change' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
@@ -136,20 +136,24 @@ const demoModels = [
 
 const typeTabs = [
   { label: '全部模型', value: 'all' },
-  { label: '对话模型', value: 'CHAT' },
-  { label: '推理模型', value: 'REASONING' },
-  { label: '嵌入模型', value: 'EMBEDDING' },
-  { label: '重排序模型', value: 'RERANK' }
+  { label: '文本模型', value: 'CHAT' },
+  { label: '图像模型', value: 'IMAGE' },
+  { label: '音频模型', value: 'AUDIO' },
+  { label: '视频模型', value: 'VIDEO' }
+]
+
+const providerSelectOptions = [
+  { label: 'OPENAI', value: 'OPENAI' },
+  { label: 'DASH_SCOPE', value: 'DASH_SCOPE' },
+  { label: 'OLLAMA', value: 'OLLAMA' },
+  { label: 'ANTHROPIC', value: 'ANTHROPIC' }
 ]
 
 const modelTypeOptions = [
-  { label: '对话模型', value: 'CHAT' },
-  { label: '推理模型', value: 'REASONING' },
-  { label: '嵌入模型', value: 'EMBEDDING' },
-  { label: '重排序模型', value: 'RERANK' },
+  { label: '文本模型', value: 'CHAT' },
   { label: '图像模型', value: 'IMAGE' },
-  { label: '视频模型', value: 'VIDEO' },
-  { label: '音频模型', value: 'AUDIO' }
+  { label: '音频模型', value: 'AUDIO' },
+  { label: '视频模型', value: 'VIDEO' }
 ]
 
 const rows = computed(() => {
@@ -164,7 +168,7 @@ const filteredRows = computed(() => {
       .some((value) => String(value || '').toLowerCase().includes(keyword))
     const matchProvider = !queryParams.provider || row.provider === queryParams.provider
     const matchStatus = queryParams.status === '' || Number(row.status) === Number(queryParams.status)
-    const matchType = activeType.value === 'all' || row.modelType === activeType.value
+    const matchType = activeType.value === 'all' || modelTypeIncludes(row.modelType, activeType.value)
     return matchKeyword && matchProvider && matchStatus && matchType
   })
 })
@@ -238,16 +242,45 @@ const normalizeModel = (row, index) => {
 }
 
 const providerLabel = (value) => {
-  const text = String(value || '')
+  const text = resolveProviderText(value)
   const map = {
+    DASH_SCOPE: '阿里云百炼',
     DASHSCOPE: '阿里云百炼',
     QWEN: '阿里云百炼',
     OPENAI: 'OpenAI',
     DEEPSEEK: 'DeepSeek',
     ANTHROPIC: 'Anthropic',
+    OLLAMA: 'Ollama',
     LOCAL: '本地模型'
   }
   return map[text.toUpperCase()] || text
+}
+
+const resolveProviderText = (value) => {
+  if (value && typeof value === 'object') {
+    return String(value.name || value.code || value.value || value.desc || '')
+  }
+  return String(value || '')
+}
+
+const normalizeProvider = (value) => {
+  const text = resolveProviderText(value).trim()
+  const upper = text.toUpperCase()
+  const map = {
+    OPENAI: 'OPENAI',
+    DASH_SCOPE: 'DASH_SCOPE',
+    DASHSCOPE: 'DASH_SCOPE',
+    DASHSCOPE_ALIYUN: 'DASH_SCOPE',
+    QWEN: 'DASH_SCOPE',
+    '阿里云百炼': 'DASH_SCOPE',
+    '通义千问': 'DASH_SCOPE',
+    OLLAMA: 'OLLAMA',
+    LOCAL: 'OLLAMA',
+    '本地模型': 'OLLAMA',
+    ANTHROPIC: 'ANTHROPIC',
+    CLAUDE: 'ANTHROPIC'
+  }
+  return map[upper] || map[text] || ''
 }
 
 const displayName = (modelName = '', provider = '') => {
@@ -278,25 +311,57 @@ const inferModelType = (modelName = '') => {
   return 'CHAT'
 }
 
-const normalizeModelType = (value) => {
-  const text = String(value || '').toUpperCase()
-  if (['CHAT', 'REASONING', 'EMBEDDING', 'RERANK', 'IMAGE', 'VIDEO', 'AUDIO'].includes(text)) {
-    return text
+const normalizeModelTypeValue = (value) => {
+  const text = String(value || '').trim()
+  const upper = text.toUpperCase()
+  const map = {
+    CHAT: 'CHAT',
+    TEXT: 'CHAT',
+    REASONING: 'CHAT',
+    EMBEDDING: 'CHAT',
+    RERANK: 'CHAT',
+    '文本模型': 'CHAT',
+    '对话模型': 'CHAT',
+    '推理模型': 'CHAT',
+    '嵌入模型': 'CHAT',
+    '重排序模型': 'CHAT',
+    IMAGE: 'IMAGE',
+    '图像模型': 'IMAGE',
+    AUDIO: 'AUDIO',
+    '音频模型': 'AUDIO',
+    VIDEO: 'VIDEO',
+    '视频模型': 'VIDEO'
   }
-  return 'CHAT'
+  return map[upper] || map[text] || ''
+}
+
+const normalizeModelTypes = (value, fallback = []) => {
+  const source = Array.isArray(value)
+    ? value
+    : String(value || '')
+      .split(/[,，、/\s|]+/)
+      .filter(Boolean)
+  const normalized = source.map(normalizeModelTypeValue).filter(Boolean)
+  return [...new Set(normalized.length ? normalized : fallback)]
+}
+
+const normalizeModelType = (value) => {
+  return normalizeModelTypes(value, ['CHAT']).join(',')
+}
+
+const modelTypeIncludes = (value, type) => {
+  return normalizeModelTypes(value).includes(type)
 }
 
 const modelTypeLabel = (type) => {
   const map = {
-    CHAT: '对话模型',
-    REASONING: '推理模型',
-    EMBEDDING: '嵌入模型',
-    RERANK: '重排序模型',
+    CHAT: '文本模型',
     IMAGE: '图像模型',
-    VIDEO: '视频模型',
-    AUDIO: '音频模型'
+    AUDIO: '音频模型',
+    VIDEO: '视频模型'
   }
-  return map[type] || type
+  const types = normalizeModelTypes(type)
+  return types.length ? types.map((item) => map[item] || item).join('、') : type
 }
 
 const providerClass = (provider) => {
@@ -338,7 +403,7 @@ const resetForm = () => {
     provider: '',
     description: '',
     modelName: '',
-    modelType: 'CHAT',
+    modelType: [],
     streaming: 1,
     thinking: 0,
     temperature: 0.7,
@@ -393,10 +458,10 @@ const handleEdit = async (row) => {
     agentId: data?.agentId ?? null,
     apiKey: data?.apiKey || '',
     baseURL: data?.baseURL || data?.baseUrl || '',
-    provider: providerLabel(data?.provider || ''),
+    provider: normalizeProvider(data?.provider || ''),
     description: data?.description || '',
     modelName: data?.modelName || '',
-    modelType: normalizeModelType(data?.modelType || row.modelType),
+    modelType: normalizeModelTypes(data?.modelType || row.modelType),
     streaming: Number(data?.streaming ?? 1),
     thinking: Number(data?.thinking ?? 0),
     temperature: Number(data?.temperature ?? 0.7),
@@ -425,7 +490,7 @@ const buildPayload = async () => {
     provider: form.provider,
     description: form.description,
     modelName: form.modelName,
-    modelType: form.modelType,
+    modelType: normalizeModelTypes(form.modelType).join(','),
     streaming: form.streaming,
     thinking: form.thinking,
     temperature: normalizeNumber(form.temperature),
@@ -678,7 +743,14 @@ onMounted(loadModelList)
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="供应商" prop="provider">
-              <el-input v-model="form.provider" placeholder="如 OpenAI / DeepSeek / 阿里云百炼" />
+              <el-select v-model="form.provider" placeholder="请选择供应商">
+                <el-option
+                  v-for="item in providerSelectOptions"
+                  :key="item.value"
+                  :label="item.label"
+                  :value="item.value"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -686,19 +758,23 @@ onMounted(loadModelList)
               <el-input v-model="form.modelName" placeholder="如 gpt-4.1 / qwen-max" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="24">
             <el-form-item label="模型 URL" prop="baseURL">
               <el-input v-model="form.baseURL" placeholder="https://api.example.com/v1" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="24">
             <el-form-item label="API Key" prop="apiKey">
               <el-input v-model="form.apiKey" show-password placeholder="请输入 API Key" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="24">
             <el-form-item label="模型类型" prop="modelType">
-              <el-select v-model="form.modelType">
+              <el-select
+                v-model="form.modelType"
+                multiple
+                placeholder="请选择模型类型"
+              >
                 <el-option v-for="item in modelTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
               </el-select>
             </el-form-item>
