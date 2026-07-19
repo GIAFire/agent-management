@@ -51,10 +51,16 @@ public class AiSkillFileEntity extends BaseEntity {
     private String fileName;
 
     /**
+     * 文件内容
+     */
+    @TableField("resource_content")
+    private String resourceContent;
+
+    /**
      * 相对Skill目录路径，例如references/style-guide.md、scripts/run-checks.sh
      */
-    @TableField("relative_path")
-    private String relativePath;
+    @TableField("resource_path")
+    private String resourcePath;
 
     /**
      * MIME类型

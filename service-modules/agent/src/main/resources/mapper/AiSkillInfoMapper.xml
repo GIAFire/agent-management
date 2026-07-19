@@ -5,18 +5,73 @@
     <!-- 通用查询映射结果 -->
     <resultMap id="BaseResultMap" type="com.zw.agent.entity.AiSkillInfoEntity">
         <id column="id" property="id" />
-        <result column="skill_key" property="skillKey" />
-        <result column="skill_name" property="skillName" />
+        <result column="name" property="name" />
         <result column="description" property="description" />
-        <result column="skill_md_content" property="skillMdContent" />
+        <result column="skill_content" property="skillContent" />
+        <result column="source" property="source" />
         <result column="risk_level" property="riskLevel" />
         <result column="requires_shell" property="requiresShell" />
         <result column="requires_sandbox" property="requiresSandbox" />
-        <result column="scope_type" property="scopeType" />
-        <result column="scope_value" property="scopeValue" />
-        <result column="category" property="category" />
         <result column="tags_json" property="tagsJson" />
         <result column="status" property="status" />
     </resultMap>
+
+    <resultMap id="SkillFileMap" type="com.zw.agent.entity.DTO.SkillFileDTO">
+        <id column="id" property="id" />
+        <result column="name" property="name" />
+        <result column="description" property="description" />
+        <result column="skill_content" property="skillContent" />
+        <result column="source" property="source" />
+        <result column="risk_level" property="riskLevel" />
+        <result column="requires_shell" property="requiresShell" />
+        <result column="requires_sandbox" property="requiresSandbox" />
+        <result column="tags_json" property="tagsJson" />
+        <result column="status" property="status" />
+        <collection property="skillFileList" ofType="com.zw.agent.entity.DTO.FileDTO">
+            <id property="id" column="file_id"/>
+            <result property="skillId" column="skill_id"/>
+            <result property="resourcePath" column="resource_ath"/>
+            <result property="resourceContent" column="resource_content"/>
+        </collection>
+    </resultMap>
+
+    <select id="getAgentSkill" resultMap="SkillFileMap" parameterType="String">
+        SELECT
+            si.id,
+            si.NAME,
+            si.description,
+            si.skill_content,
+            si.source,
+            sf.id file_id,
+            sf.skill_id skillId,
+            sf.resource_path,
+            sf.resource_content
+        FROM
+            ai_skill_info si
+                LEFT JOIN ai_skill_file sf ON si.id = sf.skill_id
+                LEFT JOIN ai_skill_agent_binding sab ON sab.skill_id = si.id
+        WHERE
+            si.NAME = #{name}
+            sab.agent_id = #{agentId}
+    </select>
+
+    <select id="getAgentSkillName" resultMap="SkillFileMap">
+        SELECT
+            si.id,
+            si.NAME,
+            si.description,
+            si.skill_content,
+            si.source,
+            sf.id file_id,
+            sf.skill_id skillId,
+            sf.resource_path,
+            sf.resource_content
+        FROM
+            ai_skill_info si
+                LEFT JOIN ai_skill_file sf ON si.id = sf.skill_id
+                LEFT JOIN ai_skill_agent_binding sab ON sab.skill_id = si.id
+        WHERE
+            sab.agent_id = #{agentId}
+    </select>
 
 </mapper>

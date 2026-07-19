@@ -33,16 +33,10 @@ public class AiSkillInfoEntity extends BaseEntity {
     private Long id;
 
     /**
-     * Skill唯一编码，对应目录名，例如code-reviewer
-     */
-    @TableField("skill_key")
-    private String skillKey;
-
-    /**
      * Skill显示名称
      */
-    @TableField("skill_name")
-    private String skillName;
+    @TableField("name")
+    private String name;
 
     /**
      * Skill描述，用于Agent判断何时使用该Skill
@@ -51,10 +45,22 @@ public class AiSkillInfoEntity extends BaseEntity {
     private String description;
 
     /**
-     * 完整SKILL.md内容，包括frontmatter和正文
+     * SKILL.md正文
      */
-    @TableField("skill_md_content")
-    private String skillMdContent;
+    @TableField("skill_content")
+    private String skillContent;
+
+    /**
+     * SKILL.md正文
+     */
+    @TableField("source")
+    private String source;
+
+    /**
+     * 完整的 YAML 元数据，以 JSON 形式保存
+     */
+    @TableField("metadata_json")
+    private String metadataJson;
 
     /**
      * 风险等级：LOW/MEDIUM/HIGH/CRITICAL
@@ -73,24 +79,6 @@ public class AiSkillInfoEntity extends BaseEntity {
      */
     @TableField("requires_sandbox")
     private Byte requiresSandbox;
-
-    /**
-     * 作用域：GLOBAL全局，TENANT租户级，USER用户级，AGENT智能体级
-     */
-    @TableField("scope_type")
-    private String scopeType;
-
-    /**
-     * 作用域值，例如userId、agentId；TENANT级可为空
-     */
-    @TableField("scope_value")
-    private String scopeValue;
-
-    /**
-     * Skill分类，例如code、data、report、rag、ops
-     */
-    @TableField("category")
-    private String category;
 
     /**
      * 标签JSON数组，例如["代码审查","Java","Spring"]

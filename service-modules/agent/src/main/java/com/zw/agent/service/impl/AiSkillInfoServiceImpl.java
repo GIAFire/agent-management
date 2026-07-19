@@ -5,6 +5,7 @@ import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.AiAgentWorkspaceFileEntity;
 import com.zw.agent.entity.AiSkillFileEntity;
 import com.zw.agent.entity.AiSkillInfoEntity;
+import com.zw.agent.entity.DTO.SkillFileDTO;
 import com.zw.agent.mapper.AiSkillInfoMapper;
 import com.zw.agent.service.AiAgentWorkspaceFileService;
 import com.zw.agent.service.AiSkillFileService;
@@ -17,6 +18,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import java.util.List;
 
 import static com.zw.agent.constant.AgentConstant.DEFAULT_SKILL_MD_FILE;
 
@@ -42,7 +45,8 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
     public AiSkillInfoEntity createSkillPackage(AiSkillInfoEntity entity) {
         applyCreateDefaults(entity);
         save(EntityDefaults.create(entity));
-        saveOrUpdateSkillMdArtifacts(entity);
+        // 保存到工作区
+//        saveOrUpdateSkillMdArtifacts(entity);
         return entity;
     }
 
@@ -74,7 +78,7 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
                     skill,
                     DEFAULT_SKILL_MD_FILE,
                     DEFAULT_SKILL_MD_FILE,
-                    skill.getSkillMdContent()
+                    skill.getSkillContent()
             );
         } else {
             workspaceFile = workspaceFileService.updateSkillPackageFile(
@@ -82,7 +86,7 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
                     skill,
                     DEFAULT_SKILL_MD_FILE,
                     DEFAULT_SKILL_MD_FILE,
-                    skill.getSkillMdContent()
+                    skill.getSkillContent()
             );
         }
 
@@ -94,8 +98,8 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
         if (entity.getTenantId() == null && userInfo != null) {
             entity.setTenantId(userInfo.getTenantId());
         }
-        if (!StringUtils.hasText(entity.getSkillMdContent())) {
-            entity.setSkillMdContent(buildDefaultSkillMd(entity));
+        if (!StringUtils.hasText(entity.getSkillContent())) {
+            entity.setSkillContent(buildDefaultSkillMd(entity));
         }
         if (!StringUtils.hasText(entity.getRiskLevel())) {
             entity.setRiskLevel("LOW");
@@ -106,9 +110,6 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
         if (entity.getRequiresSandbox() == null) {
             entity.setRequiresSandbox((byte) 0);
         }
-        if (!StringUtils.hasText(entity.getScopeType())) {
-            entity.setScopeType("TENANT");
-        }
         if (entity.getStatus() == null) {
             entity.setStatus((byte) 1);
         }
@@ -118,17 +119,14 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
         if (entity.getTenantId() == null) {
             entity.setTenantId(existing.getTenantId());
         }
-        if (!StringUtils.hasText(entity.getSkillKey())) {
-            entity.setSkillKey(existing.getSkillKey());
-        }
-        if (!StringUtils.hasText(entity.getSkillName())) {
-            entity.setSkillName(existing.getSkillName());
+        if (!StringUtils.hasText(entity.getName())) {
+            entity.setName(existing.getName());
         }
         if (!StringUtils.hasText(entity.getDescription())) {
             entity.setDescription(existing.getDescription());
         }
-        if (!StringUtils.hasText(entity.getSkillMdContent())) {
-            entity.setSkillMdContent(existing.getSkillMdContent());
+        if (!StringUtils.hasText(entity.getSkillContent())) {
+            entity.setSkillContent(existing.getSkillContent());
         }
         if (!StringUtils.hasText(entity.getRiskLevel())) {
             entity.setRiskLevel(existing.getRiskLevel());
@@ -139,15 +137,6 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
         if (entity.getRequiresSandbox() == null) {
             entity.setRequiresSandbox(existing.getRequiresSandbox());
         }
-        if (!StringUtils.hasText(entity.getScopeType())) {
-            entity.setScopeType(existing.getScopeType());
-        }
-        if (entity.getScopeValue() == null) {
-            entity.setScopeValue(existing.getScopeValue());
-        }
-        if (entity.getCategory() == null) {
-            entity.setCategory(existing.getCategory());
-        }
         if (entity.getTagsJson() == null) {
             entity.setTagsJson(existing.getTagsJson());
         }
@@ -157,7 +146,7 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
     }
 
     private String buildDefaultSkillMd(AiSkillInfoEntity entity) {
-        String name = StringUtils.hasText(entity.getSkillName()) ? entity.getSkillName() : "未命名技能";
+        String name = StringUtils.hasText(entity.getName()) ? entity.getName() : "未命名技能";
         String description = StringUtils.hasText(entity.getDescription()) ? entity.getDescription() : "请补充技能说明";
         return String.join("\n",
                 "---",
@@ -189,5 +178,15 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
 
         return workspaceFileService.remove(new LambdaQueryWrapper<AiAgentWorkspaceFileEntity>()
                 .eq(AiAgentWorkspaceFileEntity::getSkillId, id));
+    }
+
+    @Override
+    public SkillFileDTO getAgentSkill(String name,Long agentId) {
+        return skillInfoMapper.getAgentSkill(name,agentId);
+    }
+
+    @Override
+    public List<SkillFileDTO> getAgentSkillName(Long agentId) {
+        return skillInfoMapper.getAgentSkillName(agentId);
     }
 }

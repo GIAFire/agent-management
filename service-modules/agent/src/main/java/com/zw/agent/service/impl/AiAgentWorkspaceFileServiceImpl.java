@@ -225,7 +225,7 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
     }
 
     private String buildSkillStoragePath(Long tenantId, AiSkillInfoEntity skill, String relativeSkillPath, String fileName) {
-        String skillName = StringUtils.hasText(skill.getSkillName()) ? skill.getSkillName() : skill.getSkillKey();
+        String skillName = skill.getName();
         String skillSegment = sanitizePathSegment(skillName);
         String filePath = StringUtils.hasText(relativeSkillPath) ? relativeSkillPath : fileName;
         filePath = filePath.replace("\\", "/").replaceAll("^/+", "");

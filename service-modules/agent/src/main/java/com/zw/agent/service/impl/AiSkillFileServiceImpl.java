@@ -47,7 +47,7 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
         return getOne(new LambdaQueryWrapper<AiSkillFileEntity>()
                 .eq(AiSkillFileEntity::getSkillId, skillId)
                 .eq(AiSkillFileEntity::getFileRole, SKILL_MD_ROLE)
-                .eq(AiSkillFileEntity::getRelativePath, SKILL_MD_PATH)
+                .eq(AiSkillFileEntity::getResourcePath, SKILL_MD_PATH)
                 .last("LIMIT 1"));
     }
 
@@ -62,7 +62,7 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
         entity.setSkillId(skill.getId());
         entity.setFileRole(SKILL_MD_ROLE);
         entity.setFileName(SKILL_MD_PATH);
-        entity.setRelativePath(SKILL_MD_PATH);
+        entity.setResourcePath(SKILL_MD_PATH);
         entity.setMimeType(workspaceFile.getMimeType());
         entity.setFileExt(workspaceFile.getFileExt());
         entity.setSizeBytes(workspaceFile.getSizeBytes());
@@ -84,7 +84,7 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
     public List<AiSkillFileEntity> listBySkillId(Long skillId) {
         return list(new LambdaQueryWrapper<AiSkillFileEntity>()
                 .eq(AiSkillFileEntity::getSkillId, skillId)
-                .orderByAsc(AiSkillFileEntity::getRelativePath));
+                .orderByAsc(AiSkillFileEntity::getResourcePath));
     }
 
     @Override
@@ -112,7 +112,7 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
         entity.setExecutable(request.getExecutable() == null ? (byte) 0 : request.getExecutable());
         save(EntityDefaults.create(entity));
         if (SKILL_MD_ROLE.equals(entity.getFileRole())) {
-            skill.setSkillMdContent(content);
+            skill.setSkillContent(content);
             skillInfoMapper.updateById(EntityDefaults.update(skill));
         }
         return entity;
@@ -134,7 +134,7 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
         workspaceFile = workspaceFileService.updateSkillPackageFile(
                 workspaceFile,
                 skill,
-                entity.getRelativePath(),
+                entity.getResourcePath(),
                 entity.getFileName(),
                 content
         );
@@ -149,7 +149,7 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
         updateById(EntityDefaults.update(entity));
 
         if (SKILL_MD_ROLE.equals(entity.getFileRole())) {
-            skill.setSkillMdContent(content);
+            skill.setSkillContent(content);
             skillInfoMapper.updateById(EntityDefaults.update(skill));
         }
         return entity;
@@ -168,13 +168,13 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
     @Transactional(rollbackFor = Exception.class)
     public Boolean deleteSkillPackageNode(Long id) {
         AiSkillFileEntity entity = requireFile(id);
-        String prefix = entity.getRelativePath() + "/";
+        String prefix = entity.getResourcePath() + "/";
         List<AiSkillFileEntity> targets = list(new LambdaQueryWrapper<AiSkillFileEntity>()
                 .eq(AiSkillFileEntity::getSkillId, entity.getSkillId())
                 .and(wrapper -> wrapper
                         .eq(AiSkillFileEntity::getId, entity.getId())
                         .or()
-                        .likeRight(AiSkillFileEntity::getRelativePath, prefix)));
+                        .likeRight(AiSkillFileEntity::getResourcePath, prefix)));
 
         for (AiSkillFileEntity target : targets) {
             if (target.getWorkspaceFileId() != null) {
@@ -213,7 +213,7 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
     private void ensureUniquePath(Long skillId, String relativePath) {
         long count = count(new LambdaQueryWrapper<AiSkillFileEntity>()
                 .eq(AiSkillFileEntity::getSkillId, skillId)
-                .eq(AiSkillFileEntity::getRelativePath, relativePath));
+                .eq(AiSkillFileEntity::getResourcePath, relativePath));
         if (count > 0) {
             throw new IllegalArgumentException("同目录下已存在同名文件或文件夹");
         }
@@ -225,7 +225,7 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
         entity.setSkillId(skill.getId());
         entity.setFileRole(DIRECTORY_ROLE);
         entity.setFileName(StringUtils.getFilename(relativePath));
-        entity.setRelativePath(relativePath);
+        entity.setResourcePath(relativePath);
         entity.setMimeType(DIRECTORY_MIME_TYPE);
         entity.setFileExt("");
         entity.setSizeBytes(0L);
@@ -247,7 +247,7 @@ public class AiSkillFileServiceImpl extends ServiceImpl<AiSkillFileMapper, AiSki
         entity.setSkillId(skill.getId());
         entity.setFileRole(fileRole);
         entity.setFileName(StringUtils.getFilename(relativePath));
-        entity.setRelativePath(relativePath);
+        entity.setResourcePath(relativePath);
         entity.setMimeType(workspaceFile.getMimeType());
         entity.setFileExt(workspaceFile.getFileExt());
         entity.setSizeBytes(workspaceFile.getSizeBytes());

@@ -76,6 +76,11 @@
 
         <dependency>
             <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-skill-mysql-repository</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.agentscope</groupId>
             <artifactId>agentscope-extensions-nacos-skill</artifactId>
         </dependency>
 

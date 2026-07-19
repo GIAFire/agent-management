@@ -16,5 +16,5 @@ public class NacosSkillProperties {
 
     private String label;
 
-    private List<String> knownSkillNames = List.of("test-skill","read-skill");
+    private List<String> knownSkillNames = new ArrayList<>();
 }

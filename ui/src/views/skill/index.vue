@@ -48,7 +48,6 @@ const editorVisible = ref(false)
 const editorSaving = ref(false)
 const editorDirty = ref(false)
 const dialogTitle = ref('新建技能')
-const viewMode = ref('grid')
 const skills = ref([])
 const logs = ref([])
 const currentPage = ref(1)
@@ -112,92 +111,9 @@ const createForm = reactive({
 })
 
 const demoSkills = [
-  {
-    id: 1,
-    skillName: 'SQL 数据分析',
-    skillKey: '/sql-analysis',
-    description: '查询业务数据库并生成结构化分析结论',
-    category: '数据分析',
-    status: 1,
-    todayRuns: 428,
-    boundAgents: 8,
-    successRate: 99.3,
-    avgDuration: 11800
-  },
-  {
-    id: 2,
-    skillName: '数据报告生成',
-    skillKey: '/report-generator',
-    description: '将分析结果整理为规范的业务报告',
-    category: '报告生成',
-    status: 1,
-    todayRuns: 316,
-    boundAgents: 6,
-    successRate: 98.8,
-    avgDuration: 13200
-  },
-  {
-    id: 3,
-    skillName: '文档总结',
-    skillKey: '/document-summary',
-    description: '提取文档重点并形成层次清晰的摘要',
-    category: '文档处理',
-    status: 1,
-    todayRuns: 284,
-    boundAgents: 9,
-    successRate: 99.1,
-    avgDuration: 9600
-  },
-  {
-    id: 4,
-    skillName: 'Git 仓库分析',
-    skillKey: '/git-analysis',
-    description: '分析代码结构、提交记录与变更影响',
-    category: '研发效能',
-    status: 1,
-    todayRuns: 236,
-    boundAgents: 4,
-    successRate: 97.9,
-    avgDuration: 15100,
-    riskLevel: 'MEDIUM'
-  },
-  {
-    id: 5,
-    skillName: '网页研究',
-    skillKey: '/web-research',
-    description: '检索公开信息并汇总可信来源与证据',
-    category: '信息检索',
-    status: 1,
-    todayRuns: 358,
-    boundAgents: 7,
-    successRate: 98.6,
-    avgDuration: 12600
-  },
-  {
-    id: 6,
-    skillName: '文件批量处理',
-    skillKey: '/batch-file',
-    description: '批量解析、转换并归档工作区文件',
-    category: '文件处理',
-    status: 0,
-    todayRuns: 0,
-    boundAgents: 2,
-    successRate: null,
-    avgDuration: 0,
-    requiresSandbox: 1
-  }
 ]
 
 const demoLogs = [
-  { id: 1, skillName: 'SQL 数据分析', agentName: '数据分析专家', operation: '查询销售数据并分析趋势变化', success: 1, createdAt: '10:23:45', durationMs: 11200 },
-  { id: 2, skillName: '文档总结', agentName: '文档总结专家', operation: '总结 Q2 产品需求文档核心要点', success: 1, createdAt: '09:58:12', durationMs: 9400 },
-  { id: 3, skillName: '数据报告生成', agentName: '市场研究员', operation: '生成市场分析报告（第 18 周）', success: 1, createdAt: '09:42:31', durationMs: 13800 },
-  { id: 4, skillName: 'Git 仓库分析', agentName: '代码分析助手', operation: '分析核心仓库本周提交影响', success: 1, createdAt: '09:21:07', durationMs: 15500 },
-  { id: 5, skillName: '网页研究', agentName: '信息检索专家', operation: '调研行业最新动态与政策解读', success: 1, createdAt: '08:57:36', durationMs: 12100 },
-  { id: 6, skillName: '文件批量处理', agentName: '文件处理助手', operation: '批量处理合同文件并归档', success: 1, createdAt: '08:33:18', durationMs: 16800 },
-  { id: 7, skillName: 'Git 仓库分析', agentName: '代码分析助手', operation: '仓库访问凭证已失效', success: 0, createdAt: '05-18 14:32', durationMs: 2300, errorMessage: '仓库访问凭证已失效' },
-  { id: 8, skillName: '网页研究', agentName: '信息检索专家', operation: '外部页面请求超时', success: 0, createdAt: '05-18 11:07', durationMs: 30000, errorMessage: '外部页面请求超时' },
-  { id: 9, skillName: '文件批量处理', agentName: '文件处理助手', operation: '文件格式不支持', success: 0, createdAt: '05-18 09:41', durationMs: 1800, errorMessage: '文件格式不支持' }
 ]
 
 const skillRows = computed(() => {
@@ -1415,10 +1331,6 @@ onBeforeUnmount(() => {
               <el-option label="已停用" :value="0" />
             </el-select>
             <el-button :icon="Refresh" @click="loadDashboard" />
-            <el-button-group class="view-toggle">
-              <el-button :type="viewMode === 'grid' ? 'primary' : 'default'" :icon="Grid" @click="viewMode = 'grid'" />
-              <el-button :type="viewMode === 'list' ? 'primary' : 'default'" :icon="Menu" @click="viewMode = 'list'" />
-            </el-button-group>
           </div>
         </div>
 

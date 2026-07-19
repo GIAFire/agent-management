@@ -2,7 +2,10 @@ package com.zw.agent.mapper;
 
 import com.zw.agent.entity.AiSkillInfoEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.zw.agent.entity.DTO.SkillFileDTO;
 import org.apache.ibatis.annotations.Mapper;
+
+import java.util.List;
 
 /**
  * <p>
@@ -15,4 +18,7 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiSkillInfoMapper extends BaseMapper<AiSkillInfoEntity> {
 
+    SkillFileDTO getAgentSkill(String name,Long agentId);
+
+    List<SkillFileDTO> getAgentSkillName(Long agentId);
 }

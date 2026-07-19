@@ -9,6 +9,7 @@ import com.zw.agent.factory.compactionFactory.CompactionFactory;
 import com.zw.agent.factory.modelFactory.ModelFactory;
 import com.zw.agent.factory.permissionFactory.PermissionFactory;
 import com.zw.agent.factory.runtimeContextFactory.RuntimeContextFactory;
+import com.zw.agent.factory.skillFactory.SkillFactory;
 import com.zw.agent.factory.subAgentFactory.SubAgentFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
@@ -26,6 +27,8 @@ import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.nacos.skill.NacosSkillRepository;
 import io.agentscope.core.permission.PermissionContextState;
 import io.agentscope.core.skill.AgentSkill;
+import io.agentscope.core.skill.repository.AgentSkillRepository;
+import io.agentscope.core.skill.repository.mysql.MysqlSkillRepository;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
@@ -59,6 +62,7 @@ public class AgentRuntimeFactory {
     private final RuntimeContextFactory runtimeContextFactory;
     private final SubAgentFactory subAgentFactory;
     private final NacosSkillRepository nacosSkillRepository;
+    private final SkillFactory mysqlSkillFactory;
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
         String agentCacheKey = AgentRuntimeKeys.buildAgentKey(
@@ -72,6 +76,7 @@ public class AgentRuntimeFactory {
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
             ChatModelBase chatModelBase = modelFactory.buildModel(config);
             List<SubagentDeclaration> subAgentList = subAgentFactory.buildSubAgent(config);
+            AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config);
 
             HarnessAgent.Builder agentBuilder = HarnessAgent.builder()
                     .name(config.getAgentName())
@@ -82,6 +87,7 @@ public class AgentRuntimeFactory {
                     .maxIters(config.getMaxIters())
                     .compaction(compactionConfig)
                     .skillRepository(nacosSkillRepository)
+                    .skillRepository(mysqlSkillRepository)
                     .workspace(Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath()))
                     .toolResultEviction(toolResultEvictionConfig);
             if (config.getMemoryEnable() == 0){
