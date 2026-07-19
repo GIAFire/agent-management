@@ -30,8 +30,12 @@
         <collection property="skillFileList" ofType="com.zw.agent.entity.DTO.FileDTO">
             <id property="id" column="file_id"/>
             <result property="skillId" column="skill_id"/>
-            <result property="resourcePath" column="resource_ath"/>
+            <result property="fileRole" column="file_role"/>
+            <result property="fileName" column="file_name"/>
+            <result property="resourcePath" column="resource_path"/>
             <result property="resourceContent" column="resource_content"/>
+            <result property="storageKey" column="storage_key"/>
+            <result property="workspaceFileId" column="workspace_file_id"/>
         </collection>
     </resultMap>
 
@@ -43,9 +47,13 @@
             si.skill_content,
             si.source,
             sf.id file_id,
-            sf.skill_id skillId,
+            sf.skill_id skill_id,
+            sf.file_role,
+            sf.file_name,
             sf.resource_path,
-            sf.resource_content
+            sf.resource_content,
+            sf.storage_key,
+            sf.workspace_file_id
         FROM
             ai_skill_info si
                 LEFT JOIN ai_skill_file sf ON si.id = sf.skill_id
@@ -63,9 +71,13 @@
             si.skill_content,
             si.source,
             sf.id file_id,
-            sf.skill_id skillId,
+            sf.skill_id skill_id,
+            sf.file_role,
+            sf.file_name,
             sf.resource_path,
-            sf.resource_content
+            sf.resource_content,
+            sf.storage_key,
+            sf.workspace_file_id
         FROM
             ai_skill_info si
                 LEFT JOIN ai_skill_file sf ON si.id = sf.skill_id

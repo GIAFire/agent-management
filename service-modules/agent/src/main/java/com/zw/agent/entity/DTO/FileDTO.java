@@ -40,6 +40,16 @@ public class FileDTO{
     private String resourceContent;
 
     /**
+     * 外部存储key；DB存储时可为空
+     */
+    private String storageKey;
+
+    /**
+     * 关联workspace_file或对象存储文件
+     */
+    private Long workspaceFileId;
+
+    /**
      * 相对Skill目录路径，例如references/style-guide.md、scripts/run-checks.sh
      */
     private String resourcePath;
