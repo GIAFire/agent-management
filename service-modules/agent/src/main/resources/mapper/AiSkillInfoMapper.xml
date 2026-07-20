@@ -9,6 +9,7 @@
         <result column="description" property="description" />
         <result column="skill_content" property="skillContent" />
         <result column="source" property="source" />
+        <result column="metadata_json" property="metadataJson" />
         <result column="risk_level" property="riskLevel" />
         <result column="tags_json" property="tagsJson" />
         <result column="status" property="status" />
