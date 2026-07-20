@@ -50,12 +50,10 @@
             sf.file_role,
             sf.file_name,
             sf.resource_path,
-            sf.resource_content,
-            sf.storage_key,
-            sf.workspace_file_id
+            sf.resource_content
         FROM
             ai_skill_info si
-                LEFT JOIN ai_skill_file sf ON si.id = sf.skill_id
+                LEFT JOIN ai_skill_resource sf ON si.id = sf.skill_id
                 LEFT JOIN ai_skill_agent_binding sab ON sab.skill_id = si.id
         WHERE
             si.NAME = #{name}
@@ -74,12 +72,10 @@
             sf.file_role,
             sf.file_name,
             sf.resource_path,
-            sf.resource_content,
-            sf.storage_key,
-            sf.workspace_file_id
+            sf.resource_content
         FROM
             ai_skill_info si
-                LEFT JOIN ai_skill_file sf ON si.id = sf.skill_id
+                LEFT JOIN ai_skill_resource sf ON si.id = sf.skill_id
                 LEFT JOIN ai_skill_agent_binding sab ON sab.skill_id = si.id
         WHERE
             sab.agent_id = #{agentId}

@@ -42,5 +42,5 @@ public class AiSkillRoleEntity extends BaseEntity {
      * 角色code
      */
     @TableField("role_code")
-    private Integer roleCode;
+    private String roleCode;
 }

@@ -2,6 +2,7 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiSkillResourceEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.entity.DTO.AiSkillResourceSaveRequest;
 
 /**
  * <p>
@@ -12,4 +13,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * @since 2026-07-16
  */
 public interface AiSkillResourceService extends IService<AiSkillResourceEntity> {
+
+    AiSkillResourceEntity createResource(AiSkillResourceSaveRequest request);
+
+    AiSkillResourceEntity updateResource(AiSkillResourceSaveRequest request);
 }

@@ -2,6 +2,7 @@ package com.zw.agent.service;
 
 import com.zw.agent.entity.AiSkillInfoEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.entity.DTO.AiSkillInfoSaveRequest;
 import com.zw.agent.entity.DTO.SkillFileDTO;
 
 import java.util.List;
@@ -19,5 +20,9 @@ public interface AiSkillInfoService extends IService<AiSkillInfoEntity> {
     SkillFileDTO getAgentSkill(String name,Long agentId);
 
     List<SkillFileDTO> getAgentSkillName(Long agentId);
+
+    AiSkillInfoEntity createWithRoles(AiSkillInfoSaveRequest request);
+
+    Boolean updateWithRoles(AiSkillInfoSaveRequest request);
 
 }

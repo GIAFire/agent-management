@@ -1,11 +1,12 @@
 package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiSkillResourceEntity;
+import com.zw.agent.entity.DTO.AiSkillResourceSaveRequest;
 import com.zw.agent.service.AiSkillResourceService;
 import com.zw.common.entity.Result;
-import com.zw.common.support.EntityDefaults;
 import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -27,7 +28,7 @@ public class AiSkillResourceController {
 
     @GetMapping("/list")
     public Result<List<AiSkillResourceEntity>> list() {
-        return Result.ok(aiSkillResourceService.list());
+        return Result.ok(enrichList(aiSkillResourceService.list()));
     }
 
     @GetMapping("/page")
@@ -35,29 +36,73 @@ public class AiSkillResourceController {
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size
     ) {
-        return Result.ok(aiSkillResourceService.page(new Page<>(current, size)));
+        IPage<AiSkillResourceEntity> page = aiSkillResourceService.page(new Page<>(current, size));
+        page.setRecords(enrichList(page.getRecords()));
+        return Result.ok(page);
     }
 
     @GetMapping("/{id}")
     public Result<AiSkillResourceEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiSkillResourceService.getById(id));
+        return Result.ok(enrich(aiSkillResourceService.getById(id)));
+    }
+
+    @GetMapping("/skill/{skillId}")
+    public Result<List<AiSkillResourceEntity>> listBySkill(@PathVariable Long skillId) {
+        return Result.ok(enrichList(aiSkillResourceService.list(Wrappers.<AiSkillResourceEntity>lambdaQuery()
+                .eq(AiSkillResourceEntity::getSkillId, skillId)
+                .orderByAsc(AiSkillResourceEntity::getResourcePath))));
+    }
+
+    @GetMapping("/content/{id}")
+    public Result<String> getContent(@PathVariable Long id) {
+        AiSkillResourceEntity entity = aiSkillResourceService.getById(id);
+        return Result.ok(entity == null ? "" : entity.getResourceContent());
     }
 
     @PostMapping("/create")
-    public Result<Boolean> create(@RequestBody AiSkillResourceEntity entity) {
-        return Result.ok(aiSkillResourceService.save(EntityDefaults.create(entity)));
+    public Result<AiSkillResourceEntity> create(@RequestBody AiSkillResourceSaveRequest request) {
+        return Result.ok(aiSkillResourceService.createResource(request));
     }
 
 
     @PostMapping("/update")
-    public Result<Boolean> update(@RequestBody AiSkillResourceEntity entity) {
-        return Result.ok(aiSkillResourceService.updateById(EntityDefaults.update(entity)));
+    public Result<AiSkillResourceEntity> update(@RequestBody AiSkillResourceSaveRequest request) {
+        return Result.ok(aiSkillResourceService.updateResource(request));
+    }
+
+    @PostMapping("/createPackageNode")
+    public Result<AiSkillResourceEntity> createPackageNode(@RequestBody AiSkillResourceSaveRequest request) {
+        return Result.ok(aiSkillResourceService.createResource(request));
+    }
+
+    @PostMapping("/updatePackageFile")
+    public Result<AiSkillResourceEntity> updatePackageFile(@RequestBody AiSkillResourceSaveRequest request) {
+        return Result.ok(aiSkillResourceService.updateResource(request));
     }
 
 
     @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
         return Result.ok(aiSkillResourceService.removeById(id));
+    }
+
+    @GetMapping("/deletePackageNode/{id}")
+    public Result<Boolean> deletePackageNode(@PathVariable Long id) {
+        return Result.ok(aiSkillResourceService.removeById(id));
+    }
+
+    private List<AiSkillResourceEntity> enrichList(List<AiSkillResourceEntity> entities) {
+        return entities == null ? List.of() : entities.stream().map(this::enrich).toList();
+    }
+
+    private AiSkillResourceEntity enrich(AiSkillResourceEntity entity) {
+        if (entity == null) {
+            return null;
+        }
+        entity.setRelativePath(entity.getResourcePath());
+        entity.setContent(entity.getResourceContent());
+        entity.setDirectory("DIRECTORY".equals(entity.getFileRole()));
+        return entity;
     }
 
 }

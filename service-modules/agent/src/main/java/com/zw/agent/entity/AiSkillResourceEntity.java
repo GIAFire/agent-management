@@ -61,4 +61,13 @@ public class AiSkillResourceEntity extends BaseEntity {
     @TableField("resource_path")
     private String resourcePath;
 
+    @TableField(exist = false)
+    private String relativePath;
+
+    @TableField(exist = false)
+    private String content;
+
+    @TableField(exist = false)
+    private Boolean directory;
+
 }

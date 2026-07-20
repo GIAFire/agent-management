@@ -27,23 +27,23 @@ export const deleteSkill = (id) => {
 }
 
 export const listSkillFilesBySkill = (skillId) => {
-  return get(`${baseUrl}/skillFile/skill/${stringifyId(skillId)}`)
+  return get(`${baseUrl}/skillResource/skill/${stringifyId(skillId)}`)
 }
 
 export const getSkillFileContent = (id) => {
-  return get(`${baseUrl}/skillFile/content/${stringifyId(id)}`)
+  return get(`${baseUrl}/skillResource/content/${stringifyId(id)}`)
 }
 
 export const createSkillPackageNode = (data) => {
-  return post(`${baseUrl}/skillFile/createPackageNode`, data)
+  return post(`${baseUrl}/skillResource/create`, data)
 }
 
 export const updateSkillPackageFile = (data) => {
-  return post(`${baseUrl}/skillFile/updatePackageFile`, data)
+  return post(`${baseUrl}/skillResource/update`, data)
 }
 
 export const deleteSkillPackageNode = (id) => {
-  return get(`${baseUrl}/skillFile/deletePackageNode/${stringifyId(id)}`)
+  return get(`${baseUrl}/skillResource/delete/${stringifyId(id)}`)
 }
 
 export const listSkillLogs = () => {

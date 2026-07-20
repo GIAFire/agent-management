@@ -38,6 +38,7 @@ import {
   updateSkillPackageFile,
   updateSkill
 } from '@/axios/skill'
+import { listRole } from '@/axios/role'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -53,10 +54,13 @@ const logs = ref([])
 const currentPage = ref(1)
 const pageSize = ref(6)
 const editorSkill = ref(null)
+const editorSkillSnapshot = ref(null)
 const editorTree = ref([])
 const editorSnapshot = ref([])
 const activeFileId = ref('')
 const editorContent = ref('')
+const roleRows = ref([])
+const viewMode = ref('grid')
 const nodeDialogVisible = ref(false)
 const nodeDialogType = ref('file')
 const nodeDialogSaving = ref(false)
@@ -67,10 +71,12 @@ const treeProps = {
   children: 'children',
   label: 'name'
 }
+const ALL_ROLE_VALUE = '0'
 
 const nodeForm = reactive({
   name: '',
-  parentPath: ''
+  parentPath: '',
+  fileRole: 'ASSET'
 })
 
 const contextMenu = reactive({
@@ -101,13 +107,15 @@ const form = reactive({
   scopeValue: '',
   category: 'data',
   tagsJson: '',
-  status: 1
+  status: 1,
+  roleCodes: [ALL_ROLE_VALUE]
 })
 
 const createForm = reactive({
   skillName: '',
   description: '',
-  category: 'data'
+  category: 'data',
+  roleCodes: [ALL_ROLE_VALUE]
 })
 
 const demoSkills = [
@@ -128,6 +136,25 @@ const logRows = computed(() => {
 
 const categoryOptions = computed(() => {
   return [...new Set(skillRows.value.map((row) => row.category).filter(Boolean))]
+})
+
+const roleOptions = computed(() => {
+  const options = roleRows.value
+    .map((role) => {
+      const value = roleValue(role)
+      return value
+        ? {
+            label: role.roleName || role.roleCode || `角色 ${role.id}`,
+            value
+          }
+        : null
+    })
+    .filter((option) => option && option.value !== ALL_ROLE_VALUE)
+
+  return [
+    { label: '所有角色', value: ALL_ROLE_VALUE },
+    ...options
+  ]
 })
 
 const filteredRows = computed(() => {
@@ -152,6 +179,10 @@ const pagedRows = computed(() => {
 
 const activeFile = computed(() => {
   return findTreeNode(editorTree.value, activeFileId.value)
+})
+
+const activeIsSkillInfo = computed(() => {
+  return isSkillMdNode(activeFile.value)
 })
 
 const nodeDialogTitle = computed(() => {
@@ -262,17 +293,20 @@ watch(editorVisible, (visible) => {
 })
 
 function normalizeSkill(row, index) {
+  const metadata = parseMetadata(row.metadataJson)
   const syntheticRuns = [428, 316, 284, 236, 358, 0][index % 6]
   const syntheticAgents = [8, 6, 9, 4, 7, 2][index % 6]
   const syntheticRate = [99.3, 98.8, 99.1, 97.9, 98.6, null][index % 6]
-  const category = categoryLabel(row.category || row.scene || ['数据分析', '报告生成', '文档处理', '研发效能', '信息检索', '文件处理'][index % 6])
+  const category = categoryLabel(row.category || metadata.category || row.scene || ['数据分析', '报告生成', '文档处理', '研发效能', '信息检索', '文件处理'][index % 6])
+  const skillMdContent = row.skillMdContent ?? row.skillContent ?? ''
 
   return {
     ...row,
     id: row.id || index + 1,
     skillName: row.skillName || row.name || `技能 ${index + 1}`,
-    skillKey: normalizeSkillKey(row.skillKey || row.route || `skill-${index + 1}`),
-    description: row.description || row.skillMdContent || '暂无描述',
+    skillKey: normalizeSkillKey(row.skillKey || row.source || metadata.skillKey || row.route || `skill-${index + 1}`),
+    description: row.description || '暂无描述',
+    skillMdContent,
     category,
     status: Number(row.status ?? 1),
     statusText: Number(row.status ?? 1) === 1 ? '启用' : '已停用',
@@ -281,9 +315,11 @@ function normalizeSkill(row, index) {
     successRate: row.successRate === null ? null : Number(row.successRate ?? syntheticRate),
     avgDuration: Number(row.avgDuration ?? row.durationMs ?? [11800, 13200, 9600, 15100, 12600, 0][index % 6]),
     riskLevel: String(row.riskLevel || 'LOW').toUpperCase(),
-    requiresShell: Number(row.requiresShell ?? 0),
-    requiresSandbox: Number(row.requiresSandbox ?? 0),
-    scopeType: row.scopeType || 'TENANT'
+    requiresShell: Number(row.requiresShell ?? metadata.requiresShell ?? 0),
+    requiresSandbox: Number(row.requiresSandbox ?? metadata.requiresSandbox ?? 0),
+    scopeType: row.scopeType || metadata.scopeType || 'TENANT',
+    scopeValue: row.scopeValue || metadata.scopeValue || '',
+    roleCodes: normalizeRoleCodes(row.roleCodes)
   }
 }
 
@@ -318,7 +354,8 @@ function resetForm() {
     scopeValue: '',
     category: 'data',
     tagsJson: '',
-    status: 1
+    status: 1,
+    roleCodes: [ALL_ROLE_VALUE]
   })
 }
 
@@ -326,12 +363,14 @@ function resetCreateForm() {
   Object.assign(createForm, {
     skillName: '',
     description: '',
-    category: 'data'
+    category: 'data',
+    roleCodes: [ALL_ROLE_VALUE]
   })
 }
 
 function openCreateDialog() {
   resetCreateForm()
+  loadRoles()
   createDialogVisible.value = true
 }
 
@@ -350,9 +389,11 @@ function openEditDialog(row) {
     scopeValue: row.scopeValue || '',
     category: row.category || 'data',
     tagsJson: row.tagsJson || '',
-    status: Number(row.status ?? 1)
+    status: Number(row.status ?? 1),
+    roleCodes: normalizeRoleCodes(row.roleCodes)
   })
   dialogTitle.value = '编辑技能'
+  loadRoles()
   dialogVisible.value = true
 }
 
@@ -407,6 +448,7 @@ async function handleCreatePackage() {
 async function openSkillEditor(skill) {
   const normalizedSkill = normalizeSkill(skill, 0)
   editorSkill.value = normalizedSkill
+  editorSkillSnapshot.value = { ...normalizedSkill }
   editorTree.value = buildEditorTree(normalizedSkill)
   activeFileId.value = 'skill-md'
   editorContent.value = findTreeNode(editorTree.value, activeFileId.value)?.content || ''
@@ -443,6 +485,7 @@ function createEditorFolder(parentNode = null) {
 
 function discardEditorChanges() {
   editorTree.value = cloneTree(editorSnapshot.value)
+  editorSkill.value = editorSkillSnapshot.value ? { ...editorSkillSnapshot.value } : editorSkill.value
   activeFileId.value = findTreeNode(editorTree.value, activeFileId.value)?.id || 'skill-md'
   editorContent.value = activeFile.value?.content || ''
   editorDirty.value = false
@@ -475,12 +518,17 @@ async function handleSaveEditor() {
   editorSaving.value = true
   try {
     if (isSkillMdNode(file)) {
+      const skillKey = String(skill.skillKey || '').replace(/^\//, '')
+      const skillContent = skillFile?.content || editorContent.value
       await updateSkill({
         id: normalizeId(skill.id),
-        skillKey: String(skill.skillKey || '').replace(/^\//, ''),
+        name: skill.skillName,
         skillName: skill.skillName,
+        source: skillKey,
+        skillKey,
         description: skill.description,
-        skillMdContent: skillFile?.content || editorContent.value,
+        skillContent,
+        skillMdContent: skillContent,
         riskLevel: skill.riskLevel || 'LOW',
         requiresShell: Number(skill.requiresShell ?? 0),
         requiresSandbox: Number(skill.requiresSandbox ?? 0),
@@ -488,15 +536,21 @@ async function handleSaveEditor() {
         scopeValue: skill.scopeValue || '',
         category: skill.category || 'data',
         tagsJson: skill.tagsJson || '',
-        status: Number(skill.status ?? 1)
+        status: Number(skill.status ?? 1),
+        roleCodes: skill.roleCodes
       })
       editorSkill.value = {
         ...skill,
-        skillMdContent: skillFile?.content || editorContent.value
+        skillContent,
+        skillMdContent: skillContent
       }
     } else if (file?.skillFileId) {
       const updatedFile = await updateSkillPackageFile({
         id: normalizeId(file.skillFileId),
+        fileName: file.name,
+        fileRole: file.fileRole,
+        resourcePath: file.relativePath,
+        resourceContent: editorContent.value,
         content: editorContent.value
       })
       mergeSkillFileNode(file, updatedFile)
@@ -506,6 +560,7 @@ async function handleSaveEditor() {
     }
 
     editorSnapshot.value = cloneTree(editorTree.value)
+    editorSkillSnapshot.value = editorSkill.value ? { ...editorSkill.value } : null
     editorDirty.value = false
     ElMessage.success('文件已保存')
     await loadDashboard()
@@ -557,6 +612,7 @@ function openNodeDialog(type, parentNode = null) {
   nodeDialogParent.value = parent
   nodeForm.parentPath = parent?.relativePath || ''
   nodeForm.name = ''
+  nodeForm.fileRole = type === 'folder' ? 'DIRECTORY' : inferFileRole(parent?.relativePath || '')
   nodeDialogVisible.value = true
   hideTreeContextMenu()
 }
@@ -592,14 +648,19 @@ async function handleCreateNode() {
   try {
     const isFolder = nodeDialogType.value === 'folder'
     const content = isFolder ? '' : createDefaultFileContent(name)
-    const created = await createSkillPackageNode({
-      skillId: normalizeId(skill.id),
-      parentPath: nodeForm.parentPath,
-      fileName: name,
-      directory: isFolder,
-      content
-    })
-    const node = skillFileToTreeNode(created, skill)
+    const resourcePath = buildNodeResourcePath(nodeForm.parentPath, name)
+    const node = isFolder
+      ? createVirtualFolderNode(resourcePath)
+      : skillFileToTreeNode(await createSkillPackageNode({
+          skillId: normalizeId(skill.id),
+          parentPath: nodeForm.parentPath,
+          fileName: name,
+          fileRole: nodeForm.fileRole,
+          directory: false,
+          resourcePath,
+          resourceContent: content,
+          content
+        }), skill)
     if (!isFolder) {
       node.content = content
       node.loaded = true
@@ -681,11 +742,15 @@ async function handleUploadFile(event) {
   }
 
   const content = await file.text()
+  const resourcePath = buildNodeResourcePath(parent?.relativePath || '', file.name)
   const created = await createSkillPackageNode({
     skillId: normalizeId(skill.id),
     parentPath: parent?.relativePath || '',
     fileName: file.name,
+    fileRole: inferFileRole(resourcePath),
     directory: false,
+    resourcePath,
+    resourceContent: content,
     content
   })
   const node = skillFileToTreeNode(created, skill)
@@ -749,6 +814,7 @@ async function deleteEditorNode(node) {
 function closeSkillEditor() {
   editorVisible.value = false
   editorSkill.value = null
+  editorSkillSnapshot.value = null
   editorTree.value = []
   editorSnapshot.value = []
   activeFileId.value = ''
@@ -816,12 +882,15 @@ async function handleDelete(row) {
 }
 
 function buildPayload() {
-  return {
+  const skillName = form.skillName.trim()
+  const skillKey = form.skillKey.trim().replace(/^\//, '')
+  const payload = {
     id: normalizeId(form.id),
-    skillKey: form.skillKey.trim().replace(/^\//, ''),
-    skillName: form.skillName.trim(),
+    name: skillName,
+    skillName,
+    source: skillKey,
+    skillKey,
     description: form.description,
-    skillMdContent: form.skillMdContent,
     riskLevel: form.riskLevel,
     requiresShell: Number(form.requiresShell),
     requiresSandbox: Number(form.requiresSandbox),
@@ -829,8 +898,14 @@ function buildPayload() {
     scopeValue: form.scopeValue,
     category: form.category,
     tagsJson: form.tagsJson,
-    status: Number(form.status)
+    status: Number(form.status),
+    roleCodes: normalizeRoleCodes(form.roleCodes)
   }
+  if (form.id) {
+    payload.skillContent = form.skillMdContent
+    payload.skillMdContent = form.skillMdContent
+  }
+  return payload
 }
 
 function buildCreatePayload() {
@@ -841,7 +916,6 @@ function buildCreatePayload() {
     skillKey: generateSkillKey(skillName),
     skillName,
     description,
-    skillMdContent: '',
     riskLevel: 'LOW',
     requiresShell: 0,
     requiresSandbox: 0,
@@ -854,7 +928,9 @@ function buildCreatePayload() {
 
   return {
     ...skill,
-    skillMdContent: createDefaultSkillContent(skill)
+    name: skillName,
+    source: skill.skillKey,
+    roleCodes: normalizeRoleCodes(createForm.roleCodes)
   }
 }
 
@@ -902,8 +978,8 @@ function buildEditorTree(skill, files = []) {
   const root = []
   const pathMap = new Map()
   const sortedFiles = [...files].sort((left, right) => {
-    const leftPath = String(left.relativePath || left.fileName || '')
-    const rightPath = String(right.relativePath || right.fileName || '')
+    const leftPath = String(left.relativePath || left.resourcePath || left.fileName || '')
+    const rightPath = String(right.relativePath || right.resourcePath || right.fileName || '')
     const leftDepth = leftPath.split('/').length
     const rightDepth = rightPath.split('/').length
     return leftDepth - rightDepth || leftPath.localeCompare(rightPath)
@@ -921,7 +997,7 @@ function buildEditorTree(skill, files = []) {
       type: 'file',
       relativePath: 'SKILL.md',
       fileRole: 'SKILL_MD',
-      content: skill.skillMdContent || createDefaultSkillContent(skill),
+      content: skill.skillMdContent || skill.skillContent || '',
       loaded: true,
       children: []
     })
@@ -932,9 +1008,10 @@ function buildEditorTree(skill, files = []) {
 }
 
 function skillFileToTreeNode(file, skill) {
-  const relativePath = normalizeTreePath(file?.relativePath || file?.fileName || 'SKILL.md')
+  const relativePath = normalizeTreePath(file?.relativePath || file?.resourcePath || file?.fileName || 'SKILL.md')
   const isDirectory = file?.fileRole === 'DIRECTORY' || file?.mimeType === 'inode/directory' || file?.directory === true
   const isSkillMd = file?.fileRole === 'SKILL_MD' || relativePath === 'SKILL.md'
+  const content = file?.content ?? file?.resourceContent ?? ''
   return {
     id: isSkillMd ? 'skill-md' : `${isDirectory ? 'folder' : 'file'}-${file?.id || relativePath}`,
     skillFileId: file?.id || null,
@@ -944,8 +1021,8 @@ function skillFileToTreeNode(file, skill) {
     type: isDirectory ? 'folder' : 'file',
     relativePath,
     fileRole: isDirectory ? 'DIRECTORY' : (file?.fileRole || (isSkillMd ? 'SKILL_MD' : 'ASSET')),
-    content: isSkillMd ? (skill.skillMdContent || createDefaultSkillContent(skill)) : (file?.content ?? ''),
-    loaded: isSkillMd || Boolean(file?.content),
+    content: isSkillMd ? (skill.skillMdContent || skill.skillContent || '') : content,
+    loaded: isSkillMd || content !== '',
     children: []
   }
 }
@@ -1034,15 +1111,22 @@ function pathBasename(path) {
 }
 
 function createDefaultSkillContent(skill) {
-  const name = String(skill.skillName || '未命名技能').replace(/\r?\n/g, ' ')
-  const description = String(skill.description || '请补充技能说明').replace(/\r?\n/g, ' ')
+  return ''
+}
 
-  return [
-    '---',
-    `name: ${name}`,
-    `description: ${description}`,
-    '---'
-  ].join('\n')
+function createVirtualFolderNode(relativePath) {
+  const normalizedPath = normalizeTreePath(relativePath)
+  return {
+    id: `folder-virtual-${normalizedPath}-${Date.now()}`,
+    skillFileId: null,
+    name: pathBasename(normalizedPath),
+    type: 'folder',
+    relativePath: normalizedPath,
+    fileRole: 'DIRECTORY',
+    loaded: true,
+    virtual: true,
+    children: []
+  }
 }
 
 function createDefaultFileContent(name) {
@@ -1273,8 +1357,84 @@ function normalizeId(value) {
   return value === '' || value === undefined || value === null ? null : String(value).trim()
 }
 
+async function loadRoles() {
+  try {
+    const rows = await listRole()
+    roleRows.value = Array.isArray(rows) ? rows : []
+  } catch {
+    roleRows.value = []
+  }
+}
+
+function roleValue(role) {
+  return String(role?.roleCode ?? role?.id ?? '').trim()
+}
+
+function handleCreateRoleChange(values) {
+  applyRoleSelection(createForm, values)
+}
+
+function handleFormRoleChange(values) {
+  applyRoleSelection(form, values)
+}
+
+function applyRoleSelection(target, values) {
+  const previous = normalizeRoleCodes(target.roleCodes)
+  const next = Array.isArray(values)
+    ? values.map(String).filter(Boolean)
+    : []
+  const addedAll = next.includes(ALL_ROLE_VALUE) && !previous.includes(ALL_ROLE_VALUE)
+  const withoutAll = [...new Set(next.filter((value) => value !== ALL_ROLE_VALUE))]
+  target.roleCodes = addedAll ? [ALL_ROLE_VALUE] : (withoutAll.length ? withoutAll : [ALL_ROLE_VALUE])
+}
+
+function normalizeRoleCodes(values) {
+  const roleCodes = (Array.isArray(values) ? values : [values])
+    .filter((value) => value !== undefined && value !== null && value !== '')
+    .map(String)
+  if (!roleCodes.length || roleCodes.includes(ALL_ROLE_VALUE)) {
+    return [ALL_ROLE_VALUE]
+  }
+  return [...new Set(roleCodes)]
+}
+
+function parseMetadata(metadataJson) {
+  if (!metadataJson) {
+    return {}
+  }
+  if (typeof metadataJson === 'object') {
+    return metadataJson
+  }
+  try {
+    return JSON.parse(metadataJson)
+  } catch {
+    return {}
+  }
+}
+
+function buildNodeResourcePath(parentPath, name) {
+  const parent = normalizeTreePath(parentPath)
+  const fileName = normalizeTreePath(name)
+  return parent ? `${parent}/${fileName}` : fileName
+}
+
+function inferFileRole(path) {
+  const normalizedPath = normalizeTreePath(path).toLowerCase()
+  if (normalizedPath.startsWith('references')) {
+    return 'REFERENCE'
+  }
+  if (normalizedPath.startsWith('scripts')) {
+    return 'SCRIPT'
+  }
+  if (normalizedPath.startsWith('examples')) {
+    return 'EXAMPLE'
+  }
+  return 'ASSET'
+}
+
 onMounted(() => {
   loadDashboard()
+  loadRoles()
   document.addEventListener('click', hideTreeContextMenu)
 })
 
@@ -1471,6 +1631,24 @@ onBeforeUnmount(() => {
             <el-option label="文件处理" value="file" />
           </el-select>
         </el-form-item>
+        <el-form-item label="角色选择">
+          <el-select
+            v-model="createForm.roleCodes"
+            multiple
+            collapse-tags
+            collapse-tags-tooltip
+            filterable
+            placeholder="请选择角色"
+            @change="handleCreateRoleChange"
+          >
+            <el-option
+              v-for="role in roleOptions"
+              :key="role.value"
+              :label="role.label"
+              :value="role.value"
+            />
+          </el-select>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="createDialogVisible = false">取消</el-button>
@@ -1555,14 +1733,33 @@ onBeforeUnmount(() => {
             <el-button type="primary" :icon="Finished" :loading="editorSaving" @click="handleSaveEditor">保存</el-button>
           </div>
         </header>
-        <div class="code-editor-shell">
-          <pre class="line-numbers"><span v-for="line in editorLines" :key="line">{{ line }}</span></pre>
-          <textarea
-            v-model="editorContent"
-            class="skill-code-editor"
-            spellcheck="false"
-            @input="handleEditorInput"
-          />
+        <div class="editor-body" :class="{ 'with-skill-meta': activeIsSkillInfo }">
+          <div v-if="activeIsSkillInfo && editorSkill" class="skill-meta-editor">
+            <el-form label-position="top">
+              <el-row :gutter="14">
+                <el-col :span="10">
+                  <el-form-item label="名称">
+                    <el-input v-model="editorSkill.skillName" placeholder="请输入技能名称" @input="handleEditorInput" />
+                  </el-form-item>
+                </el-col>
+                <el-col :span="14">
+                  <el-form-item label="描述">
+                    <el-input v-model="editorSkill.description" placeholder="请输入技能描述" @input="handleEditorInput" />
+                  </el-form-item>
+                </el-col>
+              </el-row>
+            </el-form>
+          </div>
+          <div class="code-editor-shell">
+            <pre class="line-numbers"><span v-for="line in editorLines" :key="line">{{ line }}</span></pre>
+            <textarea
+              v-model="editorContent"
+              class="skill-code-editor"
+              spellcheck="false"
+              placeholder="请输入技能正文内容"
+              @input="handleEditorInput"
+            />
+          </div>
         </div>
       </section>
 
@@ -1596,6 +1793,14 @@ onBeforeUnmount(() => {
         <el-form label-position="top" class="skill-node-form">
           <el-form-item label="父目录">
             <el-input :model-value="nodeForm.parentPath || '(根目录)'" disabled />
+          </el-form-item>
+          <el-form-item v-if="nodeDialogType === 'file'" label="文件角色">
+            <el-select v-model="nodeForm.fileRole" placeholder="请选择文件角色">
+              <el-option label="参考资料" value="REFERENCE" />
+              <el-option label="脚本" value="SCRIPT" />
+              <el-option label="样例" value="EXAMPLE" />
+              <el-option label="资源" value="ASSET" />
+            </el-select>
           </el-form-item>
           <el-form-item :label="nodeDialogNameLabel" required>
             <div v-if="nodeDialogType === 'folder'" class="quick-folder-row">
@@ -1671,6 +1876,26 @@ onBeforeUnmount(() => {
                 <el-radio :value="1">启用</el-radio>
                 <el-radio :value="0">停用</el-radio>
               </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="角色选择">
+              <el-select
+                v-model="form.roleCodes"
+                multiple
+                collapse-tags
+                collapse-tags-tooltip
+                filterable
+                placeholder="请选择角色"
+                @change="handleFormRoleChange"
+              >
+                <el-option
+                  v-for="role in roleOptions"
+                  :key="role.value"
+                  :label="role.label"
+                  :value="role.value"
+                />
+              </el-select>
             </el-form-item>
           </el-col>
           <el-col :span="24">
@@ -2594,6 +2819,39 @@ onBeforeUnmount(() => {
   flex: 0 0 auto;
   align-items: center;
   gap: 10px;
+}
+
+.editor-body {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.editor-body.with-skill-meta {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.skill-meta-editor {
+  padding: 14px 18px 4px;
+  border-bottom: 1px solid #e7edf5;
+  background: #fbfdff;
+}
+
+.skill-meta-editor :deep(.el-form-item) {
+  margin-bottom: 12px;
+}
+
+.skill-meta-editor :deep(.el-form-item__label) {
+  color: #536a85;
+  font-weight: 750;
+}
+
+.skill-meta-editor :deep(.el-input__wrapper) {
+  min-height: 36px;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #d9e4f2 inset;
 }
 
 .code-editor-shell {
