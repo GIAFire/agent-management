@@ -101,9 +101,6 @@ const form = reactive({
   description: '',
   skillMdContent: '',
   riskLevel: 'LOW',
-  requiresShell: 0,
-  requiresSandbox: 0,
-  scopeType: 'TENANT',
   scopeValue: '',
   category: 'data',
   tagsJson: '',
@@ -1834,11 +1831,6 @@ onBeforeUnmount(() => {
             </el-form-item>
           </el-col>
           <el-col :span="12">
-            <el-form-item label="唯一编码" required>
-              <el-input v-model="form.skillKey" placeholder="如：sql-analysis" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
             <el-form-item label="分类">
               <el-select v-model="form.category" filterable allow-create>
                 <el-option label="数据分析" value="data" />
@@ -1857,16 +1849,6 @@ onBeforeUnmount(() => {
                 <el-option label="中风险" value="MEDIUM" />
                 <el-option label="高风险" value="HIGH" />
                 <el-option label="关键风险" value="CRITICAL" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="作用域">
-              <el-select v-model="form.scopeType">
-                <el-option label="全局" value="GLOBAL" />
-                <el-option label="租户" value="TENANT" />
-                <el-option label="用户" value="USER" />
-                <el-option label="智能体" value="AGENT" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -1899,21 +1881,8 @@ onBeforeUnmount(() => {
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="执行要求">
-              <div class="switch-row">
-                <el-checkbox v-model="form.requiresShell" :true-value="1" :false-value="0">需要 Shell/脚本</el-checkbox>
-                <el-checkbox v-model="form.requiresSandbox" :true-value="1" :false-value="0">必须使用沙箱</el-checkbox>
-              </div>
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
             <el-form-item label="描述">
               <el-input v-model="form.description" type="textarea" :rows="3" placeholder="描述技能能力、适用场景和输出规范" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="SKILL.md">
-              <el-input v-model="form.skillMdContent" type="textarea" :rows="5" placeholder="可填写完整 SKILL.md 内容或关键执行规范" />
             </el-form-item>
           </el-col>
         </el-row>
