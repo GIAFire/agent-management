@@ -104,12 +104,6 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
         if (!StringUtils.hasText(entity.getRiskLevel())) {
             entity.setRiskLevel("LOW");
         }
-        if (entity.getRequiresShell() == null) {
-            entity.setRequiresShell((byte) 0);
-        }
-        if (entity.getRequiresSandbox() == null) {
-            entity.setRequiresSandbox((byte) 0);
-        }
         if (entity.getStatus() == null) {
             entity.setStatus((byte) 1);
         }
@@ -130,12 +124,6 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
         }
         if (!StringUtils.hasText(entity.getRiskLevel())) {
             entity.setRiskLevel(existing.getRiskLevel());
-        }
-        if (entity.getRequiresShell() == null) {
-            entity.setRequiresShell(existing.getRequiresShell());
-        }
-        if (entity.getRequiresSandbox() == null) {
-            entity.setRequiresSandbox(existing.getRequiresSandbox());
         }
         if (entity.getTagsJson() == null) {
             entity.setTagsJson(existing.getTagsJson());
