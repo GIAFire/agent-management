@@ -48,18 +48,18 @@ public class AiSkillInfoController {
     }
 
     @PostMapping("/create")
-    public Result<AiSkillInfoEntity> create(@RequestBody AiSkillInfoEntity entity) {
-        return Result.ok(aiSkillInfoService.createSkillPackage(entity));
+    public Result<Boolean> create(@RequestBody AiSkillInfoEntity entity) {
+        return Result.ok(aiSkillInfoService.save(entity));
     }
 
     @PostMapping("/update")
-    public Result<AiSkillInfoEntity> update(@RequestBody AiSkillInfoEntity entity) {
-        return Result.ok(aiSkillInfoService.updateSkillPackage(entity));
+    public Result<Boolean> update(@RequestBody AiSkillInfoEntity entity) {
+        return Result.ok(aiSkillInfoService.updateById(entity));
     }
 
     @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
-        Boolean ret = aiSkillInfoService.removeSkillFile(id);
+        Boolean ret = aiSkillInfoService.removeById(id);
         return Result.ok(ret);
     }
 

@@ -17,11 +17,4 @@ public interface AiAgentWorkspaceFileService extends IService<AiAgentWorkspaceFi
 
     AiAgentWorkspaceFileEntity saveGeneratedFile(RuntimeContext runtimeContext, String toolCallId, String fileName, String content);
 
-    AiAgentWorkspaceFileEntity saveSkillPackageFile(AiSkillInfoEntity skill, String relativeSkillPath, String fileName, String content);
-
-    AiAgentWorkspaceFileEntity updateSkillPackageFile(AiAgentWorkspaceFileEntity workspaceFile, AiSkillInfoEntity skill, String relativeSkillPath, String fileName, String content);
-
-    String readSkillPackageFile(String storageKey);
-
-    void deleteSkillPackageStorage(String storageKey);
 }

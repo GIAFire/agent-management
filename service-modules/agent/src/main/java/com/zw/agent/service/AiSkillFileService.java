@@ -17,18 +17,4 @@ import java.util.List;
  * @since 2026-07-16
  */
 public interface AiSkillFileService extends IService<AiSkillFileEntity> {
-
-    AiSkillFileEntity getSkillMdFile(Long skillId);
-
-    AiSkillFileEntity saveOrUpdateSkillMdFile(AiSkillInfoEntity skill, AiAgentWorkspaceFileEntity workspaceFile);
-
-    List<AiSkillFileEntity> listBySkillId(Long skillId);
-
-    AiSkillFileEntity createSkillPackageNode(AiSkillFileSaveRequest request);
-
-    AiSkillFileEntity updateSkillPackageFile(AiSkillFileSaveRequest request);
-
-    String readSkillPackageFile(Long id);
-
-    Boolean deleteSkillPackageNode(Long id);
 }

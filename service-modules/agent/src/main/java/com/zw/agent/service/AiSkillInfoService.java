@@ -16,13 +16,4 @@ import java.util.List;
  */
 public interface AiSkillInfoService extends IService<AiSkillInfoEntity> {
 
-    AiSkillInfoEntity createSkillPackage(AiSkillInfoEntity entity);
-
-    AiSkillInfoEntity updateSkillPackage(AiSkillInfoEntity entity);
-
-    Boolean removeSkillFile(Long id);
-
-    SkillFileDTO getAgentSkill(String name,Long agentId);
-
-    List<SkillFileDTO> getAgentSkillName(Long agentId);
 }
