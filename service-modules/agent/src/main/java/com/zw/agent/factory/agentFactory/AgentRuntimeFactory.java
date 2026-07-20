@@ -31,9 +31,11 @@ import io.agentscope.core.skill.repository.AgentSkillRepository;
 import io.agentscope.core.skill.repository.mysql.MysqlSkillRepository;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
+import io.agentscope.harness.agent.filesystem.spec.LocalFilesystemSpec;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import io.agentscope.harness.agent.memory.compaction.ToolResultEvictionConfig;
 import io.agentscope.harness.agent.subagent.SubagentDeclaration;
+import io.agentscope.harness.agent.workspace.LocalFsMode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -89,6 +91,11 @@ public class AgentRuntimeFactory {
                     .skillRepository(nacosSkillRepository)
                     .skillRepository(mysqlSkillRepository)
                     .workspace(Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath()))
+                    .filesystem(
+                            new LocalFilesystemSpec()
+                                    .project(Paths.get(AgentConstant.WORK_PACE_PATH + config.getTenantId()))
+                                    .mode(LocalFsMode.SANDBOXED)
+                    )
                     .toolResultEviction(toolResultEvictionConfig);
             if (config.getMemoryEnable() == 0){
                 agentBuilder
