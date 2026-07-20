@@ -10,8 +10,6 @@
         <result column="skill_content" property="skillContent" />
         <result column="source" property="source" />
         <result column="risk_level" property="riskLevel" />
-        <result column="requires_shell" property="requiresShell" />
-        <result column="requires_sandbox" property="requiresSandbox" />
         <result column="tags_json" property="tagsJson" />
         <result column="status" property="status" />
     </resultMap>
