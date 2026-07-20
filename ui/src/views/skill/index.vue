@@ -1632,8 +1632,6 @@ onBeforeUnmount(() => {
           <el-select
             v-model="createForm.roleCodes"
             multiple
-            collapse-tags
-            collapse-tags-tooltip
             filterable
             placeholder="请选择角色"
             @change="handleCreateRoleChange"
@@ -1865,8 +1863,6 @@ onBeforeUnmount(() => {
               <el-select
                 v-model="form.roleCodes"
                 multiple
-                collapse-tags
-                collapse-tags-tooltip
                 filterable
                 placeholder="请选择角色"
                 @change="handleFormRoleChange"
