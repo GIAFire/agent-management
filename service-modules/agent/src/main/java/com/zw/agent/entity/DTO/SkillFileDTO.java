@@ -1,7 +1,6 @@
 package com.zw.agent.entity.DTO;
 
 
-import com.zw.agent.entity.AiSkillFileEntity;
 import lombok.Data;
 
 import java.util.List;

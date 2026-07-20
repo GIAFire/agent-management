@@ -3,7 +3,7 @@ package com.zw.agent.factory.skillFactory;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.zw.agent.entity.DTO.FileDTO;
 import com.zw.agent.entity.DTO.SkillFileDTO;
-import com.zw.agent.service.AiSkillFileService;
+import com.zw.agent.service.AiSkillResourceService;
 import com.zw.agent.service.AiSkillInfoService;
 import io.agentscope.core.skill.AgentSkill;
 import io.agentscope.core.skill.repository.AgentSkillRepository;
@@ -37,7 +37,7 @@ public class SkillRepository implements AgentSkillRepository {
     private Long agentId;
 
     private final AiSkillInfoService skillInfoService;
-    private final AiSkillFileService skillFileService;
+    private final AiSkillResourceService skillFileService;
 
 
 

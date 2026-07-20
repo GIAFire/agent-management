@@ -1,6 +1,6 @@
 package com.zw.agent.mapper;
 
-import com.zw.agent.entity.AiSkillFileEntity;
+import com.zw.agent.entity.AiSkillResourceEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 
@@ -13,6 +13,6 @@ import org.apache.ibatis.annotations.Mapper;
  * @since 2026-07-16
  */
 @Mapper
-public interface AiSkillFileMapper extends BaseMapper<AiSkillFileEntity> {
+public interface AiSkillResourceMapper extends BaseMapper<AiSkillResourceEntity> {
 
 }

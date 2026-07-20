@@ -1,13 +1,8 @@
 package com.zw.agent.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zw.agent.entity.AiAgentWorkspaceFileEntity;
-import com.zw.agent.entity.AiSkillFileEntity;
 import com.zw.agent.entity.AiSkillInfoEntity;
-import com.zw.agent.service.AiAgentWorkspaceFileService;
-import com.zw.agent.service.AiSkillFileService;
 import com.zw.agent.service.AiSkillInfoService;
 import com.zw.common.entity.Result;
 import lombok.AllArgsConstructor;
