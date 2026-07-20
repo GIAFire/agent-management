@@ -19,7 +19,7 @@ import java.util.List;
  * @since 2026-07-16
  */
 @RestController
-@RequestMapping("/skillFile")
+@RequestMapping("/skillResource")
 @AllArgsConstructor
 public class AiSkillResourceController {
 
