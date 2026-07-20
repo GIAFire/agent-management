@@ -51,7 +51,7 @@ public class AiSkillInfoEntity extends BaseEntity {
     private String skillContent;
 
     /**
-     * SKILL.md正文
+     * SKILL来源
      */
     @TableField("source")
     private String source;
@@ -67,18 +67,6 @@ public class AiSkillInfoEntity extends BaseEntity {
      */
     @TableField("risk_level")
     private String riskLevel;
-
-    /**
-     * 是否需要执行脚本或shell：1需要，0不需要
-     */
-    @TableField("requires_shell")
-    private Byte requiresShell;
-
-    /**
-     * 是否必须在沙箱中使用：1是，0否
-     */
-    @TableField("requires_sandbox")
-    private Byte requiresSandbox;
 
     /**
      * 标签JSON数组，例如["代码审查","Java","Spring"]
