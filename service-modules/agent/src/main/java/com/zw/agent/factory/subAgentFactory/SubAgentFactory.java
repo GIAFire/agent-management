@@ -2,8 +2,10 @@ package com.zw.agent.factory.subAgentFactory;
 
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.AiSubagentEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.agent.service.AiAgentService;
 import com.zw.agent.service.AiSubagentService;
 import io.agentscope.harness.agent.subagent.SubagentDeclaration;
 import io.agentscope.harness.agent.subagent.WorkspaceMode;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 public class SubAgentFactory {
 
     private final AiSubagentService subAgentService;
+    private final AiAgentService agentService;
 
     public List<SubagentDeclaration> buildSubAgent(AgentConfigDTO config){
         List<SubagentDeclaration> subAgentBuildList = new ArrayList<>();
@@ -47,5 +50,11 @@ public class SubAgentFactory {
         }
 
         return subAgentBuildList;
+    }
+
+    public List<AiAgentEntity> buildSubAgentFactory(AgentConfigDTO config){
+        List<AiAgentEntity> subAgentList = agentService.subAgentList(config.getAgentId());
+
+        return subAgentList;
     }
 }

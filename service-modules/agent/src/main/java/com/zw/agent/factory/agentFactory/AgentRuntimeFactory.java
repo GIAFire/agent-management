@@ -2,6 +2,7 @@ package com.zw.agent.factory.agentFactory;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.zw.agent.constant.AgentConstant;
+import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
 import com.zw.agent.factory.agentFactory.entity.AgentRuntimeStream;
@@ -14,8 +15,10 @@ import com.zw.agent.factory.subAgentFactory.SubAgentFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
+import com.zw.agent.service.AiAgentService;
 import com.zw.agent.service.AiAgentStateLogService;
 import com.zw.common.context.UserInfo;
+import io.agentscope.core.agent.Agent;
 import io.agentscope.core.agent.RuntimeContext;
 import io.agentscope.core.event.*;
 import io.agentscope.core.message.ContentBlock;
@@ -24,13 +27,16 @@ import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.message.UserMessage;
 import io.agentscope.core.model.ChatModelBase;
+import io.agentscope.core.model.Model;
 import io.agentscope.core.nacos.skill.NacosSkillRepository;
 import io.agentscope.core.permission.PermissionContextState;
 import io.agentscope.core.skill.AgentSkill;
 import io.agentscope.core.skill.repository.AgentSkillRepository;
 import io.agentscope.core.skill.repository.mysql.MysqlSkillRepository;
+import io.agentscope.core.tool.AgentTool;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
+import io.agentscope.harness.agent.IsolationScope;
 import io.agentscope.harness.agent.filesystem.spec.LocalFilesystemSpec;
 import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
 import io.agentscope.harness.agent.memory.compaction.ToolResultEvictionConfig;
@@ -65,6 +71,8 @@ public class AgentRuntimeFactory {
     private final SubAgentFactory subAgentFactory;
     private final NacosSkillRepository nacosSkillRepository;
     private final SkillFactory mysqlSkillFactory;
+    private final AiAgentService agentService;
+
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
         String agentCacheKey = AgentRuntimeKeys.buildAgentKey(
@@ -77,7 +85,8 @@ public class AgentRuntimeFactory {
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
             ChatModelBase chatModelBase = modelFactory.buildModel(config);
-            List<SubagentDeclaration> subAgentList = subAgentFactory.buildSubAgent(config);
+//            List<SubagentDeclaration> subAgentList = subAgentFactory.buildSubAgent(config);
+            List<AiAgentEntity> subAgentIdList = subAgentFactory.buildSubAgentFactory(config);
             AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config);
 
             HarnessAgent.Builder agentBuilder = HarnessAgent.builder()
@@ -114,8 +123,18 @@ public class AgentRuntimeFactory {
             if (config.getAllowShellInPlanMode() == 1){
                 agentBuilder.allowShellInPlanMode();
             }
-            if (!subAgentList.isEmpty()){
-                agentBuilder.subagents(subAgentList);
+//            if (!subAgentList.isEmpty()){
+//                agentBuilder.subagents(subAgentList);
+//            }
+            for (AiAgentEntity childAgent : subAgentIdList){
+                agentBuilder.subagentFactory(
+                        childAgent.getAgentName(),
+                        name -> buildSubagent(
+                                config,
+                                userInfo,
+                                childAgent.getId()
+                        )
+                );
             }
 
             return agentBuilder.build();
@@ -391,5 +410,65 @@ public class AgentRuntimeFactory {
                 null,
                 event
         );
+    }
+
+    private Agent buildSubagent(AgentConfigDTO config, UserInfo userInfo,Long childAgentId) {
+        // 1. 查询子 Agent 已发布配置
+        AgentConfigDTO childConfig = agentService.getAgentConfigById(childAgentId);
+
+
+        // 2. 构建子 Agent 自己的模型
+        ChatModelBase childModel = modelFactory.buildModel(childConfig);
+
+        // 3. 查询子 Agent 自己绑定的工具
+        Toolkit childToolkit = toolkitFactory.buildToolkit(childAgentId);
+
+        // 4. 查询子 Agent 自己绑定的知识库
+//        List<KnowledgeBaseConfig> knowledgeBases =
+//                knowledgeBaseService.listByAgentId(childAgentId);
+//
+        // 5. 将知识库注册为检索工具
+//        AgentTool knowledgeSearchTool =
+//                knowledgeToolFactory.build(
+//                        childAgentId,
+//                        knowledgeBases
+//                );
+
+//        childToolkit.registerTool(knowledgeSearchTool);
+        Toolkit toolkit = toolkitFactory.buildToolkit(childConfig.getAgentId());
+        PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(childConfig, userInfo, toolkit);
+        CompactionConfig compactionConfig = compactionFactory.buildCompaction(childConfig);
+        ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(childConfig);
+        AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(childConfig);
+
+
+        LocalFilesystemSpec filesystem =
+                new LocalFilesystemSpec()
+                        .project(Paths.get(AgentConstant.WORK_PACE_PATH + config.getTenantId()))
+                        .isolationScope(IsolationScope.SESSION)
+                        .mode(LocalFsMode.ROOTED)
+                        .projectWritable(false)
+                        .inheritEnv(false);
+
+        // 6. 构建独立的子 Agent
+        return HarnessAgent.builder()
+                .agentId(String.valueOf(childAgentId))
+                .name(childConfig.getAgentName())
+                .description(childConfig.getAgentDescription())
+                .sysPrompt(childConfig.getSysPrompt())
+                .model(childModel)
+                .toolkit(childToolkit)
+                .permissionContext(permissionContextState)
+                .compaction(compactionConfig)
+                .toolResultEviction(toolResultEvictionConfig)
+                .skillRepository(mysqlSkillRepository)
+                .workspace(
+                        Paths.get(childConfig.getWorkspacePath())
+                )
+                .filesystem(filesystem)
+                .maxIters(childConfig.getMaxIters())
+                .disableSubagents()
+                .disableMemoryTools()
+                .build();
     }
 }

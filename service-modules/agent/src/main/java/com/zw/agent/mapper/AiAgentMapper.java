@@ -22,4 +22,6 @@ public interface AiAgentMapper extends BaseMapper<AiAgentEntity> {
     AgentConfigDTO getAgentConfigById(@Param("agentId") Long agentId);
 
     List<AgentConfigDTO> getAgentInfoList();
+
+    List<AiAgentEntity> subAgentList(Long agentId);
 }

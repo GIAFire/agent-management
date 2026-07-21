@@ -135,6 +135,11 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
         return true;
     }
 
+    @Override
+    public List<AiAgentEntity> subAgentList(Long agentId) {
+        return aiAgentMapper.subAgentList(agentId);
+    }
+
     private void createKnowledgeBindings(List<Long> knowledgeBaseIds, Long agentId, Long agentConfigId) {
         if (knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()) {
             return;

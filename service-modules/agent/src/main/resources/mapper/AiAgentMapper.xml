@@ -230,4 +230,15 @@
         ORDER BY
             agent.created_at ASC
     </select>
+
+    <select id="subAgentList" resultType="com.zw.agent.entity.AiAgentEntity" parameterType="Long">
+        SELECT
+            sub.*
+        FROM
+            ai_agent parent
+                LEFT JOIN ai_agent_binding_agent aba ON parent.id = aba.agent_id
+                LEFT JOIN ai_agent sub ON aba.subagent_id = sub.id
+        WHERE
+            aba.agent_id = #{agentId}
+    </select>
 </mapper>
