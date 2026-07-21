@@ -8,6 +8,7 @@ import com.zw.agent.exception.AgentConfigException;
 import com.zw.agent.mapper.*;
 import com.zw.agent.service.AiAgentService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zw.common.context.UserInfo;
 import com.zw.common.support.EntityDefaults;
 import com.zw.common.utils.AESUtil;
 import lombok.RequiredArgsConstructor;
@@ -43,11 +44,11 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
     private final AiAgentToolMapper agentToolMapper;
     private final AiToolInfoConfigMapper toolInfoConfigMapper;
 
-    public AgentConfigDTO getAgentConfigById(Long agentId) {
+    public AgentConfigDTO getAgentConfigById(Long agentId, UserInfo userInfo) {
         if (agentId == null) {
             throw new AgentConfigException("agentId 不能为空");
         }
-        AgentConfigDTO agentConfig = aiAgentMapper.getAgentConfigById(agentId);
+        AgentConfigDTO agentConfig = aiAgentMapper.getAgentConfigById(agentId,userInfo.getTenantId());
 
         try {
             String decrypt = AESUtil.decrypt(agentConfig.getApiKey());

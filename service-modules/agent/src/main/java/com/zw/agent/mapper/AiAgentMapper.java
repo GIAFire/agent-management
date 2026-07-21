@@ -1,5 +1,6 @@
 package com.zw.agent.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.zw.agent.entity.AiAgentEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
@@ -19,7 +20,9 @@ import java.util.List;
 @Mapper
 public interface AiAgentMapper extends BaseMapper<AiAgentEntity> {
 
-    AgentConfigDTO getAgentConfigById(@Param("agentId") Long agentId);
+    @InterceptorIgnore(tenantLine = "true")
+    AgentConfigDTO getAgentConfigById(@Param("agentId") Long agentId,
+                                      @Param("tenantId") Long tenantId);
 
     List<AgentConfigDTO> getAgentInfoList();
 

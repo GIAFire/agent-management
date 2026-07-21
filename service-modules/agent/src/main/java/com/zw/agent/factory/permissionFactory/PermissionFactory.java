@@ -50,10 +50,8 @@ public class PermissionFactory {
             if (isPlanModeAutoAllowTool(config, toolName)) {
                 continue;
             }
-            List<AiToolRolePermissionEntity> permissionList = toolRolePermissionService.list(new LambdaQueryWrapper<AiToolRolePermissionEntity>()
-                    .eq(AiToolRolePermissionEntity::getToolName, toolName)
-                    .in(AiToolRolePermissionEntity::getRoleCode, roleCodes)
-                    .eq(AiToolRolePermissionEntity::getStatus, (byte) 1));
+            List<AiToolRolePermissionEntity> permissionList = toolRolePermissionService
+                    .permissionListByRoleId(toolName, roleCodes, userInfo.getTenantId());
 
             AiToolRolePermissionEntity toolRolePermission = permissionList.stream()
                     .collect(Collectors.collectingAndThen(

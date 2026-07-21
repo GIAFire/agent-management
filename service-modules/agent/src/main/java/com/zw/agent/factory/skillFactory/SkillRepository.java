@@ -5,6 +5,7 @@ import com.zw.agent.entity.DTO.FileDTO;
 import com.zw.agent.entity.DTO.SkillFileDTO;
 import com.zw.agent.service.AiSkillResourceService;
 import com.zw.agent.service.AiSkillInfoService;
+import com.zw.common.context.UserInfo;
 import io.agentscope.core.skill.AgentSkill;
 import io.agentscope.core.skill.repository.AgentSkillRepository;
 import io.agentscope.core.skill.repository.AgentSkillRepositoryInfo;
@@ -35,6 +36,7 @@ public class SkillRepository implements AgentSkillRepository {
     private static final String SKILL_MD_PATH = "SKILL.md";
 
     private Long agentId;
+    private UserInfo userInfo;
 
     private final AiSkillInfoService skillInfoService;
     private final AiSkillResourceService skillFileService;
@@ -43,7 +45,7 @@ public class SkillRepository implements AgentSkillRepository {
 
     @Override
     public AgentSkill getSkill(String name) {
-        SkillFileDTO skillInfo = skillInfoService.getAgentSkill(name,agentId);
+        SkillFileDTO skillInfo = skillInfoService.getAgentSkill(name,agentId,userInfo.getTenantId());
         if (skillInfo == null) {
             throw new IllegalArgumentException("Skill not found: " + name);
         }
@@ -62,12 +64,12 @@ public class SkillRepository implements AgentSkillRepository {
     public List<String> getAllSkillNames() {
         List<String> skillNames = new ArrayList<>();
         skillInfoService.list().forEach(skillInfo -> skillNames.add(skillInfo.getName()));
-        return skillNames;
+        return null;
     }
 
     @Override
     public List<AgentSkill> getAllSkills() {
-        List<SkillFileDTO> skillInfo = skillInfoService.getAgentSkillName(agentId);
+        List<SkillFileDTO> skillInfo = skillInfoService.getAgentSkillName(agentId,userInfo.getTenantId());
         Map<Long, LoadedSkillRecord> skillRecords = new HashMap<>();
         for (SkillFileDTO skill : skillInfo){
             LoadedSkillRecord loadedSkillRecord = skillRecords.computeIfAbsent(

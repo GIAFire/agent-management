@@ -41,13 +41,13 @@ public class AiSkillInfoServiceImpl extends ServiceImpl<AiSkillInfoMapper, AiSki
     private final AiSkillRoleService aiSkillRoleService;
 
     @Override
-    public SkillFileDTO getAgentSkill(String name, Long agentId) {
-        return skillInfoMapper.getAgentSkill(name, agentId);
+    public SkillFileDTO getAgentSkill(String name, Long agentId,Long tenantId) {
+        return skillInfoMapper.getAgentSkill(name, agentId,tenantId);
     }
 
     @Override
-    public List<SkillFileDTO> getAgentSkillName(Long agentId) {
-        return skillInfoMapper.getAgentSkillName(agentId);
+    public List<SkillFileDTO> getAgentSkillName(Long agentId, Long tenantId) {
+        return skillInfoMapper.getAgentSkillName(agentId,tenantId);
     }
 
     @Override

@@ -13,4 +13,23 @@
         WHERE
             u.id = #{userId}
     </select>
+
+    <select id="permissionListByRoleId" resultType="com.zw.agent.entity.AiToolRolePermissionEntity">
+        SELECT
+            *
+        FROM ai_tool_role_permission
+        <where>
+            <if test="toolName != null and toolName != ''">
+                AND tool_name = #{toolName}
+            </if>
+            <if test="roleCodes != null and roleCodes.size() > 0">
+                AND role_code IN
+                <foreach collection="roleCodes" item="roleCode" open="(" separator="," close=")">
+                    #{roleCode}
+                </foreach>
+            </if>
+            AND tenant_id = #{tenantId}
+            AND status = 1
+        </where>
+    </select>
 </mapper>

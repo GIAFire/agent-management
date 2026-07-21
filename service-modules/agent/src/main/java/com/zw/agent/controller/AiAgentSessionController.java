@@ -70,7 +70,7 @@ public class AiAgentSessionController {
             return Result.fail("agentId must not be null");
         }
         UserInfo userInfo = UserContext.get();
-        AgentConfigDTO agentConfig = aiAgentService.getAgentConfigById(request.getAgentId());
+        AgentConfigDTO agentConfig = aiAgentService.getAgentConfigById(request.getAgentId(),userInfo);
         return Result.ok(aiAgentSessionService.createSession(
                 userInfo,
                 request.getAgentId(),

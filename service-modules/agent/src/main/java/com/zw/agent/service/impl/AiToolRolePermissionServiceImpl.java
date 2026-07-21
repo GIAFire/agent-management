@@ -27,4 +27,9 @@ public class AiToolRolePermissionServiceImpl extends ServiceImpl<AiToolRolePermi
     public List<Map<String, String>> getToolPermissionByUserId(Long userId) {
         return toolRolePermissionMapper.getToolPermissionByUserId(userId);
     }
+
+    @Override
+    public List<AiToolRolePermissionEntity> permissionListByRoleId(String toolName, List<String> roleCodes,Long tenantId) {
+        return toolRolePermissionMapper.permissionListByRoleId(toolName, roleCodes, tenantId);
+    }
 }

@@ -1,8 +1,10 @@
 package com.zw.agent.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.zw.agent.entity.AiToolRolePermissionEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
 import java.util.Map;
@@ -19,4 +21,9 @@ import java.util.Map;
 public interface AiToolRolePermissionMapper extends BaseMapper<AiToolRolePermissionEntity> {
 
     List<Map<String, String>> getToolPermissionByUserId(Long userId);
+
+    @InterceptorIgnore(tenantLine = "true")
+    List<AiToolRolePermissionEntity> permissionListByRoleId(@Param("toolName") String toolName,
+                                                            @Param("roleCodes") List<String> roleCodes,
+                                                            @Param("tenantId") Long tenantId);
 }

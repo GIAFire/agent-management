@@ -10,5 +10,6 @@
                 LEFT JOIN ai_tool_info_config tic ON atl.tool_info_config_id = tic.id
         WHERE
             atl.agent_id = #{agentId}
+        AND atl.tenant_id = #{tenantId}
     </select>
 </mapper>

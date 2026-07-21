@@ -1,5 +1,6 @@
 package com.zw.agent.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.zw.agent.entity.AiSkillInfoEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.zw.agent.entity.DTO.SkillFileDTO;
@@ -18,7 +19,9 @@ import java.util.List;
 @Mapper
 public interface AiSkillInfoMapper extends BaseMapper<AiSkillInfoEntity> {
 
-    SkillFileDTO getAgentSkill(String name,Long agentId);
+    @InterceptorIgnore(tenantLine = "true")
+    SkillFileDTO getAgentSkill(String name,Long agentId,Long tenantId);
 
-    List<SkillFileDTO> getAgentSkillName(Long agentId);
+    @InterceptorIgnore(tenantLine = "true")
+    List<SkillFileDTO> getAgentSkillName(Long agentId,Long tenantId);
 }

@@ -5,6 +5,7 @@ import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.entity.DTO.AgentBindToolDTO;
 import com.zw.agent.service.AiAgentToolService;
 import com.zw.agent.service.AiToolInfoConfigService;
+import com.zw.common.context.UserInfo;
 import io.agentscope.core.tool.Toolkit;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -29,10 +30,10 @@ public class TenantToolkitFactory {
     private final AiAgentToolService agentToolService;
     private final ApplicationContext applicationContext;
 
-    public Toolkit buildToolkit(Long agentId) {
+    public Toolkit buildToolkit(Long agentId, UserInfo userInfo) {
         Toolkit toolkit = new Toolkit();
 
-        List<AgentBindToolDTO> toolList = agentToolService.agentBindTools(agentId);
+        List<AgentBindToolDTO> toolList = agentToolService.agentBindTools(agentId,userInfo.getTenantId());
 
         Set<String> registeredClasses = new LinkedHashSet<>();
         for (AgentBindToolDTO toolInfo : toolList) {

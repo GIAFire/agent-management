@@ -17,4 +17,6 @@ import java.util.Map;
 public interface AiToolRolePermissionService extends IService<AiToolRolePermissionEntity> {
 
     List<Map<String, String>> getToolPermissionByUserId(Long userId);
+
+    List<AiToolRolePermissionEntity> permissionListByRoleId(String toolName, List<String> roleCodes,Long tenantId);
 }

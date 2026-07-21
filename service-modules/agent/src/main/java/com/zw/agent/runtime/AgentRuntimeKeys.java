@@ -8,10 +8,10 @@ public final class AgentRuntimeKeys {
     private AgentRuntimeKeys() {
     }
 
-    public static String buildAgentKey(Long agentId, Long userId) {
+    public static String buildAgentKey(Long agentId, Long userId,Long sessionId) {
         validateParams(agentId, userId);
-        return String.format("%s%s:%s",
-                AGENT_PREFIX,agentId, userId);
+        return String.format("%s%s:%s%s",
+                AGENT_PREFIX,agentId, userId,sessionId);
     }
 
     public static String redisStateKey(Long userId, Long sessionId) {

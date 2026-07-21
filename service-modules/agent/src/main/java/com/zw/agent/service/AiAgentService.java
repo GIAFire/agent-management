@@ -3,6 +3,7 @@ package com.zw.agent.service;
 import com.zw.agent.entity.AiAgentEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.common.context.UserInfo;
 
 import java.util.List;
 
@@ -16,7 +17,7 @@ import java.util.List;
  */
 public interface AiAgentService extends IService<AiAgentEntity> {
 
-    AgentConfigDTO getAgentConfigById(Long agentId);
+    AgentConfigDTO getAgentConfigById(Long agentId, UserInfo userInfo);
 
     List<AgentConfigDTO> getAgentInfoList();
 

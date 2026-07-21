@@ -25,7 +25,7 @@ public class AiAgentToolServiceImpl extends ServiceImpl<AiAgentToolMapper, AiAge
     private final AiAgentToolMapper aiAgentToolMapper;
 
     @Override
-    public List<AgentBindToolDTO> agentBindTools(Long agentId) {
-        return aiAgentToolMapper.agentBindTools(agentId);
+    public List<AgentBindToolDTO> agentBindTools(Long agentId, Long tenantId) {
+        return aiAgentToolMapper.agentBindTools(agentId,tenantId);
     }
 }

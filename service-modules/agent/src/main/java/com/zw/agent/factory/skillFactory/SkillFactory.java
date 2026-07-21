@@ -1,6 +1,7 @@
 package com.zw.agent.factory.skillFactory;
 
 import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.common.context.UserInfo;
 import io.agentscope.core.skill.repository.AgentSkillRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,8 +17,9 @@ public class SkillFactory {
     @Autowired
     SkillRepository SkillRepository;
 
-    public AgentSkillRepository mysqlSkillFactory(AgentConfigDTO config) {
+    public AgentSkillRepository mysqlSkillFactory(AgentConfigDTO config, UserInfo userInfo) {
         SkillRepository.setAgentId(config.getAgentId());
+        SkillRepository.setUserInfo(userInfo);
         return SkillRepository;
     }
 }

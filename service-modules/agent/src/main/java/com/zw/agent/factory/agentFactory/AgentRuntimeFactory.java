@@ -77,17 +77,18 @@ public class AgentRuntimeFactory {
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
         String agentCacheKey = AgentRuntimeKeys.buildAgentKey(
                 config.getAgentId(),
-                userInfo.getUserId());
+                userInfo.getUserId(),
+                sessionId);
 
         return agentCache.get(agentCacheKey, key -> {
-            Toolkit toolkit = toolkitFactory.buildToolkit(config.getAgentId());
+            Toolkit toolkit = toolkitFactory.buildToolkit(config.getAgentId(),userInfo);
             PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
             ChatModelBase chatModelBase = modelFactory.buildModel(config);
 //            List<SubagentDeclaration> subAgentList = subAgentFactory.buildSubAgent(config);
             List<AiAgentEntity> subAgentIdList = subAgentFactory.buildSubAgentFactory(config);
-            AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config);
+            AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config,userInfo);
 
             HarnessAgent.Builder agentBuilder = HarnessAgent.builder()
                     .name(config.getAgentName())
@@ -414,14 +415,14 @@ public class AgentRuntimeFactory {
 
     private Agent buildSubagent(AgentConfigDTO config, UserInfo userInfo,Long childAgentId) {
         // 1. 查询子 Agent 已发布配置
-        AgentConfigDTO childConfig = agentService.getAgentConfigById(childAgentId);
+        AgentConfigDTO childConfig = agentService.getAgentConfigById(childAgentId,userInfo);
 
 
         // 2. 构建子 Agent 自己的模型
         ChatModelBase childModel = modelFactory.buildModel(childConfig);
 
         // 3. 查询子 Agent 自己绑定的工具
-        Toolkit childToolkit = toolkitFactory.buildToolkit(childAgentId);
+        Toolkit childToolkit = toolkitFactory.buildToolkit(childAgentId, userInfo);
 
         // 4. 查询子 Agent 自己绑定的知识库
 //        List<KnowledgeBaseConfig> knowledgeBases =
@@ -435,11 +436,10 @@ public class AgentRuntimeFactory {
 //                );
 
 //        childToolkit.registerTool(knowledgeSearchTool);
-        Toolkit toolkit = toolkitFactory.buildToolkit(childConfig.getAgentId());
-        PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(childConfig, userInfo, toolkit);
+        PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(childConfig, userInfo, childToolkit);
         CompactionConfig compactionConfig = compactionFactory.buildCompaction(childConfig);
         ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(childConfig);
-        AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(childConfig);
+        AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(childConfig,userInfo);
 
 
         LocalFilesystemSpec filesystem =
@@ -449,6 +449,11 @@ public class AgentRuntimeFactory {
                         .mode(LocalFsMode.ROOTED)
                         .projectWritable(false)
                         .inheritEnv(false);
+
+        String workspacePath = childConfig.getWorkspacePath();
+        if (workspacePath == null || workspacePath.isBlank()) {
+            workspacePath = AgentConstant.WORK_PACE_PATH + childConfig.getTenantId();
+        }
 
         // 6. 构建独立的子 Agent
         return HarnessAgent.builder()
@@ -463,7 +468,7 @@ public class AgentRuntimeFactory {
                 .toolResultEviction(toolResultEvictionConfig)
                 .skillRepository(mysqlSkillRepository)
                 .workspace(
-                        Paths.get(childConfig.getWorkspacePath())
+                        Paths.get(workspacePath)
                 )
                 .filesystem(filesystem)
                 .maxIters(childConfig.getMaxIters())

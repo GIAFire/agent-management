@@ -1,5 +1,6 @@
 package com.zw.agent.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.zw.agent.entity.AiAgentToolEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.zw.agent.entity.DTO.AgentBindToolDTO;
@@ -18,5 +19,6 @@ import java.util.List;
 @Mapper
 public interface AiAgentToolMapper extends BaseMapper<AiAgentToolEntity> {
 
-    List<AgentBindToolDTO> agentBindTools(Long agentId);
+    @InterceptorIgnore(tenantLine = "true")
+    List<AgentBindToolDTO> agentBindTools(Long agentId,Long tenantId);
 }

@@ -57,7 +57,8 @@
                 LEFT JOIN ai_skill_agent_binding sab ON sab.skill_id = si.id
         WHERE
             si.NAME = #{name}
-            sab.agent_id = #{agentId}
+            AND sab.agent_id = #{agentId}
+            AND si.tenant_id = #{tenantId}
     </select>
 
     <select id="getAgentSkillName" resultMap="SkillFileMap">
@@ -79,6 +80,8 @@
                 LEFT JOIN ai_skill_agent_binding sab ON sab.skill_id = si.id
         WHERE
             sab.agent_id = #{agentId}
+            AND si.tenant_id = #{tenantId}
+            AND si.status = 1
     </select>
 
 </mapper>
