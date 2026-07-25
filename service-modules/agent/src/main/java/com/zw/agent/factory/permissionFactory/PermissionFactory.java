@@ -28,8 +28,9 @@ public class PermissionFactory {
             "plan_write",
             "todo_write",
             "task_output",
+            "task_list",
             "agent_spawn",
-            "task_list"
+            "agent_send"
     );
 
     private final AiToolRolePermissionService toolRolePermissionService;

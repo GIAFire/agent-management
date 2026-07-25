@@ -10,7 +10,7 @@ public final class AgentRuntimeKeys {
 
     public static String buildAgentKey(Long agentId, Long userId,Long sessionId) {
         validateParams(agentId, userId);
-        return String.format("%s%s:%s%s",
+        return String.format("%s%s:%s:%s",
                 AGENT_PREFIX,agentId, userId,sessionId);
     }
 
