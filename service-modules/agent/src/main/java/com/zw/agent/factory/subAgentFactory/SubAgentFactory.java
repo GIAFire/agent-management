@@ -31,23 +31,6 @@ public class SubAgentFactory {
     public List<SubagentDeclaration> buildSubAgent(AgentConfigDTO config){
         List<SubagentDeclaration> subAgentBuildList = new ArrayList<>();
         List<AiSubagentEntity> subAgentList = subAgentService.subAgentList(config.getAgentId());
-        for (AiSubagentEntity subagent: subAgentList) {
-            List<String> toolList = subagent.getToolAllowList() != null ? Arrays.stream(subagent.getToolAllowList().split(",")).collect(Collectors.toList()) : new ArrayList<>();
-            subAgentBuildList.add(
-                    SubagentDeclaration.builder()
-                    .name(subagent.getSubagentName())
-                    .description(subagent.getDescription())
-                    .inlineAgentsBody(subagent.getSystemPrompt())
-//                    .workspace(subagent.getWorkspacePath() != null ? Path.of(subagent.getWorkspacePath()) : null)
-                    .workspaceMode(WorkspaceMode.SHARED)
-                    .model(config.getModelName())
-                    .persistSession(subagent.getPersistSession() == 1)
-                    .steps(subagent.getMaxSteps())
-                    .exposeToUser(subagent.getExposeToUser() == 1)
-                    .tools(toolList)
-                    .build()
-            );
-        }
 
         return subAgentBuildList;
     }

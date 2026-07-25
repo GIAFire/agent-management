@@ -30,6 +30,7 @@ import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.model.Model;
 import io.agentscope.core.nacos.skill.NacosSkillRepository;
 import io.agentscope.core.permission.PermissionContextState;
+import io.agentscope.core.permission.PermissionMode;
 import io.agentscope.core.skill.AgentSkill;
 import io.agentscope.core.skill.repository.AgentSkillRepository;
 import io.agentscope.core.skill.repository.mysql.MysqlSkillRepository;
@@ -468,8 +469,8 @@ public class AgentRuntimeFactory {
                 .inheritEnv(false);
 
         String childRuntimeAgentId = String.format(
-                "t-%s_p-%s_c-%s",
-                parentConfig.getTenantId(),
+                "u-%s_p-%s_c-%s",
+                userInfo.getUserId(),
                 parentConfig.getAgentId(),
                 childAgentId
         );
@@ -482,6 +483,9 @@ public class AgentRuntimeFactory {
                 .model(childModel)
                 .toolkit(childToolkit)
                 .permissionContext(permissionContextState)
+                .permissionContext(PermissionContextState.builder()
+                        .mode(PermissionMode.DONT_ASK)
+                        .build())
                 .compaction(compactionConfig)
                 .toolResultEviction(toolResultEvictionConfig)
                 .skillRepository(mysqlSkillRepository)

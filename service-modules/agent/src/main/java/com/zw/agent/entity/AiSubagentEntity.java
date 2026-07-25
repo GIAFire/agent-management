@@ -5,18 +5,18 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zw.common.entity.BaseEntity;
-import io.agentscope.harness.agent.subagent.WorkspaceMode;
+import java.io.Serializable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
 /**
  * <p>
- * 子Agent定义表：保存可复用专家Agent的能力描述、模型、工具、知识库和安全配置
+ * 子Agent定义表
  * </p>
  *
  * @author 智纬
- * @since 2026-07-11
+ * @since 2026-07-26
  */
 @Getter
 @Setter
@@ -33,10 +33,10 @@ public class AiSubagentEntity extends BaseEntity {
     private Long id;
 
     /**
-     * 子Agent唯一编码，例如 reviewer、coder、researcher
+     * 子Agent唯一标识，例如 remote-researcher
      */
-    @TableField("subagent_key")
-    private String subagentKey;
+    @TableField("subagent_code")
+    private String subagentCode;
 
     /**
      * 子Agent显示名称
@@ -45,86 +45,50 @@ public class AiSubagentEntity extends BaseEntity {
     private String subagentName;
 
     /**
-     * 子Agent能力描述，模型选择是否委派的重要依据
+     * 能力描述，供主Agent判断何时委派
      */
     @TableField("description")
     private String description;
 
     /**
-     * 子Agent系统提示词或spec正文
+     * 来源类型：1.平台Agent 2.远程Agent Protocol
      */
-    @TableField("system_prompt")
-    private String systemPrompt;
+    @TableField("source_type")
+    private Byte sourceType;
 
     /**
-     * 子Agent模型配置ID，为空则继承父Agent模型
+     * 平台内部子Agent ID，source_type=1时使用，关联ai_agent.id
      */
-    @TableField("model_config_id")
-    private Long modelConfigId;
+    @TableField("local_agent_id")
+    private Long localAgentId;
 
     /**
-     * 子Agent单次最大推理迭代次数
+     * 远程Agent Protocol服务基础URL，source_type=2时使用
      */
-    @TableField("max_steps")
-    private Integer maxSteps;
+    @TableField("remote_url")
+    private String remoteUrl;
 
     /**
-     * 工作区模式：ISOLATED独立，SHARED共享父工作区
+     * 远程协议类型：1.Agent Protocol，预留2.A2A
      */
-    @TableField("workspace_mode")
-    private String workspaceMode;
+    @TableField("protocol_type")
+    private Byte protocolType;
 
     /**
-     * 子Agent相对工作区路径，可为空
+     * 是否启用：0.否 1.是
      */
-    @TableField("workspace_path")
-    private String workspacePath;
+    @TableField("enabled")
+    private Byte enabled;
 
     /**
-     * 是否允许暴露给用户直接对话：1是，0否，NULL交给调用策略
+     * 备注
      */
-    @TableField("expose_to_user")
-    private Byte exposeToUser;
+    @TableField("remark")
+    private String remark;
 
     /**
-     * 是否持久化子Agent会话：1复用，0每次新建
+     * 更新人ID
      */
-    @TableField("persist_session")
-    private Byte persistSession;
-
-    /**
-     * 允许使用的工具名数组，例如read_file,grep_files
-     */
-    @TableField("tool_allow_list")
-    private String toolAllowList;
-
-    /**
-     * 绑定知识库ID数组
-     */
-    @TableField("knowledge_base_ids_json")
-    private String knowledgeBaseIdsJson;
-
-    /**
-     * 子Agent沙箱配置ID，可为空表示继承或禁用
-     */
-    @TableField("sandbox_config_id")
-    private Long sandboxConfigId;
-
-    /**
-     * 子Agent权限策略ID，可为空表示继承父级DENY规则
-     */
-    @TableField("permission_policy_id")
-    private Long permissionPolicyId;
-
-    /**
-     * 风险等级：LOW/MEDIUM/HIGH/CRITICAL
-     */
-    @TableField("risk_level")
-    private String riskLevel;
-
-    /**
-     * 状态：1启用，0停用
-     */
-    @TableField("status")
-    private Byte status;
+    @TableField("updated_by")
+    private Long updatedBy;
 }

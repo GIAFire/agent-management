@@ -77,7 +77,6 @@ public class AiSubagentTaskServiceImpl extends ServiceImpl<AiSubagentTaskMapper,
         );
         Integer timeoutSeconds = parseInteger(value(input, "timeout_seconds", "timeoutSeconds"));
 
-        AiSubagentEntity subagent = resolveSubagent(config, requestedAgent, label);
         AiSubagentInstanceEntity instance = resolveInstance(userInfo, config, sessionId, runId, agentKey, runtimeSessionKey, subagentExternalId);
 
         AiSubagentTaskEntity taskEntity = new AiSubagentTaskEntity();
@@ -104,10 +103,6 @@ public class AiSubagentTaskServiceImpl extends ServiceImpl<AiSubagentTaskMapper,
             taskEntity.setSubagentId(instance.getSubagentId());
             taskEntity.setSubagentKey(instance.getSubagentKey());
         }
-        if (subagent != null) {
-            taskEntity.setSubagentId(firstNonNull(taskEntity.getSubagentId(), subagent.getId()));
-            taskEntity.setSubagentKey(firstText(taskEntity.getSubagentKey(), subagent.getSubagentKey()));
-        }
         if (taskEntity.getSubagentKey() == null) {
             taskEntity.setSubagentKey(firstText(requestedAgent, label));
         }
@@ -120,32 +115,6 @@ public class AiSubagentTaskServiceImpl extends ServiceImpl<AiSubagentTaskMapper,
         return "agent_spawn".equals(normalized) || "agent_send".equals(normalized);
     }
 
-    private AiSubagentEntity resolveSubagent(AgentConfigDTO config, String requestedAgent, String label) {
-        if (config == null || config.getAgentId() == null) {
-            return null;
-        }
-        List<AiSubagentEntity> subagents = subagentService.subAgentList(config.getAgentId());
-        if (subagents == null || subagents.isEmpty()) {
-            return null;
-        }
-
-        String requested = normalize(requestedAgent);
-        String normalizedLabel = normalize(label);
-        return subagents.stream()
-                .filter(Objects::nonNull)
-                .filter(subagent -> matchesSubagent(subagent, requested) || matchesSubagent(subagent, normalizedLabel))
-                .findFirst()
-                .orElse(null);
-    }
-
-    private boolean matchesSubagent(AiSubagentEntity subagent, String value) {
-        if (value == null || value.isBlank()) {
-            return false;
-        }
-        return value.equals(normalize(subagent.getSubagentKey()))
-                || value.equals(normalize(subagent.getSubagentName()))
-                || value.equals(normalize(subagent.getDescription()));
-    }
 
     private AiSubagentInstanceEntity resolveInstance(
             UserInfo userInfo,
