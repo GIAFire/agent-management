@@ -2,6 +2,7 @@ package com.zw.agent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.*;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.exception.AgentConfigException;
@@ -96,11 +97,8 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
                 .setSysPromptId(agentVO.getSysPromptId())
                 .setModelId(agentVO.getModelId())
                 .setMaxIters(defaultInt(agentVO.getMaxIters(), 10))
-                .setWorkspacePath(firstText(agentVO.getWorkspacePath(), ".agentscope/workspace"))
+                .setWorkspacePath(firstText(agentVO.getWorkspacePath(), AgentConstant.WORK_PACE_PATH))
                 .setPermissionMode(firstText(agentVO.getPermissionMode(), "ASK"))
-                .setVisualSchemaJson(agentVO.getVisualSchemaJson())
-                .setAgentPermissionPolicyId(agentVO.getAgentPermissionPolicyId())
-                .setPublishStatus(defaultInt(agentVO.getPublishStatus(), 0))
                 .setContextEnabled(defaultInt(agentVO.getContextEnabled(), 0))
                 .setTriggerMessages(defaultInt(agentVO.getTriggerMessages(), 30))
                 .setKeepMessages(defaultInt(agentVO.getKeepMessages(), 10))
@@ -124,9 +122,6 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
                 .setPlanPrompt(agentVO.getPlanPrompt())
                 .setSandboxEnabled(defaultInt(agentVO.getSandboxEnabled(), 0))
                 .setSandboxConfigId(agentVO.getSandboxConfigId());
-        if (Integer.valueOf(1).equals(config.getPublishStatus())) {
-            config.setPublishedAt(LocalDateTime.now());
-        }
         config.setTenantId(agent.getTenantId());
         agentConfigMapper.insert(EntityDefaults.create(config));
 

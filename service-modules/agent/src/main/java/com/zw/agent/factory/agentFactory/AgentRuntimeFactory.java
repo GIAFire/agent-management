@@ -92,7 +92,7 @@ public class AgentRuntimeFactory {
             List<AiAgentEntity> subAgentIdList = subAgentFactory.buildSubAgentFactory(config);
             AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config,userInfo);
 
-            Path baseWorkspace = Paths.get(AgentConstant.WORK_PACE_PATH);
+            Path baseWorkspace = Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH : config.getWorkspacePath());
 
             Path workspacePath = baseWorkspace
                     .resolve("tenants").resolve(String.valueOf(config.getTenantId()))

@@ -102,10 +102,10 @@ public class AiAgentModelEntity extends BaseEntity {
     private Integer maxTokens;
 
     /**
-     * 模型调用超时时间，单位毫秒
+     * 思考token预算
      */
-    @TableField("timeout_ms")
-    private Integer timeoutMs;
+    @TableField("thinking_budget")
+    private Integer thinkingBudget;
 
     /**
      * 模型调用最大重试次数

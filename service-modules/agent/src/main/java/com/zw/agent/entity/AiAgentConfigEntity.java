@@ -73,24 +73,6 @@ public class AiAgentConfigEntity extends BaseEntity {
     @TableField("permission_mode")
     private String permissionMode;
 
-    /**
-     * Vue3 可视化画布JSON，保存节点、边、位置、表单配置
-     */
-    @TableField("visual_schema_json")
-    private String visualSchemaJson;
-
-    /**
-     * agent全局权限策略id
-     */
-    @TableField("agent_permission_policy_id")
-    private Long agentPermissionPolicyId;
-
-    /**
-     * 发布状态：0草稿，1已发布，2已废弃
-     */
-    @TableField("publish_status")
-    private Integer publishStatus;
-
     @TableField("context_enabled")
     private Integer contextEnabled;
 
@@ -193,10 +175,4 @@ public class AiAgentConfigEntity extends BaseEntity {
      */
     @TableField("sandbox_config_id")
     private Long sandboxConfigId;
-
-    /**
-     * 发布时间
-     */
-    @TableField("published_at")
-    private LocalDateTime publishedAt;
 }

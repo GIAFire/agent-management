@@ -66,6 +66,7 @@ public class AgentConfigDTO {
     private String modelType;
     private Boolean streaming;
     private Boolean thinking;
+    private Integer thinkingBudget;
     private Double temperature;
     private Double topP;
     private Integer maxTokens;
