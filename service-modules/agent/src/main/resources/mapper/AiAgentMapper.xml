@@ -28,7 +28,7 @@
         <result property="maxIters" column="max_iters"/>
         <result property="workspacePath" column="workspace_path"/>
         <result property="permissionMode" column="permission_mode"/>
-        <result property="contextEnabled" column="context_enabled"/>
+        <result property="compactionEnabled" column="compaction_enabled"/>
         <result property="triggerMessages" column="trigger_messages"/>
         <result property="keepMessages" column="keep_messages"/>
         <result property="triggerTokens" column="trigger_tokens"/>
@@ -93,7 +93,7 @@
             ac.max_iters AS maxIters,
             ac.workspace_path AS workspacePath,
             ac.permission_mode AS permissionMode,
-            ac.context_enabled AS contextEnabled,
+            ac.compaction_enabled AS compactionEnabled,
             ac.trigger_messages AS triggerMessages,
             ac.keep_messages AS keepMessages,
             ac.trigger_tokens AS triggerTokens,
@@ -166,7 +166,7 @@
             ac.max_iters AS maxIters,
             ac.workspace_path AS workspacePath,
             ac.permission_mode AS permissionMode,
-            ac.context_enabled AS contextEnabled,
+            ac.compaction_enabled AS compactionEnabled,
             ac.trigger_messages AS triggerMessages,
             ac.keep_messages AS keepMessages,
             ac.trigger_tokens AS triggerTokens,

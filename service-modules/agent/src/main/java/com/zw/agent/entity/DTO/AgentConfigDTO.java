@@ -32,7 +32,7 @@ public class AgentConfigDTO {
     private Long agentPermissionPolicyId;
     private Integer publishStatus;
     private String publishedAt;
-    private Integer contextEnabled;
+    private Integer compactionEnabled;
     private String triggerMode;
     private Integer flushBeforeCompact;
     private Integer offloadBeforeCompact;

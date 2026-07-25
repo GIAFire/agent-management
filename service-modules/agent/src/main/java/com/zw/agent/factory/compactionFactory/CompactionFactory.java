@@ -13,9 +13,12 @@ import java.util.Optional;
 @Component
 public class CompactionFactory {
 
-    public CompactionConfig buildCompaction(
-            AgentConfigDTO config
-    ){
+    public CompactionConfig buildCompaction(AgentConfigDTO config){
+
+        if (config.getCompactionEnabled() != 1){
+            return CompactionConfig.builder().build();
+        }
+
         return CompactionConfig.builder()
                 .triggerMessages(
                         Optional.ofNullable(config.getTriggerMessages())

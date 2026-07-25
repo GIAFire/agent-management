@@ -167,7 +167,7 @@ const configForm = reactive({
   visualSchemaJson: '',
   agentPermissionPolicyId: null,
   publishStatus: 1,
-  contextEnabled: 1,
+  compactionEnabled: 1,
   triggerMessages: 30,
   keepMessages: 10,
   triggerTokens: 6000,
@@ -368,7 +368,7 @@ const configProgress = computed(() => {
   if (configForm.modelId && configForm.sysPrompt) score += 15
   if (selections.toolIds.length || selections.skillIds.length) score += 15
   if (selections.knowledgeBaseIds.length || selections.subagentIds.length || selections.mcp.length) score += 10
-  if (configForm.contextEnabled) score += 10
+  if (configForm.compactionEnabled) score += 10
   if (configForm.memoryEnable) score += 7
   if (configForm.sandboxEnabled) score += 8
   return Math.min(score, 100)
@@ -491,7 +491,7 @@ const resetConfigForm = () => {
     visualSchemaJson: '',
     agentPermissionPolicyId: null,
     publishStatus: 1,
-    contextEnabled: 1,
+    compactionEnabled: 1,
     triggerMessages: 30,
     keepMessages: 10,
     triggerTokens: 6000,
@@ -743,7 +743,7 @@ const buildCreateAgentPayload = () => ({
   visualSchemaJson: buildVisualSchema(),
   agentPermissionPolicyId: normalizeId(configForm.agentPermissionPolicyId),
   publishStatus: configForm.publishStatus,
-  contextEnabled: toSwitchValue(configForm.contextEnabled),
+  compactionEnabled: toSwitchValue(configForm.compactionEnabled),
   triggerMessages: normalizeNumber(configForm.triggerMessages),
   keepMessages: normalizeNumber(configForm.keepMessages),
   triggerTokens: normalizeNumber(configForm.triggerTokens),
@@ -1413,18 +1413,18 @@ onMounted(async () => {
                 </div>
               </article>
 
-              <article class="advanced-card" :class="{ collapsed: !configForm.contextEnabled }">
+              <article class="advanced-card" :class="{ collapsed: !configForm.compactionEnabled }">
                 <header>
                   <span class="type-icon"><el-icon><Notebook /></el-icon></span>
                   <div class="advanced-card-copy">
                     <div class="advanced-title-inline">
                       <h5>上下文压缩</h5>
-                      <el-switch v-model="configForm.contextEnabled" :active-value="1" :inactive-value="0" />
+                      <el-switch v-model="configForm.compactionEnabled" :active-value="1" :inactive-value="0" />
                     </div>
                     <p>控制长会话的压缩触发和保留范围</p>
                   </div>
                 </header>
-                <div v-show="configForm.contextEnabled" class="agent-form-grid four">
+                <div v-show="configForm.compactionEnabled" class="agent-form-grid four">
                   <el-form-item label="触发消息数">
                     <el-input-number v-model="configForm.triggerMessages" :min="1" :controls="false" />
                   </el-form-item>

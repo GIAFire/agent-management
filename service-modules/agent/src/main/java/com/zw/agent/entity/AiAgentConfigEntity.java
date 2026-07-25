@@ -73,8 +73,8 @@ public class AiAgentConfigEntity extends BaseEntity {
     @TableField("permission_mode")
     private String permissionMode;
 
-    @TableField("context_enabled")
-    private Integer contextEnabled;
+    @TableField("compaction_enabled")
+    private Integer compactionEnabled;
 
     @TableField("trigger_messages")
     private Integer triggerMessages;
