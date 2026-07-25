@@ -2,9 +2,7 @@ package com.zw.agent.constant;
 
 public final class AgentConstant {
 
-    public static final String WORK_PACE_PATH = ".agentscope/workspace";
-
-
+    public static final String WORK_PACE_PATH = ".agentOS/workspace";
 
     // SKILL
     public static final String DEFAULT_SKILL_MD_FILE = "SKILL.md";

@@ -47,6 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
@@ -90,7 +91,15 @@ public class AgentRuntimeFactory {
             List<AiAgentEntity> subAgentIdList = subAgentFactory.buildSubAgentFactory(config);
             AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config,userInfo);
 
+            Path baseWorkspace = Paths.get(AgentConstant.WORK_PACE_PATH);
+
+            Path workspacePath = baseWorkspace
+                    .resolve("tenants").resolve(String.valueOf(config.getTenantId()))
+                    .resolve("users").resolve(String.valueOf(userInfo.getUserId()))
+                    .resolve("agents").resolve(String.valueOf(config.getAgentId()));
+
             HarnessAgent.Builder agentBuilder = HarnessAgent.builder()
+                    .agentId(String.valueOf(config.getAgentId()))
                     .name(config.getAgentName())
                     .sysPrompt(config.getSysPrompt())
                     .model(chatModelBase)
@@ -100,10 +109,11 @@ public class AgentRuntimeFactory {
                     .compaction(compactionConfig)
                     .skillRepository(nacosSkillRepository)
                     .skillRepository(mysqlSkillRepository)
-                    .workspace(Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath()))
+                    .workspace(workspacePath)
                     .filesystem(
                             new LocalFilesystemSpec()
-                                    .project(Paths.get(AgentConstant.WORK_PACE_PATH + config.getTenantId()))
+                                    .project(workspacePath)
+                                    .isolationScope(IsolationScope.GLOBAL)
                                     .mode(LocalFsMode.SANDBOXED)
                     )
                     .toolResultEviction(toolResultEvictionConfig);
@@ -132,6 +142,7 @@ public class AgentRuntimeFactory {
                         childAgent.getAgentName(),
                         name -> buildSubagent(
                                 config,
+                                workspacePath,
                                 userInfo,
                                 childAgent.getId()
                         )
@@ -413,7 +424,7 @@ public class AgentRuntimeFactory {
         );
     }
 
-    private Agent buildSubagent(AgentConfigDTO config, UserInfo userInfo,Long childAgentId) {
+    private Agent buildSubagent(AgentConfigDTO parentConfig, Path parentWorkspace, UserInfo userInfo,Long childAgentId) {
         // 1. 查询子 Agent 已发布配置
         AgentConfigDTO childConfig = agentService.getAgentConfigById(childAgentId,userInfo);
 
@@ -442,22 +453,29 @@ public class AgentRuntimeFactory {
         AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(childConfig,userInfo);
 
 
-        LocalFilesystemSpec filesystem =
-                new LocalFilesystemSpec()
-                        .project(Paths.get(AgentConstant.WORK_PACE_PATH + config.getTenantId()))
-                        .isolationScope(IsolationScope.SESSION)
-                        .mode(LocalFsMode.ROOTED)
-                        .projectWritable(false)
-                        .inheritEnv(false);
+        Path childWorkspace = parentWorkspace
+                .resolve("agents")
+                .resolve(String.valueOf(childAgentId))
+                .resolve("workspace")
+                .toAbsolutePath()
+                .normalize();
 
-        String workspacePath = childConfig.getWorkspacePath();
-        if (workspacePath == null || workspacePath.isBlank()) {
-            workspacePath = AgentConstant.WORK_PACE_PATH + childConfig.getTenantId();
-        }
+        LocalFilesystemSpec childFilesystem = new LocalFilesystemSpec()
+                .project(childWorkspace)
+                .isolationScope(IsolationScope.GLOBAL)
+                .mode(LocalFsMode.SANDBOXED)
+                .projectWritable(false)
+                .inheritEnv(false);
 
-        // 6. 构建独立的子 Agent
-        return HarnessAgent.builder()
-                .agentId(String.valueOf(childAgentId))
+        String childRuntimeAgentId = String.format(
+                "t-%s_p-%s_c-%s",
+                parentConfig.getTenantId(),
+                parentConfig.getAgentId(),
+                childAgentId
+        );
+
+        HarnessAgent.Builder childBuilder = HarnessAgent.builder()
+                .agentId(childRuntimeAgentId)
                 .name(childConfig.getAgentName())
                 .description(childConfig.getAgentDescription())
                 .sysPrompt(childConfig.getSysPrompt())
@@ -467,13 +485,18 @@ public class AgentRuntimeFactory {
                 .compaction(compactionConfig)
                 .toolResultEviction(toolResultEvictionConfig)
                 .skillRepository(mysqlSkillRepository)
-                .workspace(
-                        Paths.get(workspacePath)
-                )
-                .filesystem(filesystem)
+                .workspace(childWorkspace)
+                .filesystem(childFilesystem)
                 .maxIters(childConfig.getMaxIters())
-                .disableSubagents()
-                .disableMemoryTools()
-                .build();
+                .disableSubagents();
+
+        if (childConfig.getMemoryEnable() == 0) {
+            childBuilder
+                    .disableMemoryTools()
+                    .disableMemoryHooks();
+        }
+
+        // 6. 构建独立的子 Agent
+        return childBuilder.build();
     }
 }

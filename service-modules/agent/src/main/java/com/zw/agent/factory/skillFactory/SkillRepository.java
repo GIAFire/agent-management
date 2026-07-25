@@ -24,9 +24,6 @@ import java.nio.file.Paths;
 import java.util.*;
 
 @Slf4j
-@Data
-@RequiredArgsConstructor
-@Component
 public class SkillRepository implements AgentSkillRepository {
     private static final String REPOSITORY_TYPE = "mysql";
     private static final String REPOSITORY_LOCATION = "ai_skill_info";
@@ -35,17 +32,27 @@ public class SkillRepository implements AgentSkillRepository {
     private static final String SKILL_MD_ROLE = "SKILL_MD";
     private static final String SKILL_MD_PATH = "SKILL.md";
 
-    private Long agentId;
-    private UserInfo userInfo;
-
+    private final Long agentId;
+    private final Long tenantId;
     private final AiSkillInfoService skillInfoService;
-    private final AiSkillResourceService skillFileService;
+    private final AiSkillResourceService skillResourceService;
+
+    public SkillRepository(
+            Long agentId,
+            Long tenantId,
+            AiSkillInfoService skillInfoService,
+            AiSkillResourceService skillResourceService) {
+        this.agentId = Objects.requireNonNull(agentId);
+        this.tenantId = Objects.requireNonNull(tenantId);
+        this.skillInfoService = Objects.requireNonNull(skillInfoService);
+        this.skillResourceService = Objects.requireNonNull(skillResourceService);
+    }
 
 
 
     @Override
     public AgentSkill getSkill(String name) {
-        SkillFileDTO skillInfo = skillInfoService.getAgentSkill(name,agentId,userInfo.getTenantId());
+        SkillFileDTO skillInfo = skillInfoService.getAgentSkill(name,agentId,tenantId);
         if (skillInfo == null) {
             throw new IllegalArgumentException("Skill not found: " + name);
         }
@@ -69,7 +76,7 @@ public class SkillRepository implements AgentSkillRepository {
 
     @Override
     public List<AgentSkill> getAllSkills() {
-        List<SkillFileDTO> skillInfo = skillInfoService.getAgentSkillName(agentId,userInfo.getTenantId());
+        List<SkillFileDTO> skillInfo = skillInfoService.getAgentSkillName(agentId,tenantId);
         Map<Long, LoadedSkillRecord> skillRecords = new HashMap<>();
         for (SkillFileDTO skill : skillInfo){
             LoadedSkillRecord loadedSkillRecord = skillRecords.computeIfAbsent(

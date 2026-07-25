@@ -30,7 +30,9 @@ public class PermissionFactory {
             "task_output",
             "task_list",
             "agent_spawn",
-            "agent_send"
+            "agent_send",
+            "agent_list",
+            "memory_save"
     );
 
     private final AiToolRolePermissionService toolRolePermissionService;

@@ -34,5 +34,5 @@ logs/
 workspace/
 skill-packages/
 **/resources/rebel.xml
-/.agentscope/
+/.agentOS/
 /doc
