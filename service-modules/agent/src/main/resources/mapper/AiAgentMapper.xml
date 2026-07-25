@@ -51,6 +51,7 @@
         <result property="planPrompt" column="plan_prompt"/>
         <result property="sandboxEnabled" column="sandbox_enabled"/>
         <result property="sandboxConfigId" column="sandbox_config_id"/>
+        <result property="stateStoreType" column="state_store_type"/>
 
         <!-- ModelConfig 字段映射 -->
         <result property="modelId" column="model_id"/>
@@ -116,6 +117,7 @@
             ac.plan_prompt AS planPrompt,
             ac.sandbox_enabled AS sandboxEnabled,
             ac.sandbox_config_id AS sandboxConfigId,
+            ac.state_store_type AS stateStoreType,
             model.id AS modelId,
             model.provider AS provider,
             model.base_URL AS baseUrl,
@@ -189,6 +191,7 @@
             ac.plan_prompt AS planPrompt,
             ac.sandbox_enabled AS sandboxEnabled,
             ac.sandbox_config_id AS sandboxConfigId,
+            ac.state_store_type AS stateStoreType,
             model.id AS modelId,
             model.provider AS provider,
             model.base_URL AS baseUrl,

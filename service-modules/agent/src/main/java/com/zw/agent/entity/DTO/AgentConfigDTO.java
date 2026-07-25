@@ -1,6 +1,7 @@
 package com.zw.agent.entity.DTO;
 
 import com.zw.agent.factory.modelFactory.ModelType;
+import com.zw.agent.factory.stateStoreFactory.StateStoreType;
 import lombok.Data;
 
 import java.util.List;
@@ -46,6 +47,7 @@ public class AgentConfigDTO {
     private Integer planMaxSteps;
     private Integer planAutoEnterEnabled;
     private String planPrompt;
+    private StateStoreType stateStoreType;
 
     private Integer triggerMessages;
     private Integer keepMessages;
