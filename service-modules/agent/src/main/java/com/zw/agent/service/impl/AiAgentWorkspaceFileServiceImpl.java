@@ -42,16 +42,18 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
         AgentCallContext agentCallContext = runtimeContext.get(AgentCallContext.class);
         AgentConfigDTO agentConfig = agentCallContext.getAgentConfig();
         UserInfo userInfo = agentCallContext.getUserInfo();
-        Path workspaceRoot = Paths.get(agentCallContext.getAgentConfig().getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + userInfo.getTenantId() : agentCallContext.getAgentConfig().getWorkspacePath())
-                .toAbsolutePath()
-                .normalize();
+
+        Path baseWorkspace = Paths.get(AgentConstant.WORK_PACE_PATH);
+        Path workspaceRoot = baseWorkspace
+                .resolve("tenants").resolve(String.valueOf(agentConfig.getTenantId()))
+                .resolve("users").resolve(String.valueOf(userInfo.getUserId()))
+                .resolve("agents").resolve(String.valueOf(agentConfig.getAgentId()));
 
         String baseName = StringUtils.stripFilenameExtension(fileName); // "报告"
         String extension = StringUtils.getFilenameExtension(fileName);  // "md"
 
         String relativePath = String.format(
-                "%s/generateFiles/%s/%s",
-                userInfo.getUserId(),
+                "temp/%s/%s",
                 agentCallContext.getSessionId(),
                 fileName
         );
@@ -74,7 +76,7 @@ public class AiAgentWorkspaceFileServiceImpl extends ServiceImpl<AiAgentWorkspac
         entity.setUserId(userInfo.getUserId());
         entity.setAgentId(agentConfig.getAgentId());
         entity.setAgentConfigId(agentConfig.getAgentConfigId());
-        entity.setSessionId(runtimeContext.getSessionId());
+        entity.setSessionId(String.valueOf(agentCallContext.getSessionId()));
         entity.setRunId(agentCallContext.getRunId());
         entity.setToolCallId(toolCallId);
         entity.setFileName(fileName);
