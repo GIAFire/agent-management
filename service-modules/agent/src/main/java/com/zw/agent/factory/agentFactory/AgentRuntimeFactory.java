@@ -11,6 +11,7 @@ import com.zw.agent.factory.modelFactory.ModelFactory;
 import com.zw.agent.factory.permissionFactory.PermissionFactory;
 import com.zw.agent.factory.runtimeContextFactory.RuntimeContextFactory;
 import com.zw.agent.factory.skillFactory.SkillFactory;
+import com.zw.agent.factory.stateStoreFactory.StateStoreFactory;
 import com.zw.agent.factory.subAgentFactory.SubAgentFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
@@ -34,6 +35,7 @@ import io.agentscope.core.permission.PermissionMode;
 import io.agentscope.core.skill.AgentSkill;
 import io.agentscope.core.skill.repository.AgentSkillRepository;
 import io.agentscope.core.skill.repository.mysql.MysqlSkillRepository;
+import io.agentscope.core.state.AgentStateStore;
 import io.agentscope.core.tool.AgentTool;
 import io.agentscope.core.tool.Toolkit;
 import io.agentscope.harness.agent.HarnessAgent;
@@ -74,6 +76,7 @@ public class AgentRuntimeFactory {
     private final NacosSkillRepository nacosSkillRepository;
     private final SkillFactory mysqlSkillFactory;
     private final AiAgentService agentService;
+    private final StateStoreFactory stateStoreFactory;
 
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
@@ -91,7 +94,7 @@ public class AgentRuntimeFactory {
 //            List<SubagentDeclaration> subAgentList = subAgentFactory.buildSubAgent(config);
             List<AiAgentEntity> subAgentIdList = subAgentFactory.buildSubAgentFactory(config);
             AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config,userInfo);
-
+            AgentStateStore stateStore = stateStoreFactory.buildStateStore(config);
             Path baseWorkspace = Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH : config.getWorkspacePath());
 
             Path workspacePath = baseWorkspace
@@ -107,6 +110,7 @@ public class AgentRuntimeFactory {
                     .toolkit(toolkit)
                     .permissionContext(permissionContextState)
                     .maxIters(config.getMaxIters())
+                    .stateStore(stateStore)
                     .compaction(compactionConfig)
                     .skillRepository(nacosSkillRepository)
                     .skillRepository(mysqlSkillRepository)
