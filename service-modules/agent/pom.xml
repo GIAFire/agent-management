@@ -41,22 +41,6 @@
             </dependency>
 
             <dependency>
-                <groupId>dev.langchain4j</groupId>
-                <artifactId>langchain4j-bom</artifactId>
-                <version>${langchain4j.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>dev.langchain4j</groupId>
-                <artifactId>langchain4j-community-bom</artifactId>
-                <version>${langchain4j-community.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
                 <groupId>com.alibaba.nacos</groupId>
                 <artifactId>nacos-client</artifactId>
                 <version>${nacos-client.version}</version>
@@ -134,38 +118,28 @@
         </dependency>
 
         <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-open-ai</artifactId>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-rag-simple</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-ollama</artifactId>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-rag-ragflow</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-community-dashscope</artifactId>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-rag-haystack</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-community-zhipu-ai</artifactId>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-rag-bailian</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-elasticsearch</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-milvus</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-qdrant</artifactId>
+            <groupId>io.agentscope</groupId>
+            <artifactId>agentscope-extensions-rag-dify</artifactId>
         </dependency>
 
         <!-- SSE / Flux 支持 -->

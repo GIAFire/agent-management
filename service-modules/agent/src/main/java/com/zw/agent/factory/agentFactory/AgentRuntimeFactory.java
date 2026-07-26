@@ -103,8 +103,8 @@ public class AgentRuntimeFactory {
                     .resolve("agents").resolve(String.valueOf(config.getAgentId()));
 
             HarnessAgent.Builder agentBuilder = HarnessAgent.builder()
-//                    .agentId(String.valueOf(config.getAgentId()))
-                    .name(config.getAgentName())
+                    .agentId(String.valueOf(config.getAgentId()))
+                    .name(config.getAgentCode())
                     .sysPrompt(config.getSysPrompt())
                     .model(chatModelBase)
                     .toolkit(toolkit)
