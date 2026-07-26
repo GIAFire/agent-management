@@ -19,6 +19,8 @@ public interface AiAgentService extends IService<AiAgentEntity> {
 
     AgentConfigDTO getAgentConfigById(Long agentId, UserInfo userInfo);
 
+    AgentConfigDTO getAgentConfigById(Long agentId, Long agentConfigId, UserInfo userInfo);
+
     List<AgentConfigDTO> getAgentInfoList();
 
     Boolean createAgent(AgentConfigDTO agentVO);

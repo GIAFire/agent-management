@@ -74,7 +74,7 @@
         <result property="sysPrompt" column="sys_prompt"/>
     </resultMap>
 
-    <select id="getAgentConfigById" resultType="com.zw.agent.entity.DTO.AgentConfigDTO" parameterType="Long">
+    <select id="getAgentConfigById" resultType="com.zw.agent.entity.DTO.AgentConfigDTO">
         SELECT
             agent.id AS agentId,
             agent.agent_code AS agentCode,
@@ -144,7 +144,10 @@
         WHERE
           agent.id = #{agentId}
           AND agent.tenant_id = #{tenantId}
-        ORDER BY agent.created_at DESC
+          <if test="agentConfigId != null">
+              AND ac.id = #{agentConfigId}
+          </if>
+        ORDER BY ac.created_at DESC, ac.id DESC
         LIMIT 1
     </select>
 

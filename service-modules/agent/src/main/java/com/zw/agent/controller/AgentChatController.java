@@ -35,9 +35,12 @@ public class AgentChatController {
         Long requestStartNs = System.nanoTime();
         UserInfo userInfo = UserContext.get();
 
-        AgentConfigDTO agentConfig = agentService.getAgentConfigById(request.getAgentId(),userInfo);
-
         AiAgentSessionEntity session = requireOwnedSession(userInfo, request.getAgentId(), request.getSessionId());
+        AgentConfigDTO agentConfig = agentService.getAgentConfigById(
+                request.getAgentId(),
+                session.getAgentConfigId(),
+                userInfo
+        );
 
         AiAgentMessageEntity userMessage = agentMessageService.saveUserMessage(
                 userInfo,
@@ -65,16 +68,32 @@ public class AgentChatController {
     @PostMapping(value = "/userConfirm", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> userConfirm(@RequestBody AgentInterventionRequest request) {
         UserInfo userInfo = UserContext.get();
-        AgentConfigDTO config = agentService.getAgentConfigById(request.getAgentId(),userInfo);
-        requireOwnedSession(userInfo, request.getAgentId(), request.getSessionId());
+        AiAgentSessionEntity session = requireOwnedSession(
+                userInfo,
+                request.getAgentId(),
+                request.getSessionId()
+        );
+        AgentConfigDTO config = agentService.getAgentConfigById(
+                request.getAgentId(),
+                session.getAgentConfigId(),
+                userInfo
+        );
         return agentChatService.userConfirmStream(config, userInfo, request.getSessionId(), request);
     }
 
     @PostMapping(value = "/externalExecution", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<AgentStreamResponse>> externalExecution(@RequestBody AgentInterventionRequest request) {
         UserInfo userInfo = UserContext.get();
-        AgentConfigDTO config = agentService.getAgentConfigById(request.getAgentId(),userInfo);
-        requireOwnedSession(userInfo, request.getAgentId(), request.getSessionId());
+        AiAgentSessionEntity session = requireOwnedSession(
+                userInfo,
+                request.getAgentId(),
+                request.getSessionId()
+        );
+        AgentConfigDTO config = agentService.getAgentConfigById(
+                request.getAgentId(),
+                session.getAgentConfigId(),
+                userInfo
+        );
         return agentChatService.externalExecutionStream(config, userInfo, request.getSessionId(), request);
     }
 

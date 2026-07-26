@@ -6,6 +6,7 @@ import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.*;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.exception.AgentConfigException;
+import com.zw.agent.factory.stateStoreFactory.StateStoreType;
 import com.zw.agent.mapper.*;
 import com.zw.agent.service.AiAgentService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -45,11 +46,31 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
     private final AiAgentToolMapper agentToolMapper;
     private final AiToolInfoConfigMapper toolInfoConfigMapper;
 
+    @Override
     public AgentConfigDTO getAgentConfigById(Long agentId, UserInfo userInfo) {
+        return getAgentConfigById(agentId, null, userInfo);
+    }
+
+    @Override
+    public AgentConfigDTO getAgentConfigById(
+            Long agentId,
+            Long agentConfigId,
+            UserInfo userInfo
+    ) {
         if (agentId == null) {
             throw new AgentConfigException("agentId 不能为空");
         }
-        AgentConfigDTO agentConfig = aiAgentMapper.getAgentConfigById(agentId,userInfo.getTenantId());
+        if (userInfo == null || userInfo.getTenantId() == null) {
+            throw new AgentConfigException("租户信息不能为空");
+        }
+        AgentConfigDTO agentConfig = aiAgentMapper.getAgentConfigById(
+                agentId,
+                userInfo.getTenantId(),
+                agentConfigId
+        );
+        if (agentConfig == null) {
+            throw new AgentConfigException("未找到当前会话绑定的智能体配置");
+        }
 
         try {
             String decrypt = AESUtil.decrypt(agentConfig.getApiKey());
@@ -121,7 +142,12 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
                 .setPlanAutoEnterEnabled(defaultInt(agentVO.getPlanAutoEnterEnabled(), 1))
                 .setPlanPrompt(agentVO.getPlanPrompt())
                 .setSandboxEnabled(defaultInt(agentVO.getSandboxEnabled(), 0))
-                .setSandboxConfigId(agentVO.getSandboxConfigId());
+                .setSandboxConfigId(agentVO.getSandboxConfigId())
+                .setStateStoreType(
+                        agentVO.getStateStoreType() == null
+                                ? StateStoreType.LOCAL_FILE
+                                : agentVO.getStateStoreType()
+                );
         config.setTenantId(agent.getTenantId());
         agentConfigMapper.insert(EntityDefaults.create(config));
 

@@ -456,6 +456,7 @@ public class AgentRuntimeFactory {
         CompactionConfig compactionConfig = compactionFactory.buildCompaction(childConfig);
         ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(childConfig);
         AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(childConfig,userInfo);
+        AgentStateStore childStateStore = stateStoreFactory.buildStateStore(childConfig);
 
 
         Path childWorkspace = parentWorkspace
@@ -493,6 +494,7 @@ public class AgentRuntimeFactory {
                 .compaction(compactionConfig)
                 .toolResultEviction(toolResultEvictionConfig)
                 .skillRepository(mysqlSkillRepository)
+                .stateStore(childStateStore)
                 .workspace(childWorkspace)
                 .filesystem(childFilesystem)
                 .maxIters(childConfig.getMaxIters())

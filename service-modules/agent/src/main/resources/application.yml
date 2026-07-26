@@ -47,6 +47,7 @@ agent:
       namespace-id: 418ac824-016b-4eff-bbde-82b7ce26305d
 
 mybatis-plus:
+  type-handlers-package: com.zw.agent.factory.stateStoreFactory
   # 全局配置
   global-config:
     db-config:
