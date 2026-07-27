@@ -52,30 +52,6 @@ public class AiKnowledgeAgentBindingEntity extends BaseEntity {
     private Long knowledgeBaseId;
 
     /**
-     * RAG模式：NONE不启用、GENERIC调用前自动检索、AGENTIC由Agent通过工具主动检索
-     */
-    @TableField("rag_mode")
-    private String ragMode;
-
-    /**
-     * 检索返回结果数量
-     */
-    @TableField("retrieve_top_k")
-    private Integer retrieveTopK;
-
-    /**
-     * 相似度阈值，低于该分数不返回
-     */
-    @TableField("score_threshold")
-    private BigDecimal scoreThreshold;
-
-    /**
-     * 是否启用rerank：1启用，0关闭
-     */
-    @TableField("rerank_enabled")
-    private Byte rerankEnabled;
-
-    /**
      * 状态：1启用，0停用，2删除
      */
     @TableField("status")

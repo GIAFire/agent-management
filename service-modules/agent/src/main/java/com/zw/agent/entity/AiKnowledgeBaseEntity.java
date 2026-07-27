@@ -80,18 +80,6 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
     private Integer chunkOverlap;
 
     /**
-     * 默认返回结果数量
-     */
-    @TableField("retrieve_top_k")
-    private Integer retrieveTopK;
-
-    /**
-     * 默认相似度阈值
-     */
-    @TableField("score_threshold")
-    private BigDecimal scoreThreshold;
-
-    /**
      * 是否启用rerank：1启用，0关闭
      */
     @TableField("rerank_enabled")

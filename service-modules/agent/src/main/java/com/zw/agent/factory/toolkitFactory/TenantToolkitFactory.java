@@ -6,6 +6,9 @@ import com.zw.agent.entity.DTO.AgentBindToolDTO;
 import com.zw.agent.service.AiAgentToolService;
 import com.zw.agent.service.AiToolInfoConfigService;
 import com.zw.common.context.UserInfo;
+import io.agentscope.core.rag.KnowledgeRetrievalTools;
+import io.agentscope.core.rag.integration.bailian.BailianKnowledge;
+import io.agentscope.core.rag.knowledge.SimpleKnowledge;
 import io.agentscope.core.tool.Toolkit;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -26,7 +29,6 @@ public class TenantToolkitFactory {
 
     private static final Logger log = LoggerFactory.getLogger(TenantToolkitFactory.class);
 
-    private final AiToolInfoConfigService toolInfoConfigService;
     private final AiAgentToolService agentToolService;
     private final ApplicationContext applicationContext;
 
@@ -34,7 +36,10 @@ public class TenantToolkitFactory {
         Toolkit toolkit = new Toolkit();
 
         List<AgentBindToolDTO> toolList = agentToolService.agentBindTools(agentId,userInfo.getTenantId());
-
+        SimpleKnowledge simpleKnowledge = SimpleKnowledge.builder()
+                .build();
+        KnowledgeRetrievalTools simpleKnowledgeTools = new KnowledgeRetrievalTools(simpleKnowledge);
+        toolkit.registerTool(simpleKnowledgeTools);
         Set<String> registeredClasses = new LinkedHashSet<>();
         for (AgentBindToolDTO toolInfo : toolList) {
             if (!StringUtils.hasText(toolInfo.getClassName())

@@ -10,6 +10,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 
+import java.math.BigDecimal;
+
 /**
  * <p>
  * 知识库向量存储配置表
@@ -30,8 +32,6 @@ public class AiKnowledgeBackendConfigEntity extends BaseEntity {
     @TableId(value = "id", type = IdType.ASSIGN_ID)
     private Long id;
 
-    private Long agentId;
-
     private Long userId;
 
     /**
@@ -47,7 +47,7 @@ public class AiKnowledgeBackendConfigEntity extends BaseEntity {
     private ApiType apiType;
 
     /**
-     * 向量库或RAG服务访问地址，例如RAGFlow地址、Qdrant地址
+     * RAG服务访问地址，例如RAGFlow地址、Qdrant地址
      */
     @TableField("endpoint")
     private String endpoint;
@@ -71,12 +71,6 @@ public class AiKnowledgeBackendConfigEntity extends BaseEntity {
     private String apiKeyRef;
 
     /**
-     * 数据库选型，例如Milvus、PG、ES
-     */
-    @TableField("database_type")
-    private String databaseType;
-
-    /**
      * Embedding模型名称，例如 text-embedding-v3
      */
     @TableField("embedding_model_name")
@@ -91,8 +85,20 @@ public class AiKnowledgeBackendConfigEntity extends BaseEntity {
     /**
      * 距离度量：COSINE/IP/L2/BM25/HYBRID
      */
-    @TableField("distance_metric")
-    private String distanceMetric;
+    @TableField("metric_type")
+    private String MetricType;
+
+    /**
+     * 默认返回结果数量
+     */
+    @TableField("top_k")
+    private Integer topK;
+
+    /**
+     * 默认相似度阈值
+     */
+    @TableField("score_threshold")
+    private BigDecimal scoreThreshold;
 
     /**
      * 后端扩展配置JSON，例如rerank配置、hybrid检索权重、RAGFlow参数

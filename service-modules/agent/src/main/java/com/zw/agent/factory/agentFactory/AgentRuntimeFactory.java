@@ -110,7 +110,7 @@ public class AgentRuntimeFactory {
                     .toolkit(toolkit)
                     .permissionContext(permissionContextState)
                     .maxIters(config.getMaxIters())
-//                    .stateStore(stateStore)
+                    .stateStore(stateStore)
                     .compaction(compactionConfig)
                     .skillRepository(nacosSkillRepository)
                     .skillRepository(mysqlSkillRepository)
@@ -482,7 +482,7 @@ public class AgentRuntimeFactory {
 
         HarnessAgent.Builder childBuilder = HarnessAgent.builder()
                 .agentId(childRuntimeAgentId)
-                .name(childConfig.getAgentName())
+                .name(childConfig.getAgentCode())
                 .description(childConfig.getAgentDescription())
                 .sysPrompt(childConfig.getSysPrompt())
                 .model(childModel)

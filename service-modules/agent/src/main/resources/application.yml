@@ -41,6 +41,24 @@ spring:
           #   username: root
           #   password: root
 
+rag:
+  store:  # pgvector | milvus | qdrant | elasticsearch ，向量存储类型
+    milvus:
+      host: localhost
+      port: 19530
+      username: root  # Milvus 用户名，自建部署留空
+      password:    # Milvus 密码，自建部署留空
+      token:          # Milvus SaaS 认证 token，与用户名/密码二选一
+      database: default  # 默认库名
+#    elasticsearch:
+#      uris: http://127.0.0.1:9200
+#      username:
+#      password:
+#      api-key:
+#      index-prefix: apboa_rag
+#      connect-timeout: 5000
+#      socket-timeout: 60000
+
 agent:
   skill:
     nacos:
