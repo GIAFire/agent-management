@@ -2,4 +2,12 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiHttpHeaderMapper">
 
+    <select id="getHeaderlist" resultType="com.zw.agent.entity.AiHttpHeaderEntity">
+        SELECT
+            *
+        FROM
+        ai_http_header
+        WHERE
+        source_id = #{sourceId} and tenant_id = #{tenantId}
+    </select>
 </mapper>

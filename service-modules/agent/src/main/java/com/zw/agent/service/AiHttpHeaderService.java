@@ -3,6 +3,8 @@ package com.zw.agent.service;
 import com.zw.agent.entity.AiHttpHeaderEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.util.List;
+
 /**
  * <p>
  * HTTP请求头配置表 服务类
@@ -13,4 +15,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiHttpHeaderService extends IService<AiHttpHeaderEntity> {
 
+    List<AiHttpHeaderEntity> getHeaderlist(Long sourceId, Long tenantId);
 }

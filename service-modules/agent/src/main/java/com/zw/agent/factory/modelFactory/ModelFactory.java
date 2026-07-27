@@ -42,8 +42,7 @@ public class ModelFactory {
                     .thinkingBudget(config.getThinkingBudget())
                     .stream(config.getStreaming());
 
-            List<AiHttpHeaderEntity> headerList = httpHeaderService.list(new LambdaQueryWrapper<AiHttpHeaderEntity>()
-                    .eq(AiHttpHeaderEntity::getSourceId, config.getModelId()));
+            List<AiHttpHeaderEntity> headerList = httpHeaderService.getHeaderlist(config.getModelId(),config.getTenantId());
 
             OpenAIChatModel.Builder builder = OpenAIChatModel.builder()
                     .apiKey(config.getApiKey())
@@ -77,8 +76,8 @@ public class ModelFactory {
                     .thinkingBudget(config.getThinkingBudget())
                     .stream(config.getStreaming());
 
-            List<AiHttpHeaderEntity> headerList = httpHeaderService.list(new LambdaQueryWrapper<AiHttpHeaderEntity>()
-                    .eq(AiHttpHeaderEntity::getSourceId, config.getModelId()));
+            List<AiHttpHeaderEntity> headerList = httpHeaderService.getHeaderlist(config.getModelId(),config.getTenantId());
+
 
             OllamaChatModel.Builder builder = OllamaChatModel.builder()
                     .modelName(config.getModelName())
