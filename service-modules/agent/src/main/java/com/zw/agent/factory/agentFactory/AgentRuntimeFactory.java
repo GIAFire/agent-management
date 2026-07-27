@@ -110,7 +110,7 @@ public class AgentRuntimeFactory {
                     .toolkit(toolkit)
                     .permissionContext(permissionContextState)
                     .maxIters(config.getMaxIters())
-                    .stateStore(stateStore)
+//                    .stateStore(stateStore)
                     .compaction(compactionConfig)
                     .skillRepository(nacosSkillRepository)
                     .skillRepository(mysqlSkillRepository)
