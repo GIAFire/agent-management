@@ -61,8 +61,6 @@ public class TenantToolkitFactory {
                     .apiKey(System.getenv("OPENAI_API_KEY2"))
                     .modelName(knowledgeBaseEntity.getEmbeddingModelName())
                     .dimensions(knowledgeBaseEntity.getEmbeddingDimension())
-                    .header("X-Project-Id", "1")
-                    .header("X-Tenant-Id", "2")
                     .build();
             SimpleKnowledge simpleKnowledge = SimpleKnowledge.builder()
                     .embeddingModel(embeddings)
