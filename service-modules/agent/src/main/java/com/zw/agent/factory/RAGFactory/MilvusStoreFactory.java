@@ -1,7 +1,8 @@
 package com.zw.agent.factory.RAGFactory;
 
 import com.zw.agent.config.milvus.MilvusProperties;
-import com.zw.agent.entity.DTO.KnowledgeWithBackendDTO;
+import com.zw.agent.entity.AiKnowledgeBaseEntity;
+import com.zw.agent.entity.DTO.KnowledgeBaseDTO;
 import io.agentscope.core.rag.exception.VectorStoreException;
 import io.agentscope.core.rag.store.MilvusStore;
 import io.agentscope.core.rag.store.VDBStoreBase;
@@ -16,12 +17,12 @@ public class MilvusStoreFactory {
 
     private final MilvusProperties properties;
 
-    public VDBStoreBase create(KnowledgeWithBackendDTO config) throws VectorStoreException {
+    public VDBStoreBase create(AiKnowledgeBaseEntity config) {
         MilvusStore.Builder builder = MilvusStore.builder()
-                .uri(properties.getUri())
-                .databaseName(properties.getDatabaseName())
+                .uri(properties.getHost())
+                .databaseName(properties.getDatabase())
                 .collectionName(config.getCollectionName())
-                .dimensions(config.getDimensions())
+                .dimensions(config.getEmbeddingDimension())
                 .connectTimeoutMs(properties.getConnectTimeout().toMillis())
                 .metricType(resolveMetricType(config.getMetricType()));
 
@@ -37,12 +38,14 @@ public class MilvusStoreFactory {
             }
         }
 
-        return builder.build();
+        try {
+            return builder.build();
+        } catch (VectorStoreException e) {
+            throw new RuntimeException(e);
+        }
     }
 
-    private IndexParam.MetricType resolveMetricType(
-            String metricType
-    ) {
+    private IndexParam.MetricType resolveMetricType(String metricType) {
         if (!StringUtils.hasText(metricType)) {
             return IndexParam.MetricType.COSINE;
         }

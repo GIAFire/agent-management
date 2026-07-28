@@ -1,7 +1,6 @@
 package com.zw.agent.factory.RAGFactory.enumeration;
 
 import com.baomidou.mybatisplus.annotation.IEnum;
-import com.zw.agent.factory.modelFactory.ModelType;
 
 public enum ApiType implements IEnum<String> {
 

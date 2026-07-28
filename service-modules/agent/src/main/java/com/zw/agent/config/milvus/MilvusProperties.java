@@ -14,12 +14,12 @@ public class MilvusProperties {
     /**
      * Milvus Proxy 地址
      */
-    private String uri;
+    private String host;
 
     /**
      * Milvus 数据库名称。
      */
-    private String databaseName = "default";
+    private String database = "default";
 
     /**
      * 用户名。

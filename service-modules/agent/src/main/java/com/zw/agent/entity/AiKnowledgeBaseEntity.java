@@ -4,8 +4,9 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zw.agent.factory.RAGFactory.enumeration.ApiType;
 import com.zw.common.entity.BaseEntity;
-import java.io.Serializable;
+
 import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
@@ -86,12 +87,6 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
     private Byte rerankEnabled;
 
     /**
-     * 可见范围：PRIVATE私有、AGENT智能体、TENANT租户
-     */
-    @TableField("visibility")
-    private String visibility;
-
-    /**
      * 状态：1启用，0停用，2删除
      */
     @TableField("status")
@@ -102,4 +97,76 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
      */
     @TableField("provider_meta_json")
     private String providerMetaJson;
+
+    /**
+     * 后端类型:如openai、百炼、RAGFlow、Dify
+     */
+    @TableField("backend_store_type")
+    private String backendStoreType;
+
+    /**
+     * 本地后端API类型:如openai、ollama
+     */
+    @TableField("api_type")
+    private ApiType apiType;
+
+    /**
+     * RAG服务访问地址，例如RAGFlow地址、Qdrant地址
+     */
+    @TableField("endpoint")
+    private String endpoint;
+
+    /**
+     * 向量库或RAG服务访问地址，例如RAGFlow地址、Qdrant地址
+     */
+    @TableField("endpoint_port")
+    private Integer endpointPort;
+
+    /**
+     * 模型url
+     */
+    @TableField("model_url")
+    private String modelUrl;
+
+    /**
+     * API Key引用，不建议直接存明文，可存密钥管理系统引用
+     */
+    @TableField("api_key_ref")
+    private String apiKeyRef;
+
+    /**
+     * Embedding模型名称，例如 text-embedding-v3
+     */
+    @TableField("embedding_model_name")
+    private String embeddingModelName;
+
+    /**
+     * 向量维度，例如768、1024、1536
+     */
+    @TableField("embedding_dimension")
+    private Integer embeddingDimension;
+
+    /**
+     * 距离度量：COSINE/IP/L2/BM25/HYBRID
+     */
+    @TableField("metric_type")
+    private String MetricType;
+
+    /**
+     * 默认返回结果数量
+     */
+    @TableField("top_k")
+    private Integer topK;
+
+    /**
+     * 默认相似度阈值
+     */
+    @TableField("score_threshold")
+    private BigDecimal scoreThreshold;
+
+    /**
+     * 后端扩展配置JSON，例如rerank配置、hybrid检索权重、RAGFlow参数
+     */
+    @TableField("config_json")
+    private String configJson;
 }

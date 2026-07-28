@@ -4,7 +4,10 @@ import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.zw.agent.mapper.AiKnowledgeBaseMapper;
 import com.zw.agent.service.AiKnowledgeBaseService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 /**
  * <p>
@@ -14,7 +17,13 @@ import org.springframework.stereotype.Service;
  * @author 智纬
  * @since 2026-07-06
  */
+@RequiredArgsConstructor
 @Service
 public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMapper, AiKnowledgeBaseEntity> implements AiKnowledgeBaseService {
+    private final AiKnowledgeBaseMapper aiKnowledgeBaseMapper;
 
+    @Override
+    public List<AiKnowledgeBaseEntity> getAgentBindKnowledge(Long agentId,Long tenantId) {
+        return aiKnowledgeBaseMapper.getAgentBindKnowledge(agentId,tenantId);
+    }
 }

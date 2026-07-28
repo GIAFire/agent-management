@@ -32,7 +32,8 @@ public class PermissionFactory {
             "agent_spawn",
             "agent_send",
             "agent_list",
-            "memory_save"
+            "memory_save",
+            "retrieve_knowledge"
     );
 
     private final AiToolRolePermissionService toolRolePermissionService;

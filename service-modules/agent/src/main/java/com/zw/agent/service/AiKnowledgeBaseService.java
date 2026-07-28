@@ -3,6 +3,8 @@ package com.zw.agent.service;
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
 
+import java.util.List;
+
 /**
  * <p>
  * 知识库表：平台知识库抽象层，兼容RAGFlow及不同向量库 服务类
@@ -13,4 +15,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface AiKnowledgeBaseService extends IService<AiKnowledgeBaseEntity> {
 
+    List<AiKnowledgeBaseEntity> getAgentBindKnowledge(Long agentId,Long tenantId);
 }

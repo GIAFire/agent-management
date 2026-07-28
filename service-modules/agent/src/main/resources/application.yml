@@ -44,8 +44,7 @@ spring:
 rag:
   store:  # pgvector | milvus | qdrant | elasticsearch ，向量存储类型
     milvus:
-      host: localhost
-      port: 19530
+      host: http://localhost:19530
       username: root  # Milvus 用户名，自建部署留空
       password:    # Milvus 密码，自建部署留空
       token:          # Milvus SaaS 认证 token，与用户名/密码二选一

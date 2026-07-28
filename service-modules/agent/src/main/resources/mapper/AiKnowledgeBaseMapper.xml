@@ -2,4 +2,43 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiKnowledgeBaseMapper">
 
+    <select id="getAgentBindKnowledge" resultType="com.zw.agent.entity.AiKnowledgeBaseEntity">
+        SELECT
+        kb.id,
+        kb.user_id,
+        kb.tenant_id,
+        kb.knowledge_name,
+        kb.collection_name,
+        kb.description,
+        kb.chunk_strategy,
+        kb.chunk_size,
+        kb.chunk_overlap,
+        kb.rerank_enabled,
+        kb.STATUS,
+        kb.provider_meta_json,
+        kb.created_by,
+        kb.created_at,
+        kb.updated_at,
+        kb.version,
+        kb.deleted,
+        kb.update_by,
+        kb.backend_store_type,
+        kb.api_type,
+        kb.endpoint,
+        kb.endpoint_port,
+        kb.model_url,
+        kb.api_key_ref,
+        kb.embedding_model_name,
+        kb.embedding_dimension,
+        kb.metric_type,
+        kb.top_k,
+        kb.score_threshold,
+        kb.config_json
+        FROM
+        ai_agent a
+        LEFT JOIN ai_knowledge_agent_binding kab ON a.id = kab.agent_id
+        LEFT JOIN ai_knowledge_base kb ON kab.knowledge_base_id = kb.id
+        WHERE
+        a.id = #{agentId} AND kb.tenant_id = #{tenantId}
+    </select>
 </mapper>

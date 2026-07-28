@@ -178,10 +178,6 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
                     .setAgentId(agentId)
                     .setAgentConfigId(agentConfigId)
                     .setKnowledgeBaseId(knowledgeBase.getId())
-                    .setRagMode("AGENTIC")
-                    .setRetrieveTopK(5)
-                    .setScoreThreshold(new BigDecimal("0.50"))
-                    .setRerankEnabled((byte) 0)
                     .setStatus((byte) 1);
             knowledgeAgentBinding.add(EntityDefaults.create(binding));
         }

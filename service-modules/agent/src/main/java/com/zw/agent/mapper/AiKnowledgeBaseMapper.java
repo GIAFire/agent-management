@@ -1,8 +1,11 @@
 package com.zw.agent.mapper;
 
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+
+import java.util.List;
 
 /**
  * <p>
@@ -15,4 +18,6 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiKnowledgeBaseMapper extends BaseMapper<AiKnowledgeBaseEntity> {
 
+    @InterceptorIgnore(tenantLine = "true")
+    List<AiKnowledgeBaseEntity> getAgentBindKnowledge(Long agentId, Long tenantId);
 }
