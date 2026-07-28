@@ -50,16 +50,10 @@ public class AiKnowledgeRetrievalHitEntity extends BaseEntity {
     private Long documentId;
 
     /**
-     * 平台切片ID
+     * 切片ID
      */
     @TableField("chunk_id")
     private Long chunkId;
-
-    /**
-     * 外部切片ID，例如RAGFlow chunk_id、向量库point_id
-     */
-    @TableField("external_chunk_id")
-    private String externalChunkId;
 
     /**
      * 召回排名，从1开始
@@ -96,12 +90,6 @@ public class AiKnowledgeRetrievalHitEntity extends BaseEntity {
      */
     @TableField("document_name")
     private String documentName;
-
-    /**
-     * 命中切片内容快照，用于审计和回放
-     */
-    @TableField("chunk_content")
-    private String chunkContent;
 
     /**
      * 来源引用，例如页码、章节、URL、文件路径

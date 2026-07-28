@@ -51,6 +51,12 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
     private String knowledgeName;
 
     /**
+     * 知识库英文名称
+     */
+    @TableField("knowledge_code")
+    private String knowledgeCode;
+
+    /**
      * 集合名称，例如RAGFlow的dataset名称
      */
     @TableField("collection_name")
