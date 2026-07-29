@@ -86,7 +86,8 @@ public class AgentRuntimeFactory {
                 sessionId);
 
         return agentCache.get(agentCacheKey, key -> {
-            Toolkit toolkit = toolkitFactory.buildToolkit(config.getAgentId(),userInfo);
+            Toolkit toolkit = toolkitFactory.buildToolkit(
+                    config.getAgentId(), config.getAgentConfigId(), userInfo);
             PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
@@ -438,7 +439,8 @@ public class AgentRuntimeFactory {
         ChatModelBase childModel = modelFactory.buildModel(childConfig);
 
         // 3. 查询子 Agent 自己绑定的工具
-        Toolkit childToolkit = toolkitFactory.buildToolkit(childAgentId, userInfo);
+        Toolkit childToolkit = toolkitFactory.buildToolkit(
+                childAgentId, childConfig.getAgentConfigId(), userInfo);
 
         // 4. 查询子 Agent 自己绑定的知识库
 //        List<KnowledgeBaseConfig> knowledgeBases =

@@ -15,5 +15,5 @@ import java.util.List;
  */
 public interface AiKnowledgeBaseService extends IService<AiKnowledgeBaseEntity> {
 
-    List<AiKnowledgeBaseEntity> getAgentBindKnowledge(Long agentId,Long tenantId);
+    List<AiKnowledgeBaseEntity> getAgentBindKnowledge(Long agentId, Long agentConfigId, Long tenantId);
 }

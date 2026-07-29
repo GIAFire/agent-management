@@ -8,6 +8,7 @@
         kb.user_id,
         kb.tenant_id,
         kb.knowledge_name,
+        kb.knowledge_code,
         kb.collection_name,
         kb.description,
         kb.chunk_strategy,
@@ -36,9 +37,13 @@
         kb.config_json
         FROM
         ai_agent a
-        LEFT JOIN ai_knowledge_agent_binding kab ON a.id = kab.agent_id
-        LEFT JOIN ai_knowledge_base kb ON kab.knowledge_base_id = kb.id
+        INNER JOIN ai_knowledge_agent_binding kab ON a.id = kab.agent_id
+        INNER JOIN ai_knowledge_base kb ON kab.knowledge_base_id = kb.id
         WHERE
-        a.id = #{agentId} AND kb.tenant_id = #{tenantId}
+        a.id = #{agentId}
+        AND kab.agent_config_id = #{agentConfigId}
+        AND kab.status = 1
+        AND kb.tenant_id = #{tenantId}
+        AND kb.status = 1
     </select>
 </mapper>

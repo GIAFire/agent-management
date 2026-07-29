@@ -23,7 +23,7 @@ public class AiKnowledgeBaseServiceImpl extends ServiceImpl<AiKnowledgeBaseMappe
     private final AiKnowledgeBaseMapper aiKnowledgeBaseMapper;
 
     @Override
-    public List<AiKnowledgeBaseEntity> getAgentBindKnowledge(Long agentId,Long tenantId) {
-        return aiKnowledgeBaseMapper.getAgentBindKnowledge(agentId,tenantId);
+    public List<AiKnowledgeBaseEntity> getAgentBindKnowledge(Long agentId, Long agentConfigId, Long tenantId) {
+        return aiKnowledgeBaseMapper.getAgentBindKnowledge(agentId, agentConfigId, tenantId);
     }
 }

@@ -1,27 +1,12 @@
 package com.zw.agent.factory.toolkitFactory;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
-import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.entity.DTO.AgentBindToolDTO;
-import com.zw.agent.factory.RAGFactory.MilvusStoreFactory;
-import com.zw.agent.factory.RAGFactory.ModelArtsTextEmbedding;
+import com.zw.agent.factory.RAGFactory.runTime.KnowledgeRuntime;
+import com.zw.agent.factory.RAGFactory.runTime.KnowledgeRuntimeFactory;
 import com.zw.agent.service.AiAgentToolService;
 import com.zw.agent.service.AiKnowledgeBaseService;
-import com.zw.agent.service.AiToolInfoConfigService;
 import com.zw.common.context.UserInfo;
-import io.agentscope.core.embedding.EmbeddingModel;
-import io.agentscope.core.embedding.dashscope.DashScopeTextEmbedding;
-import io.agentscope.core.embedding.openai.OpenAITextEmbedding;
-import io.agentscope.core.model.ExecutionConfig;
-import io.agentscope.core.rag.KnowledgeRetrievalTools;
-import io.agentscope.core.rag.integration.bailian.BailianKnowledge;
-import io.agentscope.core.rag.knowledge.SimpleKnowledge;
-import io.agentscope.core.rag.model.Document;
-import io.agentscope.core.rag.reader.ReaderInput;
-import io.agentscope.core.rag.reader.TextReader;
-import io.agentscope.core.rag.reader.TikaReader;
-import io.agentscope.core.rag.store.VDBStoreBase;
 import io.agentscope.core.tool.Toolkit;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -46,28 +31,19 @@ public class TenantToolkitFactory {
     private final AiAgentToolService agentToolService;
     private final AiKnowledgeBaseService knowledgeBaseService;
     private final ApplicationContext applicationContext;
-    private final MilvusStoreFactory milvusStoreFactory;
+    private final KnowledgeRuntimeFactory knowledgeRuntimeFactory;
 
-    public Toolkit buildToolkit(Long agentId, UserInfo userInfo) {
+    public Toolkit buildToolkit(Long agentId, Long agentConfigId, UserInfo userInfo) {
         Toolkit toolkit = new Toolkit();
 
         List<AgentBindToolDTO> toolList = agentToolService.agentBindTools(agentId,userInfo.getTenantId());
-        List<AiKnowledgeBaseEntity> knowledgeBaseList = knowledgeBaseService.getAgentBindKnowledge(agentId,userInfo.getTenantId());
+        List<AiKnowledgeBaseEntity> knowledgeBaseList = knowledgeBaseService
+                .getAgentBindKnowledge(agentId, agentConfigId, userInfo.getTenantId());
         if (!CollectionUtils.isEmpty(knowledgeBaseList)) {
-            AiKnowledgeBaseEntity knowledgeBaseEntity = knowledgeBaseList.get(0);
-            VDBStoreBase milvusStore = milvusStoreFactory.create(knowledgeBaseEntity);
-            EmbeddingModel embeddings = ModelArtsTextEmbedding.builder()
-                    .baseUrl(knowledgeBaseEntity.getModelUrl())
-                    .apiKey(System.getenv("OPENAI_API_KEY2"))
-                    .modelName(knowledgeBaseEntity.getEmbeddingModelName())
-                    .dimensions(knowledgeBaseEntity.getEmbeddingDimension())
-                    .build();
-            SimpleKnowledge simpleKnowledge = SimpleKnowledge.builder()
-                    .embeddingModel(embeddings)
-                    .embeddingStore(milvusStore)
-                    .build();
-            KnowledgeRetrievalTools simpleKnowledgeTools = new KnowledgeRetrievalTools(simpleKnowledge);
-            toolkit.registerTool(simpleKnowledgeTools);
+            List<KnowledgeRuntime> knowledgeRuntimes = knowledgeBaseList.stream()
+                    .map(knowledgeRuntimeFactory::create)
+                    .toList();
+            toolkit.registerTool(new AgentKnowledgeSearchTool(knowledgeRuntimes));
         }
 
         Set<String> registeredClasses = new LinkedHashSet<>();
