@@ -10,6 +10,18 @@ export const pageSubagents = (params) => {
   return get(`${baseUrl}/subagent/page`, params)
 }
 
+export const getSubagentMetrics = () => {
+  return get(`${baseUrl}/subagent/metrics`)
+}
+
+export const listLocalAgentOptions = () => {
+  return get(`${baseUrl}/subagent/local-agent-options`)
+}
+
+export const listRecentSubagentTasks = (params) => {
+  return get(`${baseUrl}/subagent/recent-tasks`, params)
+}
+
 export const getSubagent = (id) => {
   return get(`${baseUrl}/subagent/${stringifyId(id)}`)
 }
@@ -29,4 +41,3 @@ export const deleteSubagent = (id) => {
 export const listSubagentTasks = () => {
   return get(`${baseUrl}/subagentTask/list`)
 }
-

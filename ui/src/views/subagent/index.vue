@@ -2,7 +2,6 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowRight,
   CircleCheck,
   DataLine,
   Delete,
@@ -19,8 +18,10 @@ import {
 import {
   createSubagent,
   deleteSubagent,
-  listSubagentTasks,
-  listSubagents,
+  getSubagentMetrics,
+  listLocalAgentOptions,
+  listRecentSubagentTasks,
+  pageSubagents,
   updateSubagent
 } from '@/axios/subagent'
 
@@ -31,212 +32,92 @@ const dialogTitle = ref('新建子智能体')
 const viewMode = ref('grid')
 const subagents = ref([])
 const tasks = ref([])
+const exceptionTaskRows = ref([])
+const metricData = ref(null)
+const localAgentOptions = ref([])
+const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(6)
 
 const queryParams = reactive({
   keyword: '',
   type: '',
-  status: ''
+  status: '',
+  sourceAvailable: ''
 })
 
 const form = reactive({
   id: null,
-  subagentKey: '',
+  subagentCode: '',
   subagentName: '',
   description: '',
-  systemPrompt: '',
-  modelConfigId: '',
-  maxSteps: 8,
-  workspaceMode: 'ISOLATED',
-  workspacePath: '',
-  exposeToUser: 0,
-  persistSession: 1,
-  toolAllowList: '',
-  knowledgeBaseIdsJson: '',
-  sandboxConfigId: '',
-  permissionPolicyId: '',
-  riskLevel: 'LOW',
-  status: 1
+  sourceType: 1,
+  localAgentId: '',
+  remoteUrl: '',
+  protocolType: 1,
+  enabled: 1,
+  remark: '',
+  headers: []
 })
 
-const demoSubagents = [
-  {
-    id: 1,
-    subagentKey: 'data-retriever',
-    subagentName: '数据检索专家',
-    description: '负责数据库与知识库检索，返回结构化证据',
-    runtimeType: 'Harness',
-    status: 1,
-    statusState: 'running',
-    riskLevel: 'LOW',
-    todayDispatch: 864,
-    parentAgents: 6,
-    successRate: 99.4,
-    avgDuration: 7200
-  },
-  {
-    id: 2,
-    subagentKey: 'chart-generator',
-    subagentName: '图表生成器',
-    description: '将分析结果转换为趋势图与对比图',
-    runtimeType: 'ReAct',
-    status: 1,
-    statusState: 'available',
-    riskLevel: 'LOW',
-    todayDispatch: 528,
-    parentAgents: 4,
-    successRate: 98.9,
-    avgDuration: 6400
-  },
-  {
-    id: 3,
-    subagentKey: 'code-runner',
-    subagentName: '代码执行助手',
-    description: '在隔离沙箱中执行代码、测试与脚本',
-    runtimeType: 'Harness',
-    status: 1,
-    statusState: 'available',
-    riskLevel: 'MEDIUM',
-    todayDispatch: 416,
-    parentAgents: 5,
-    successRate: 97.8,
-    avgDuration: 11200
-  },
-  {
-    id: 4,
-    subagentKey: 'task-planner',
-    subagentName: '任务规划师',
-    description: '拆解复杂目标并生成可执行计划步骤',
-    runtimeType: 'ReAct',
-    status: 1,
-    statusState: 'running',
-    riskLevel: 'LOW',
-    todayDispatch: 732,
-    parentAgents: 8,
-    successRate: 99.1,
-    avgDuration: 8400
-  },
-  {
-    id: 5,
-    subagentKey: 'document-summarizer',
-    subagentName: '文档总结专家',
-    description: '提取文档重点并输出结构化摘要',
-    runtimeType: 'Harness',
-    status: 1,
-    statusState: 'available',
-    riskLevel: 'LOW',
-    todayDispatch: 388,
-    parentAgents: 3,
-    successRate: 98.5,
-    avgDuration: 7900
-  },
-  {
-    id: 6,
-    subagentKey: 'market-researcher',
-    subagentName: '市场研究员',
-    description: '检索市场信息并生成竞争分析报告',
-    runtimeType: 'Harness',
-    status: 0,
-    statusState: 'disabled',
-    riskLevel: 'LOW',
-    todayDispatch: 0,
-    parentAgents: 2,
-    successRate: null,
-    avgDuration: 0
-  }
-]
-
-const demoTasks = [
-  { id: 1, parentAgentName: '数据分析师', subagentName: '数据检索专家', taskInput: '检索 2024 年 Q4 销售数据及增长趋势', status: 'COMPLETED', startedAt: '10:23:45', durationMs: 6900 },
-  { id: 2, parentAgentName: '运营策划师', subagentName: '市场研究员', taskInput: '生成竞品动态监测周报（第 18 周）', status: 'COMPLETED', startedAt: '09:58:12', durationMs: 8200 },
-  { id: 3, parentAgentName: '研发助手', subagentName: '代码执行助手', taskInput: '运行单元测试并输出覆盖率报告', status: 'COMPLETED', startedAt: '09:42:31', durationMs: 10400 },
-  { id: 4, parentAgentName: '产品经理', subagentName: '图表生成器', taskInput: '将用户增长数据转为对比图', status: 'COMPLETED', startedAt: '09:21:07', durationMs: 7400 },
-  { id: 5, parentAgentName: '数据分析师', subagentName: '任务规划师', taskInput: '制定渠道分析与优化执行计划', status: 'COMPLETED', startedAt: '08:57:36', durationMs: 9100 },
-  { id: 6, parentAgentName: '财务助理', subagentName: '数据检索专家', taskInput: '查询费用报销相关制度与流程', status: 'COMPLETED', startedAt: '08:33:18', durationMs: 6100 },
-  { id: 7, parentAgentName: '研发助手', subagentName: '代码执行助手', taskInput: '沙箱执行超时（120s）', status: 'TIMEOUT', startedAt: '05-18 14:32', durationMs: 120000, errorMessage: '沙箱执行超时（120s）' },
-  { id: 8, parentAgentName: '运营策划师', subagentName: '市场研究员', taskInput: '外部数据源连接失败（超时）', status: 'FAILED', startedAt: '05-18 11:07', durationMs: 30000, errorMessage: '外部数据源连接失败（超时）' },
-  { id: 9, parentAgentName: '知识助理', subagentName: '文档总结专家', taskInput: '解析文档失败（格式不支持）', status: 'FAILED', startedAt: '05-18 09:41', durationMs: 2100, errorMessage: '解析文档失败（格式不支持）' }
-]
-
 const subagentRows = computed(() => {
-  const rows = subagents.value.length ? subagents.value : demoSubagents
-  return rows.map((row, index) => normalizeSubagent(row, index))
+  return subagents.value.map((row, index) => normalizeSubagent(row, index))
 })
 
 const taskRows = computed(() => {
-  const rows = tasks.value.length ? tasks.value : demoTasks
-  return rows.map((row, index) => normalizeTask(row, index))
+  return tasks.value.map((row, index) => normalizeTask(row, index))
 })
 
 const typeOptions = computed(() => {
-  return [...new Set(subagentRows.value.map((row) => row.runtimeType).filter(Boolean))]
+  return [
+    { label: '本地子智能体', value: 1 },
+    { label: '远程子智能体', value: 2 }
+  ]
 })
 
 const filteredRows = computed(() => {
-  const keyword = queryParams.keyword.trim().toLowerCase()
-  return subagentRows.value.filter((row) => {
-    const matchKeyword = !keyword || [
-      row.subagentName,
-      row.subagentKey,
-      row.description,
-      row.runtimeType
-    ].some((value) => String(value || '').toLowerCase().includes(keyword))
-    const matchType = !queryParams.type || row.runtimeType === queryParams.type
-    const matchStatus = !queryParams.status || row.statusState === queryParams.status
-    return matchKeyword && matchType && matchStatus
-  })
+  return subagentRows.value
 })
 
 const pagedRows = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredRows.value.slice(start, start + pageSize.value)
+  return filteredRows.value
 })
 
-const recentTasks = computed(() => taskRows.value.filter((task) => task.succeeded).slice(0, 6))
+const recentTasks = computed(() => taskRows.value)
 
-const exceptionTasks = computed(() => taskRows.value.filter((task) => !task.succeeded).slice(0, 4))
+const exceptionTasks = computed(() => exceptionTaskRows.value.map((row, index) => normalizeTask(row, index)))
 
 const metrics = computed(() => {
-  const total = subagentRows.value.length
-  const enabled = subagentRows.value.filter((row) => Number(row.status) === 1).length
-  const todayDispatch = subagentRows.value.reduce((sum, row) => sum + row.todayDispatch, 0)
-  const finishedTasks = taskRows.value.filter((task) => task.finished)
-  const succeededTasks = finishedTasks.filter((task) => task.succeeded)
-  const successRate = finishedTasks.length
-    ? (succeededTasks.length / finishedTasks.length) * 100
-    : average(subagentRows.value.map((row) => row.successRate).filter((value) => Number.isFinite(value)))
-  const durationSource = taskRows.value.length
-    ? taskRows.value.map((task) => task.durationMs).filter(Boolean)
-    : subagentRows.value.map((row) => row.avgDuration).filter(Boolean)
+  const data = metricData.value || {}
+  const change = data.delegationChangePercent
 
   return [
     {
       label: '子智能体总数',
-      value: total,
-      sub: `${enabled} 个已启用`,
+      value: data.total ?? '--',
+      sub: `${data.enabled ?? 0} 个已启用`,
       icon: User,
       tone: 'blue'
     },
     {
       label: '今日委派',
-      value: formatNumber(Math.max(todayDispatch, 3286)),
-      sub: '较昨日 +12.8% ↑',
+      value: data.todayDelegations == null ? '--' : formatNumber(data.todayDelegations),
+      sub: change == null ? '昨日同期无委派' : `较昨日同期 ${change >= 0 ? '+' : ''}${change}%`,
       icon: DataLine,
       tone: 'cyan',
       positive: true
     },
     {
       label: '执行成功率',
-      value: `${(successRate || 98.6).toFixed(1)}%`,
-      sub: `失败 ${exceptionTasks.value.length || 46} 次`,
+      value: data.successRate == null ? '--' : `${Number(data.successRate).toFixed(1)}%`,
+      sub: `异常 ${data.unsuccessfulTasks ?? 0} 次`,
       icon: CircleCheck,
       tone: 'indigo'
     },
     {
       label: '平均执行时长',
-      value: formatDuration(average(durationSource) || 8400),
-      sub: '较昨日 -1.2s ↓',
+      value: data.averageDurationMs == null ? '--' : formatDuration(data.averageDurationMs),
+      sub: '今日已结束任务',
       icon: Stopwatch,
       tone: 'green',
       positive: true
@@ -245,45 +126,40 @@ const metrics = computed(() => {
 })
 
 watch(
-  () => [queryParams.keyword, queryParams.type, queryParams.status, pageSize.value],
+  () => [queryParams.keyword, queryParams.type, queryParams.status, queryParams.sourceAvailable],
   () => {
     currentPage.value = 1
+    loadSubagentPage()
   }
 )
 
 watch(
-  filteredRows,
+  () => [currentPage.value, pageSize.value],
   () => {
-    const maxPage = Math.max(1, Math.ceil(filteredRows.value.length / pageSize.value))
-    if (currentPage.value > maxPage) {
-      currentPage.value = maxPage
-    }
+    loadSubagentPage()
   }
 )
 
 function normalizeSubagent(row, index) {
-  const enabled = Number(row.status ?? 1) === 1
-  const runtimeType = row.runtimeType || row.agentType || row.type || (row.workspaceMode === 'SHARED' ? 'ReAct' : 'Harness')
-  const statusState = row.statusState || (enabled ? 'available' : 'disabled')
-  const syntheticDispatch = [864, 528, 416, 732, 388, 0][index % 6]
-  const syntheticAgents = [6, 4, 5, 8, 3, 2][index % 6]
-  const syntheticSuccess = [99.4, 98.9, 97.8, 99.1, 98.5, null][index % 6]
+  const enabled = Number(row.enabled ?? 1) === 1
+  const runtimeType = Number(row.sourceType) === 1 ? '本地' : '远程'
+  const statusState = !row.sourceAvailable ? 'unavailable' : enabled ? 'available' : 'disabled'
 
   return {
     ...row,
     id: row.id || index + 1,
     subagentName: row.subagentName || row.name || `子智能体 ${index + 1}`,
-    subagentKey: row.subagentKey || row.key || `subagent_${index + 1}`,
-    description: row.description || row.systemPrompt || '暂无描述',
+    subagentKey: row.subagentCode || row.subagentKey || row.key || `subagent_${index + 1}`,
+    description: row.description || '暂无描述',
     runtimeType,
-    status: Number(row.status ?? 1),
+    status: Number(row.enabled ?? 1),
     statusState,
     statusText: statusLabel(statusState),
-    todayDispatch: Number(row.todayDispatch ?? row.dispatchCount ?? row.taskCount ?? syntheticDispatch),
-    parentAgents: Number(row.parentAgents ?? row.parentAgentCount ?? syntheticAgents),
-    successRate: row.successRate === null ? null : Number(row.successRate ?? syntheticSuccess),
-    avgDuration: Number(row.avgDuration ?? row.durationMs ?? [7200, 6400, 11200, 8400, 7900, 0][index % 6]),
-    riskLevel: String(row.riskLevel || 'LOW').toUpperCase()
+    todayDispatch: Number(row.todayDelegations ?? 0),
+    parentAgents: Number(row.parentAgents ?? 0),
+    successRate: row.successRate == null ? null : Number(row.successRate),
+    sourceName: row.sourceName || '-',
+    headers: row.headers || []
   }
 }
 
@@ -310,59 +186,69 @@ function normalizeTask(row, index) {
 function resetForm() {
   Object.assign(form, {
     id: null,
-    subagentKey: '',
+    subagentCode: '',
     subagentName: '',
     description: '',
-    systemPrompt: '',
-    modelConfigId: '',
-    maxSteps: 8,
-    workspaceMode: 'ISOLATED',
-    workspacePath: '',
-    exposeToUser: 0,
-    persistSession: 1,
-    toolAllowList: '',
-    knowledgeBaseIdsJson: '',
-    sandboxConfigId: '',
-    permissionPolicyId: '',
-    riskLevel: 'LOW',
-    status: 1
+    sourceType: 1,
+    localAgentId: '',
+    remoteUrl: '',
+    protocolType: 1,
+    enabled: 1,
+    remark: '',
+    headers: []
   })
 }
 
-function openCreateDialog() {
+async function openCreateDialog() {
   resetForm()
+  localAgentOptions.value = await listLocalAgentOptions()
   dialogTitle.value = '新建子智能体'
   dialogVisible.value = true
 }
 
 function openEditDialog(row) {
   resetForm()
+  if (Number(row.sourceType) === 1) {
+    localAgentOptions.value = [{
+      id: row.localAgentId,
+      agentName: row.sourceName,
+      description: row.description
+    }]
+  }
   Object.assign(form, {
     id: row.id,
-    subagentKey: row.subagentKey,
+    subagentCode: row.subagentCode || row.subagentKey,
     subagentName: row.subagentName,
     description: row.description,
-    systemPrompt: row.systemPrompt || '',
-    modelConfigId: row.modelConfigId || '',
-    maxSteps: row.maxSteps || 8,
-    workspaceMode: row.workspaceMode || 'ISOLATED',
-    workspacePath: row.workspacePath || '',
-    exposeToUser: Number(row.exposeToUser ?? 0),
-    persistSession: Number(row.persistSession ?? 1),
-    toolAllowList: row.toolAllowList || '',
-    knowledgeBaseIdsJson: row.knowledgeBaseIdsJson || '',
-    sandboxConfigId: row.sandboxConfigId || '',
-    permissionPolicyId: row.permissionPolicyId || '',
-    riskLevel: row.riskLevel || 'LOW',
-    status: Number(row.status ?? 1)
+    sourceType: Number(row.sourceType),
+    localAgentId: row.localAgentId || '',
+    remoteUrl: row.remoteUrl || '',
+    protocolType: Number(row.protocolType || 1),
+    enabled: Number(row.enabled ?? row.status ?? 1),
+    remark: row.remark || '',
+    headers: (row.headers || []).map((header) => ({
+      id: header.id,
+      headerName: header.headerName,
+      headerValue: '',
+      hasValue: Boolean(header.hasValue),
+      remove: false
+    }))
   })
   dialogTitle.value = '编辑子智能体'
   dialogVisible.value = true
 }
 
 async function handleSave() {
-  if (!form.subagentName.trim() || !form.subagentKey.trim()) {
-    ElMessage.warning('请填写子智能体名称和唯一编码')
+  if (!form.subagentName.trim() || !form.subagentCode.trim() || !form.description.trim()) {
+    ElMessage.warning('请填写子智能体名称、唯一编码和描述')
+    return
+  }
+  if (Number(form.sourceType) === 1 && !form.localAgentId) {
+    ElMessage.warning('请选择本地智能体')
+    return
+  }
+  if (Number(form.sourceType) === 2 && !form.remoteUrl.trim()) {
+    ElMessage.warning('请填写远程服务 URL')
     return
   }
 
@@ -402,48 +288,96 @@ async function handleDelete(row) {
 function buildPayload() {
   return {
     id: normalizeId(form.id),
-    subagentKey: form.subagentKey.trim(),
+    subagentCode: form.subagentCode.trim(),
     subagentName: form.subagentName.trim(),
-    description: form.description,
-    systemPrompt: form.systemPrompt,
-    modelConfigId: normalizeId(form.modelConfigId),
-    maxSteps: normalizeNumber(form.maxSteps),
-    workspaceMode: form.workspaceMode,
-    workspacePath: form.workspacePath,
-    exposeToUser: Number(form.exposeToUser),
-    persistSession: Number(form.persistSession),
-    toolAllowList: form.toolAllowList,
-    knowledgeBaseIdsJson: form.knowledgeBaseIdsJson,
-    sandboxConfigId: normalizeId(form.sandboxConfigId),
-    permissionPolicyId: normalizeId(form.permissionPolicyId),
-    riskLevel: form.riskLevel,
-    status: Number(form.status)
+    description: form.description.trim(),
+    sourceType: Number(form.sourceType),
+    localAgentId: Number(form.sourceType) === 1 ? normalizeId(form.localAgentId) : null,
+    remoteUrl: Number(form.sourceType) === 2 ? form.remoteUrl.trim() : null,
+    protocolType: Number(form.sourceType) === 2 ? 1 : null,
+    enabled: Number(form.enabled),
+    remark: form.remark,
+    headers: Number(form.sourceType) === 2
+      ? form.headers.map((header) => ({
+          id: normalizeId(header.id),
+          headerName: header.headerName.trim(),
+          headerValue: header.headerValue,
+          remove: Boolean(header.remove)
+        }))
+      : []
   }
+}
+
+async function loadSubagentPage() {
+  const result = await pageSubagents({
+    current: currentPage.value,
+    size: pageSize.value,
+    keyword: queryParams.keyword || undefined,
+    sourceType: queryParams.type || undefined,
+    enabled: queryParams.status === '' ? undefined : Number(queryParams.status),
+    sourceAvailable: queryParams.sourceAvailable === '' ? undefined : queryParams.sourceAvailable
+  })
+  subagents.value = result?.records || []
+  total.value = Number(result?.total || 0)
 }
 
 async function loadDashboard() {
   loading.value = true
   try {
-    const [subagentResult, taskResult] = await Promise.allSettled([
-      listSubagents(),
-      listSubagentTasks()
+    const [pageResult, metricsResult, recentResult, exceptionResult] = await Promise.all([
+      pageSubagents({
+        current: currentPage.value,
+        size: pageSize.value,
+        keyword: queryParams.keyword || undefined,
+        sourceType: queryParams.type || undefined,
+        enabled: queryParams.status === '' ? undefined : Number(queryParams.status),
+        sourceAvailable: queryParams.sourceAvailable === '' ? undefined : queryParams.sourceAvailable
+      }),
+      getSubagentMetrics(),
+      listRecentSubagentTasks({ limit: 6 }),
+      listRecentSubagentTasks({ limit: 4, exceptionsOnly: true })
     ])
-    subagents.value = subagentResult.status === 'fulfilled' && Array.isArray(subagentResult.value)
-      ? subagentResult.value
-      : []
-    tasks.value = taskResult.status === 'fulfilled' && Array.isArray(taskResult.value)
-      ? taskResult.value
-      : []
+    subagents.value = pageResult?.records || []
+    total.value = Number(pageResult?.total || 0)
+    metricData.value = metricsResult || null
+    tasks.value = Array.isArray(recentResult) ? recentResult : []
+    exceptionTaskRows.value = Array.isArray(exceptionResult) ? exceptionResult : []
   } finally {
     loading.value = false
   }
+}
+
+function selectLocalAgent(agentId) {
+  const agent = localAgentOptions.value.find((item) => String(item.id) === String(agentId))
+  if (!agent) return
+  form.subagentName = agent.agentName || ''
+  form.description = agent.description || agent.agentName || ''
+}
+
+function addHeader() {
+  form.headers.push({
+    id: null,
+    headerName: '',
+    headerValue: '',
+    hasValue: false,
+    remove: false
+  })
+}
+
+function removeHeader(header, index) {
+  if (header.id) {
+    header.remove = true
+    return
+  }
+  form.headers.splice(index, 1)
 }
 
 function statusClass(status) {
   return {
     running: status === 'running',
     available: status === 'available',
-    disabled: status === 'disabled'
+    disabled: status === 'disabled',
+    unavailable: status === 'unavailable'
   }
 }
 
@@ -451,7 +385,8 @@ function statusLabel(status) {
   const map = {
     running: '运行中',
     available: '可用',
-    disabled: '已停用'
+    disabled: '已停用',
+    unavailable: '来源不可用'
   }
   return map[status] || status || '-'
 }
@@ -501,17 +436,8 @@ function formatDuration(value) {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-function average(values) {
-  const numbers = values.map(Number).filter((value) => Number.isFinite(value))
-  return numbers.length ? numbers.reduce((sum, value) => sum + value, 0) / numbers.length : 0
-}
-
 function normalizeId(value) {
   return value === '' || value === undefined || value === null ? null : String(value).trim()
-}
-
-function normalizeNumber(value) {
-  return value === '' || value === undefined || value === null ? null : Number(value)
 }
 
 onMounted(loadDashboard)
@@ -547,7 +473,7 @@ onMounted(loadDashboard)
         <div class="panel-head">
           <div>
             <h3>子智能体列表</h3>
-            <p>共 {{ filteredRows.length }} 个子智能体</p>
+            <p>共 {{ total }} 个子智能体</p>
           </div>
           <div class="subagent-filter-bar">
             <el-input
@@ -557,12 +483,15 @@ onMounted(loadDashboard)
               placeholder="搜索名称或描述"
             />
             <el-select v-model="queryParams.type" clearable placeholder="全部类型">
-              <el-option v-for="type in typeOptions" :key="type" :label="type" :value="type" />
+              <el-option v-for="type in typeOptions" :key="type.value" :label="type.label" :value="type.value" />
             </el-select>
             <el-select v-model="queryParams.status" clearable placeholder="全部状态">
-              <el-option label="运行中" value="running" />
-              <el-option label="可用" value="available" />
-              <el-option label="已停用" value="disabled" />
+              <el-option label="已启用" :value="1" />
+              <el-option label="已停用" :value="0" />
+            </el-select>
+            <el-select v-model="queryParams.sourceAvailable" clearable placeholder="全部来源">
+              <el-option label="来源可用" :value="true" />
+              <el-option label="来源不可用" :value="false" />
             </el-select>
             <el-button :icon="Refresh" @click="loadDashboard" />
             <el-button-group class="view-toggle">
@@ -602,9 +531,8 @@ onMounted(loadDashboard)
             </div>
 
             <footer class="subagent-card-actions">
-              <span>{{ row.runtimeType }}</span>
+              <span>{{ row.runtimeType }} · {{ row.sourceName }}</span>
               <nav>
-                <el-button link type="primary">运行记录</el-button>
                 <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
                 <el-dropdown trigger="click">
                   <button class="more-button" type="button" aria-label="更多操作">
@@ -623,14 +551,14 @@ onMounted(loadDashboard)
         </div>
 
         <div class="subagent-list-footer">
-          <span>共 {{ filteredRows.length }} 项</span>
+          <span>共 {{ total }} 项</span>
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
             background
             layout="prev, pager, next, sizes"
             :page-sizes="[6, 12, 24]"
-            :total="filteredRows.length"
+            :total="total"
           />
         </div>
       </section>
@@ -639,7 +567,6 @@ onMounted(loadDashboard)
         <section class="side-panel">
           <div class="side-head">
             <h3>最近委派记录</h3>
-            <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
           </div>
           <div class="delegation-timeline">
             <div v-for="task in recentTasks" :key="task.id" class="delegation-row">
@@ -651,6 +578,7 @@ onMounted(loadDashboard)
               <time>{{ task.startedAt }}</time>
               <el-tag :type="taskStatusType(task.status)">{{ taskStatusLabel(task.status) }}</el-tag>
             </div>
+            <el-empty v-if="!recentTasks.length" :image-size="54" description="暂无委派记录" />
           </div>
         </section>
 
@@ -667,6 +595,7 @@ onMounted(loadDashboard)
               <time>{{ task.startedAt }}</time>
               <el-tag :type="taskStatusType(task.status)">{{ taskStatusLabel(task.status) }}</el-tag>
             </div>
+            <el-empty v-if="!exceptionTasks.length" :image-size="54" description="暂无异常执行" />
           </div>
         </section>
       </aside>
@@ -681,6 +610,33 @@ onMounted(loadDashboard)
     >
       <el-form label-width="116px" class="subagent-form">
         <el-row :gutter="16">
+          <el-col :span="24">
+            <el-form-item label="来源类型" required>
+              <el-radio-group v-model="form.sourceType" :disabled="Boolean(form.id)">
+                <el-radio :value="1">本地子智能体</el-radio>
+                <el-radio :value="2">远程子智能体</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col v-if="Number(form.sourceType) === 1" :span="24">
+            <el-form-item label="本地智能体" required>
+              <el-select
+                v-model="form.localAgentId"
+                :disabled="Boolean(form.id)"
+                filterable
+                style="width: 100%"
+                placeholder="选择当前租户内尚未注册的智能体"
+                @change="selectLocalAgent"
+              >
+                <el-option
+                  v-for="agent in localAgentOptions"
+                  :key="agent.id"
+                  :label="agent.agentName"
+                  :value="agent.id"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
           <el-col :span="12">
             <el-form-item label="名称" required>
               <el-input v-model="form.subagentName" placeholder="如：数据检索专家" />
@@ -688,66 +644,57 @@ onMounted(loadDashboard)
           </el-col>
           <el-col :span="12">
             <el-form-item label="唯一编码" required>
-              <el-input v-model="form.subagentKey" placeholder="如：data-retriever" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="工作区模式">
-              <el-select v-model="form.workspaceMode">
-                <el-option label="独立工作区" value="ISOLATED" />
-                <el-option label="共享主工作区" value="SHARED" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="风险等级">
-              <el-select v-model="form.riskLevel">
-                <el-option label="低风险" value="LOW" />
-                <el-option label="中风险" value="MEDIUM" />
-                <el-option label="高风险" value="HIGH" />
-                <el-option label="关键风险" value="CRITICAL" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="模型配置 ID">
-              <el-input v-model="form.modelConfigId" clearable placeholder="为空则继承主智能体" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="最大步骤">
-              <el-input-number v-model="form.maxSteps" :min="1" :max="100" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="工作区路径">
-              <el-input v-model="form.workspacePath" clearable placeholder="可为空" />
+              <el-input v-model="form.subagentCode" placeholder="如：data-retriever" />
             </el-form-item>
           </el-col>
           <el-col :span="12">
             <el-form-item label="状态">
-              <el-radio-group v-model="form.status">
+              <el-radio-group v-model="form.enabled">
                 <el-radio :value="1">启用</el-radio>
                 <el-radio :value="0">停用</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="能力开关">
-              <div class="switch-row">
-                <el-checkbox v-model="form.exposeToUser" :true-value="1" :false-value="0">允许用户直连</el-checkbox>
-                <el-checkbox v-model="form.persistSession" :true-value="1" :false-value="0">持久化会话</el-checkbox>
+            <el-form-item label="描述" required>
+              <el-input v-model="form.description" type="textarea" :rows="3" placeholder="描述子智能体能力、适用任务和交付结果" />
+            </el-form-item>
+          </el-col>
+          <el-col v-if="Number(form.sourceType) === 2" :span="24">
+            <el-form-item label="远程 URL" required>
+              <el-input v-model="form.remoteUrl" placeholder="https://agent.example.com" />
+            </el-form-item>
+          </el-col>
+          <el-col v-if="Number(form.sourceType) === 2" :span="24">
+            <el-form-item label="协议">
+              <el-input model-value="Agent Protocol" disabled />
+            </el-form-item>
+          </el-col>
+          <el-col v-if="Number(form.sourceType) === 2" :span="24">
+            <el-form-item label="认证 Header">
+              <div class="header-editor">
+                <div
+                  v-for="(header, index) in form.headers"
+                  v-show="!header.remove"
+                  :key="header.id || index"
+                  class="header-row"
+                >
+                  <el-input v-model="header.headerName" placeholder="Authorization" />
+                  <el-input
+                    v-model="header.headerValue"
+                    type="password"
+                    show-password
+                    :placeholder="header.hasValue ? '留空则保留原值' : 'Header 值'"
+                  />
+                  <el-button type="danger" plain :icon="Delete" @click="removeHeader(header, index)" />
+                </div>
+                <el-button plain :icon="Plus" @click="addHeader">添加 Header</el-button>
               </div>
             </el-form-item>
           </el-col>
           <el-col :span="24">
-            <el-form-item label="描述">
-              <el-input v-model="form.description" type="textarea" :rows="3" placeholder="描述子智能体能力、适用任务和交付结果" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="系统提示词">
-              <el-input v-model="form.systemPrompt" type="textarea" :rows="4" placeholder="可填写子智能体专用 spec 或系统提示词" />
+            <el-form-item label="备注">
+              <el-input v-model="form.remark" type="textarea" :rows="2" placeholder="可选" />
             </el-form-item>
           </el-col>
         </el-row>
@@ -1067,6 +1014,12 @@ onMounted(loadDashboard)
   background: #f4f7fb;
 }
 
+.subagent-status.unavailable {
+  border-color: #fed7aa;
+  color: #c2410c;
+  background: #fff7ed;
+}
+
 .subagent-card-stats {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1298,6 +1251,18 @@ onMounted(loadDashboard)
   display: flex;
   flex-wrap: wrap;
   gap: 18px;
+}
+
+.header-editor {
+  display: grid;
+  width: 100%;
+  gap: 10px;
+}
+
+.header-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 0.8fr) minmax(220px, 1.2fr) auto;
+  gap: 8px;
 }
 
 @media (max-width: 1320px) {

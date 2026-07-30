@@ -25,5 +25,5 @@ public interface AiAgentService extends IService<AiAgentEntity> {
 
     Boolean createAgent(AgentConfigDTO agentVO);
 
-    List<AiAgentEntity> subAgentList(Long agentId);
+    List<AiAgentEntity> subAgentList(Long agentId, Long tenantId);
 }

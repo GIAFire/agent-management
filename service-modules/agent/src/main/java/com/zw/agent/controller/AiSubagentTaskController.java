@@ -1,9 +1,11 @@
 package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiSubagentTaskEntity;
 import com.zw.agent.service.AiSubagentTaskService;
+import com.zw.common.context.UserContext;
 import com.zw.common.entity.Result;
 import com.zw.common.support.EntityDefaults;
 import lombok.AllArgsConstructor;
@@ -27,7 +29,8 @@ public class AiSubagentTaskController {
 
     @GetMapping("/list")
     public Result<List<AiSubagentTaskEntity>> list() {
-        return Result.ok(aiSubagentTaskService.list());
+        return Result.ok(aiSubagentTaskService.list(new LambdaQueryWrapper<AiSubagentTaskEntity>()
+                .eq(AiSubagentTaskEntity::getTenantId, UserContext.get().getTenantId())));
     }
 
     @GetMapping("/page")
@@ -35,27 +38,47 @@ public class AiSubagentTaskController {
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size
     ) {
-        return Result.ok(aiSubagentTaskService.page(new Page<>(current, size)));
+        return Result.ok(aiSubagentTaskService.page(
+                new Page<>(current, size),
+                new LambdaQueryWrapper<AiSubagentTaskEntity>()
+                        .eq(AiSubagentTaskEntity::getTenantId, UserContext.get().getTenantId())
+        ));
     }
 
     @GetMapping("/{id}")
     public Result<AiSubagentTaskEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiSubagentTaskService.getById(id));
+        return Result.ok(aiSubagentTaskService.getOne(new LambdaQueryWrapper<AiSubagentTaskEntity>()
+                .eq(AiSubagentTaskEntity::getTenantId, UserContext.get().getTenantId())
+                .eq(AiSubagentTaskEntity::getId, id)));
     }
 
     @PostMapping("/create")
     public Result<Boolean> create(@RequestBody AiSubagentTaskEntity entity) {
+        entity.setId(null);
+        entity.setTenantId(UserContext.get().getTenantId());
         return Result.ok(aiSubagentTaskService.save(EntityDefaults.create(entity)));
     }
 
     @PostMapping("/update")
     public Result<Boolean> update(@RequestBody AiSubagentTaskEntity entity) {
-        return Result.ok(aiSubagentTaskService.updateById(EntityDefaults.update(entity)));
+        if (entity.getId() == null) {
+            return Result.ok(false);
+        }
+        Long tenantId = UserContext.get().getTenantId();
+        entity.setTenantId(tenantId);
+        return Result.ok(aiSubagentTaskService.update(
+                EntityDefaults.update(entity),
+                new LambdaQueryWrapper<AiSubagentTaskEntity>()
+                        .eq(AiSubagentTaskEntity::getTenantId, tenantId)
+                        .eq(AiSubagentTaskEntity::getId, entity.getId())
+        ));
     }
 
     @GetMapping("/delete/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
-        return Result.ok(aiSubagentTaskService.removeById(id));
+        return Result.ok(aiSubagentTaskService.remove(new LambdaQueryWrapper<AiSubagentTaskEntity>()
+                .eq(AiSubagentTaskEntity::getTenantId, UserContext.get().getTenantId())
+                .eq(AiSubagentTaskEntity::getId, id)));
     }
 
 }

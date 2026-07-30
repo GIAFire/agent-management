@@ -222,14 +222,24 @@
             agent.created_at ASC
     </select>
 
-    <select id="subAgentList" resultType="com.zw.agent.entity.AiAgentEntity" parameterType="Long">
+    <select id="subAgentList" resultType="com.zw.agent.entity.AiAgentEntity">
         SELECT
             sub.*
         FROM
-            ai_agent parent
-                LEFT JOIN ai_agent_binding_agent aba ON parent.id = aba.agent_id
-                LEFT JOIN ai_agent sub ON aba.subagent_id = sub.id
+            ai_subagent_agent_binding sab
+                INNER JOIN ai_subagent definition ON definition.id = sab.subagent_id
+                INNER JOIN ai_agent sub ON sub.id = definition.local_agent_id
         WHERE
-            aba.agent_id = #{agentId}
+            sab.agent_id = #{agentId}
+            AND sab.tenant_id = #{tenantId}
+            AND sab.enabled = 1
+            AND sab.deleted = 0
+            AND definition.tenant_id = #{tenantId}
+            AND definition.source_type = 1
+            AND definition.enabled = 1
+            AND definition.deleted = 0
+            AND sub.tenant_id = #{tenantId}
+            AND sub.status = 1
+            AND sub.deleted = 0
     </select>
 </mapper>

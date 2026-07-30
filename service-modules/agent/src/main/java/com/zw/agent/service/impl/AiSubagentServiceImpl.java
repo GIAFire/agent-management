@@ -25,7 +25,7 @@ public class AiSubagentServiceImpl extends ServiceImpl<AiSubagentMapper, AiSubag
     private final AiSubagentMapper subagentMapper;
 
     @Override
-    public List<SubagentHeaderDTO> subAgentList(Long agentId) {
-        return subagentMapper.subAgentList(agentId);
+    public List<SubagentHeaderDTO> subAgentList(Long agentId, Long tenantId) {
+        return subagentMapper.subAgentList(agentId, tenantId);
     }
 }

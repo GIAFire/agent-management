@@ -16,5 +16,5 @@ import java.util.List;
  */
 public interface AiSubagentService extends IService<AiSubagentEntity> {
 
-    List<SubagentHeaderDTO> subAgentList(Long agentId);
+    List<SubagentHeaderDTO> subAgentList(Long agentId, Long tenantId);
 }

@@ -2,18 +2,45 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiSubagentMapper">
 
+    <resultMap id="SubagentHeaderResultMap" type="com.zw.agent.entity.DTO.SubagentHeaderDTO">
+        <id property="id" column="id"/>
+        <result property="subagentCode" column="subagent_code"/>
+        <result property="subagentName" column="subagent_name"/>
+        <result property="description" column="description"/>
+        <result property="sourceType" column="source_type"/>
+        <result property="localAgentId" column="local_agent_id"/>
+        <result property="remoteUrl" column="remote_url"/>
+        <result property="protocolType" column="protocol_type"/>
+        <result property="enabled" column="enabled"/>
+        <result property="remark" column="remark"/>
+        <collection property="headerEntityList" ofType="com.zw.agent.entity.AiHttpHeaderEntity">
+            <id property="id" column="header_id"/>
+            <result property="headerName" column="header_name"/>
+            <result property="headerValue" column="header_value"/>
+        </collection>
+    </resultMap>
 
-    <select id="subAgentList" resultType="com.zw.agent.entity.DTO.SubagentHeaderDTO" parameterType="Long">
+    <select id="subAgentList" resultMap="SubagentHeaderResultMap">
         SELECT
         sa.*,
+        hh.id AS header_id,
         hh.header_name,
         hh.header_value
         FROM
         ai_subagent sa
         LEFT JOIN ai_subagent_agent_binding sab ON sa.id = sab.subagent_id
         LEFT JOIN ai_http_header hh ON hh.source_id = sa.id
+            AND hh.source = 'remoteSubAgent'
+            AND hh.tenant_id = #{tenantId}
+            AND hh.deleted = 0
         WHERE
         sab.agent_id = #{agentId}
-        AND hh.source = "subAgent"
+        AND sab.tenant_id = #{tenantId}
+        AND sab.enabled = 1
+        AND sab.deleted = 0
+        AND sa.tenant_id = #{tenantId}
+        AND sa.source_type = 2
+        AND sa.enabled = 1
+        AND sa.deleted = 0
     </select>
 </mapper>

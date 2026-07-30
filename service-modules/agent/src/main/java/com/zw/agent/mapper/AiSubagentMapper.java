@@ -6,6 +6,11 @@ import com.zw.agent.entity.DTO.SubagentHeaderDTO;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
+import java.util.Collection;
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Select;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * <p>
@@ -18,5 +23,22 @@ import java.util.List;
 @Mapper
 public interface AiSubagentMapper extends BaseMapper<AiSubagentEntity> {
 
-    List<SubagentHeaderDTO> subAgentList(Long agentId);
+    List<SubagentHeaderDTO> subAgentList(@Param("agentId") Long agentId, @Param("tenantId") Long tenantId);
+
+    @Delete("DELETE FROM ai_subagent WHERE id = #{id} AND tenant_id = #{tenantId}")
+    int hardDeleteById(@Param("id") Long id, @Param("tenantId") Long tenantId);
+
+    @InterceptorIgnore(tenantLine = "true")
+    @Select({
+            "<script>",
+            "SELECT id, subagent_name FROM ai_subagent",
+            "WHERE tenant_id = #{tenantId}",
+            "AND id IN",
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+            "</script>"
+    })
+    List<AiSubagentEntity> selectNamesIncludingDeleted(
+            @Param("tenantId") Long tenantId,
+            @Param("ids") Collection<Long> ids
+    );
 }

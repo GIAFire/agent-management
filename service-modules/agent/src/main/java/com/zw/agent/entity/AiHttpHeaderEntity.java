@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import com.zw.agent.constant.enumeration.HeaderSourceType;
 import com.zw.common.entity.BaseEntity;
 import java.io.Serializable;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -52,8 +53,9 @@ public class AiHttpHeaderEntity extends BaseEntity {
     private String headerName;
 
     /**
-     * 加密后的请求头值，不允许存储明文
+     * 请求头值。当前阶段按产品约定明文存储，但禁止通过管理接口回显。
      */
     @TableField("header_value")
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String headerValue;
 }

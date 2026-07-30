@@ -157,8 +157,8 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
     }
 
     @Override
-    public List<AiAgentEntity> subAgentList(Long agentId) {
-        return aiAgentMapper.subAgentList(agentId);
+    public List<AiAgentEntity> subAgentList(Long agentId, Long tenantId) {
+        return aiAgentMapper.subAgentList(agentId, tenantId);
     }
 
     private void createKnowledgeBindings(List<Long> knowledgeBaseIds, Long agentId, Long agentConfigId) {

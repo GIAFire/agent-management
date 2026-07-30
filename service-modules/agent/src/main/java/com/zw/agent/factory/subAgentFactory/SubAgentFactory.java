@@ -33,7 +33,8 @@ public class SubAgentFactory {
 
     public List<SubagentDeclaration> buildRemoteSubAgent(AgentConfigDTO config){
         List<SubagentDeclaration> subAgentBuildList = new ArrayList<>();
-        List<SubagentHeaderDTO> remoteSubagentSubAgentList = subAgentService.subAgentList(config.getAgentId());
+        List<SubagentHeaderDTO> remoteSubagentSubAgentList =
+                subAgentService.subAgentList(config.getAgentId(), config.getTenantId());
         for (SubagentHeaderDTO remoteSubagent: remoteSubagentSubAgentList) {
             Map<String, String> headers = remoteSubagent.getHeaderEntityList() != null
                     ? remoteSubagent.getHeaderEntityList().stream()
@@ -56,7 +57,8 @@ public class SubAgentFactory {
     }
 
     public List<AiAgentEntity> buildSubAgentFactory(AgentConfigDTO config){
-        List<AiAgentEntity> subAgentList = agentService.subAgentList(config.getAgentId());
+        List<AiAgentEntity> subAgentList =
+                agentService.subAgentList(config.getAgentId(), config.getTenantId());
 
         return subAgentList;
     }
