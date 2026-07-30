@@ -18,11 +18,15 @@ import {
 } from '@element-plus/icons-vue'
 import {
   createTool,
-  listToolCallLogs,
+  disableToolPermission,
+  getToolMetrics,
   listToolGroups,
-  listToolPermissions,
-  listTools
+  listTools,
+  pageToolCallLogs,
+  pageToolPermissions,
+  saveToolPermission
 } from '@/axios/tool'
+import { listRole } from '@/axios/role'
 
 const loading = ref(false)
 const creating = ref(false)
@@ -32,6 +36,13 @@ const tools = ref([])
 const groups = ref([])
 const logs = ref([])
 const permissions = ref([])
+const metricData = ref(null)
+const roles = ref([])
+const activeTool = ref(null)
+const logFilterStatus = ref('')
+const logTotal = ref(0)
+const permissionTotal = ref(0)
+const permissionEditorVisible = ref(false)
 
 const queryParams = reactive({
   keyword: '',
@@ -47,6 +58,21 @@ const pagination = reactive({
 const permissionPagination = reactive({
   currentPage: 1,
   pageSize: 10
+})
+
+const logPagination = reactive({
+  currentPage: 1,
+  pageSize: 10
+})
+
+const permissionForm = reactive({
+  id: '',
+  toolId: '',
+  roleId: '',
+  behavior: 'ASK',
+  description: '',
+  ruleContent: '',
+  status: 1
 })
 
 const createForm = reactive({
@@ -67,116 +93,16 @@ const createForm = reactive({
   beanName: ''
 })
 
-const demoTools = [
-  {
-    id: 1,
-    toolName: 'query_order',
-    toolNameExplain: '查询订单及明细信息',
-    description: '查询订单、支付状态、物流轨迹和售后进度。',
-    toolType: 'HTTP',
-    groupId: 'data_analysis',
-    riskLevel: 'LOW',
-    enabled: true,
-    readOnly: true,
-    calls: 3826,
-    agents: 6,
-    avgLatency: 612,
-    successRate: 99.8
-  },
-  {
-    id: 2,
-    toolName: 'workspace_write',
-    toolNameExplain: '在 Agent 工作区创建和更新文件',
-    description: '写入报告、分析结果和结构化任务产物。',
-    toolType: 'JAVA_BEAN',
-    groupId: 'report_suite',
-    riskLevel: 'MEDIUM',
-    enabled: true,
-    readOnly: false,
-    calls: 2198,
-    agents: 12,
-    avgLatency: 748,
-    successRate: 99.5
-  },
-  {
-    id: 3,
-    toolName: 'plan_write',
-    toolNameExplain: '创建和更新结构化任务计划',
-    description: '维护多步骤任务计划、状态和执行记录。',
-    toolType: 'JAVA_BEAN',
-    groupId: 'workflow',
-    riskLevel: 'LOW',
-    enabled: true,
-    readOnly: false,
-    calls: 1462,
-    agents: 9,
-    avgLatency: 536,
-    successRate: 99.7
-  },
-  {
-    id: 4,
-    toolName: 'database_query',
-    toolNameExplain: '执行受控的只读数据库查询',
-    description: '通过权限策略限制 SQL 查询范围和敏感字段。',
-    toolType: 'SQL',
-    groupId: 'contract_audit',
-    riskLevel: 'HIGH',
-    enabled: true,
-    readOnly: true,
-    calls: 864,
-    agents: 4,
-    avgLatency: 1014,
-    successRate: 97.6
-  },
-  {
-    id: 5,
-    toolName: 'sandbox_exec',
-    toolNameExplain: '在隔离沙箱中执行代码',
-    description: '运行安全隔离的脚本片段，用于计算和文件处理。',
-    toolType: 'MCP',
-    groupId: 'sandbox',
-    riskLevel: 'MEDIUM',
-    enabled: true,
-    readOnly: false,
-    calls: 726,
-    agents: 5,
-    avgLatency: 1280,
-    successRate: 98.9
-  }
-]
-
-const demoGroups = [
-  { id: 1, groupName: '数据分析套件', description: '报表、指标解读与数据库查询', enabled: true, activeByDefault: true, tools: 8, agents: 15 },
-  { id: 2, groupName: '合同审查套件', description: '合同风险识别、模板检查和审批流', enabled: true, activeByDefault: true, tools: 6, agents: 12 },
-  { id: 3, groupName: '企业知识问答', description: '知识库检索、引用拼装和回答校验', enabled: true, activeByDefault: true, tools: 5, agents: 18 },
-  { id: 4, groupName: '报告生成套件', description: '结构化报告生成、文件写入和导出', enabled: true, activeByDefault: false, tools: 7, agents: 10 }
-]
-
-const demoLogs = [
-  { id: 1, toolName: 'database_query', agentName: '合同审查助手', permissionBehavior: 'ASK', successStatus: 'FAILED', durationMs: 1480, startedAt: '2024-05-20 15:22', reason: '权限审批超时' },
-  { id: 2, toolName: 'workspace_write', agentName: '报告生成助手', permissionBehavior: 'ALLOW', successStatus: 'FAILED', durationMs: 2310, startedAt: '2024-05-20 14:57', reason: '目标文件被占用' },
-  { id: 3, toolName: 'sandbox_exec', agentName: '数据分析助手', permissionBehavior: 'ALLOW', successStatus: 'FAILED', durationMs: 4200, startedAt: '2024-05-20 13:42', reason: '执行超时' }
-]
-
-const demoPermissions = [
-  { id: 1, toolName: 'database_query', roleCode: 'auditor', behavior: 'ASK', source: 'admin', description: '高风险查询需人工确认', updateTime: '2024-05-20 12:32', status: 1 },
-  { id: 2, toolName: 'workspace_write', roleCode: 'analyst', behavior: 'ALLOW', source: 'projectSettings', description: '允许写入工作区报告文件', updateTime: '2024-05-19 19:08', status: 1 },
-  { id: 3, toolName: 'sandbox_exec', roleCode: 'guest', behavior: 'DENY', source: 'admin', description: '访客禁止执行沙箱代码', updateTime: '2024-05-18 16:40', status: 1 }
-]
-
 const toolRows = computed(() => {
-  const rows = tools.value.length ? tools.value : demoTools
-  return rows.map((row, index) => normalizeTool(row, index))
+  return tools.value.map((row, index) => normalizeTool(row, index))
 })
 
 const groupRows = computed(() => {
-  const rows = groups.value.length ? groups.value : demoGroups
-  return rows.map((row, index) => normalizeGroup(row, index))
+  return groups.value.map((row, index) => normalizeGroup(row, index))
 })
 
 const logRows = computed(() => {
-  const rows = logs.value.length ? logs.value : demoLogs
-  return rows.map((row) => ({
+  return logs.value.map((row) => ({
     ...row,
     toolName: row.toolName || '-',
     agentName: row.agentName || `Agent #${row.agentId || '-'}`,
@@ -189,8 +115,7 @@ const logRows = computed(() => {
 })
 
 const permissionRows = computed(() => {
-  const rows = permissions.value.length ? permissions.value : demoPermissions
-  return rows.map((row) => ({
+  return permissions.value.map((row) => ({
     ...row,
     toolName: row.toolName || '-',
     roleCode: row.roleCode || `role_${row.roleId || '-'}`,
@@ -200,11 +125,6 @@ const permissionRows = computed(() => {
     updateTime: row.updateTime || row.updatedAt || row.createTime || '-',
     status: Number(row.status ?? 1)
   }))
-})
-
-const pagedPermissionRows = computed(() => {
-  const start = (permissionPagination.currentPage - 1) * permissionPagination.pageSize
-  return permissionRows.value.slice(start, start + permissionPagination.pageSize)
 })
 
 const filteredTools = computed(() => {
@@ -252,6 +172,20 @@ watch(
   }
 )
 
+watch(
+  () => [permissionPagination.currentPage, permissionPagination.pageSize],
+  () => {
+    if (permissionDialogVisible.value) loadPermissionPage()
+  }
+)
+
+watch(
+  () => [logPagination.currentPage, logPagination.pageSize],
+  () => {
+    if (logDialogVisible.value) loadLogPage()
+  }
+)
+
 const toolTypeOptions = computed(() => {
   return [...new Set(toolRows.value.map((row) => row.toolType).filter(Boolean))]
 })
@@ -261,41 +195,38 @@ const failedLogs = computed(() => {
 })
 
 const metrics = computed(() => {
-  const available = toolRows.value.length
-  const enabled = toolRows.value.filter((row) => row.enabled).length
-  const totalCalls = toolRows.value.reduce((sum, row) => sum + row.calls, 0)
-  const success = toolRows.value.length
-    ? toolRows.value.reduce((sum, row) => sum + row.successRate, 0) / toolRows.value.length
-    : 99.7
+  const data = metricData.value || {}
+  const callChange = data.callChangePercent
+  const successRate = data.successRate
 
   return [
     {
       label: '可用工具',
-      value: available,
-      sub: `${enabled} 个已启用`,
+      value: data.availableTools ?? '--',
+      sub: `${data.enabledTools ?? 0} 个已启用`,
       icon: Briefcase,
       tone: 'blue',
       positive: true
     },
     {
       label: '工具分组',
-      value: groupRows.value.length,
-      sub: '覆盖 8 类场景',
+      value: data.enabledGroups ?? '--',
+      sub: '已启用分组',
       icon: Box,
       tone: 'indigo'
     },
     {
       label: '今日调用',
-      value: formatCompact(Math.max(totalCalls, 12800)),
-      sub: '较昨日 +18.2% ↑',
+      value: data.todayCalls == null ? '--' : formatCompact(data.todayCalls),
+      sub: callChange == null ? '昨日同期无调用' : `较昨日同期 ${callChange >= 0 ? '+' : ''}${callChange}%`,
       icon: DataLine,
       tone: 'cyan',
       positive: true
     },
     {
       label: '成功率',
-      value: `${success.toFixed(1)}%`,
-      sub: '失败 38 次',
+      value: successRate == null ? '--' : `${Number(successRate).toFixed(1)}%`,
+      sub: `失败 ${data.failedCalls ?? 0} 次`,
       icon: Finished,
       tone: 'green',
       danger: true
@@ -305,7 +236,6 @@ const metrics = computed(() => {
 
 function normalizeTool(row, index) {
   const calls = Number(row.calls ?? row.callCount ?? row.invokeCount ?? 0)
-  const syntheticCalls = [3826, 2198, 1462, 864, 726][index % 5]
   const riskLevel = String(row.riskLevel || 'LOW').toUpperCase()
   const enabled = Boolean(row.enabled ?? row.status ?? true)
 
@@ -320,10 +250,10 @@ function normalizeTool(row, index) {
     riskLevel,
     enabled,
     readOnly: Boolean(row.readOnly ?? true),
-    calls: calls || syntheticCalls,
-    agents: Number(row.agents ?? row.agentCount ?? [6, 12, 9, 4, 5][index % 5]),
-    avgLatency: Number(row.avgLatency ?? row.durationMs ?? [612, 748, 536, 1014, 1280][index % 5]),
-    successRate: Number(row.successRate ?? [99.8, 99.5, 99.7, 97.6, 98.9][index % 5]),
+    calls,
+    agents: Number(row.agents ?? row.agentCount ?? 0),
+    avgLatency: Number(row.avgLatency ?? row.durationMs ?? 0),
+    successRate: row.successRate == null ? null : Number(row.successRate),
     status: enabled ? riskLevel === 'HIGH' ? 'limited' : 'normal' : 'disabled'
   }
 }
@@ -337,8 +267,8 @@ function normalizeGroup(row, index) {
     description: row.description || '暂无描述',
     enabled: Boolean(row.enabled ?? true),
     activeByDefault: Boolean(row.activeByDefault ?? false),
-    tools: Number(row.tools ?? row.toolCount ?? relatedTools.length ?? [8, 6, 5, 7][index % 4]),
-    agents: Number(row.agents ?? row.agentCount ?? [15, 12, 18, 10][index % 4])
+    tools: Number(row.tools ?? row.toolCount ?? relatedTools.length),
+    agents: Number(row.agents ?? row.agentCount ?? 0)
   }
 }
 
@@ -364,28 +294,96 @@ const resetCreateForm = () => {
 
 
 
-const openPermissionDialog = () => {
-  permissionPagination.currentPage = 1
-  permissionDialogVisible.value = true
+const loadPermissionPage = async () => {
+  const result = await pageToolPermissions({
+    current: permissionPagination.currentPage,
+    size: permissionPagination.pageSize,
+    toolId: activeTool.value?.id || undefined
+  })
+  permissions.value = result?.records || []
+  permissionTotal.value = Number(result?.total || 0)
 }
 
-const configureTool = (tool) => {
-  ElMessage.info(`准备配置 ${tool.toolName}`)
+const openPermissionDialog = async () => {
+  activeTool.value = null
+  permissionPagination.currentPage = 1
+  permissionDialogVisible.value = true
+  await loadPermissionPage()
+}
+
+const resetPermissionForm = (tool, permission = null) => {
+  Object.assign(permissionForm, {
+    id: permission?.id || '',
+    toolId: tool.id,
+    roleId: permission?.roleId || '',
+    behavior: permission?.behavior || 'ASK',
+    description: permission?.description || '',
+    ruleContent: permission?.ruleContent || '',
+    status: Number(permission?.status ?? 1)
+  })
+}
+
+const configureTool = async (tool, permission = null) => {
+  activeTool.value = tool
+  resetPermissionForm(tool, permission)
+  if (!roles.value.length) {
+    roles.value = await listRole()
+  }
+  permissionEditorVisible.value = true
+}
+
+const submitPermission = async () => {
+  await saveToolPermission({ ...permissionForm })
+  ElMessage.success('权限规则已保存')
+  permissionEditorVisible.value = false
+  const returnToPermissionList = permissionDialogVisible.value
+  activeTool.value = null
+  await loadDashboard()
+  if (returnToPermissionList) {
+    await loadPermissionPage()
+  }
+}
+
+const disablePermission = async (permission) => {
+  await disableToolPermission(permission.id)
+  ElMessage.success('权限规则已停用')
+  await loadPermissionPage()
+}
+
+const loadLogPage = async () => {
+  const result = await pageToolCallLogs({
+    current: logPagination.currentPage,
+    size: logPagination.pageSize,
+    toolId: activeTool.value?.id || undefined,
+    successStatus: logFilterStatus.value || undefined
+  })
+  logs.value = result?.records || []
+  logTotal.value = Number(result?.total || 0)
+}
+
+const openToolCalls = async (tool = null, status = '') => {
+  activeTool.value = tool
+  logFilterStatus.value = status
+  logPagination.currentPage = 1
+  logDialogVisible.value = true
+  await loadLogPage()
 }
 
 const loadDashboard = async () => {
   loading.value = true
   try {
-    const [toolResult, groupResult, logResult, permissionResult] = await Promise.allSettled([
+    const [toolResult, groupResult, metricResult, logResult, permissionResult] = await Promise.all([
       listTools(),
       listToolGroups(),
-      listToolCallLogs(),
-      listToolPermissions()
+      getToolMetrics(),
+      pageToolCallLogs({ current: 1, size: 4, successStatus: 'FAILED' }),
+      pageToolPermissions({ current: 1, size: 4 })
     ])
-    tools.value = toolResult.status === 'fulfilled' && Array.isArray(toolResult.value) ? toolResult.value : []
-    groups.value = groupResult.status === 'fulfilled' && Array.isArray(groupResult.value) ? groupResult.value : []
-    logs.value = logResult.status === 'fulfilled' && Array.isArray(logResult.value) ? logResult.value : []
-    permissions.value = permissionResult.status === 'fulfilled' && Array.isArray(permissionResult.value) ? permissionResult.value : []
+    tools.value = Array.isArray(toolResult) ? toolResult : []
+    groups.value = Array.isArray(groupResult) ? groupResult : []
+    metricData.value = metricResult || null
+    logs.value = logResult?.records || []
+    permissions.value = permissionResult?.records || []
   } finally {
     loading.value = false
   }
@@ -540,7 +538,7 @@ onMounted(loadDashboard)
                   <template #dropdown>
                     <el-dropdown-menu>
                       <el-dropdown-item @click="configureTool(tool)">权限配置</el-dropdown-item>
-                      <el-dropdown-item>查看调用</el-dropdown-item>
+                      <el-dropdown-item @click="openToolCalls(tool)">查看调用</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
@@ -565,7 +563,7 @@ onMounted(loadDashboard)
       <aside class="tool-side">
         <section class="side-panel">
           <div class="side-head">
-            <h3>权限变更记录</h3>
+            <h3>最近更新的权限规则</h3>
             <el-button link type="primary" @click="openPermissionDialog">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
           </div>
           <div class="permission-change-list">
@@ -583,7 +581,7 @@ onMounted(loadDashboard)
         <section class="side-panel">
           <div class="side-head">
             <h3>最近失败调用</h3>
-            <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
+            <el-button link type="primary" @click="openToolCalls(null, 'FAILED')">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
           </div>
           <div class="failure-list">
             <div v-for="item in failedLogs" :key="item.id" class="failure-row">
@@ -620,16 +618,26 @@ onMounted(loadDashboard)
         </el-table-column>
         <el-table-column prop="startedAt" label="开始时间" min-width="170" />
       </el-table>
+      <div class="dialog-pagination">
+        <el-pagination
+          v-model:current-page="logPagination.currentPage"
+          v-model:page-size="logPagination.pageSize"
+          background
+          layout="total, prev, pager, next, sizes"
+          :page-sizes="[10, 20, 50]"
+          :total="logTotal"
+        />
+      </div>
     </el-dialog>
 
     <el-dialog
       v-model="permissionDialogVisible"
-      title="权限变更记录"
+      title="权限规则"
       width="900px"
       destroy-on-close
       class="tool-dialog"
     >
-      <el-table :data="pagedPermissionRows" stripe>
+      <el-table :data="permissionRows" stripe>
         <el-table-column prop="toolName" label="工具" min-width="160" />
         <el-table-column prop="roleCode" label="角色" min-width="130" />
         <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />
@@ -640,6 +648,12 @@ onMounted(loadDashboard)
           </template>
         </el-table-column>
         <el-table-column prop="updateTime" label="变更时间" min-width="170" />
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="configureTool({ id: row.toolId, toolName: row.toolName }, row)">编辑</el-button>
+            <el-button v-if="row.status === 1" link type="danger" @click="disablePermission(row)">停用</el-button>
+          </template>
+        </el-table-column>
       </el-table>
       <div class="dialog-pagination">
         <el-pagination
@@ -648,9 +662,45 @@ onMounted(loadDashboard)
           background
           layout="total, prev, pager, next, sizes"
           :page-sizes="[10, 20, 50]"
-          :total="permissionRows.length"
+          :total="permissionTotal"
         />
       </div>
+    </el-dialog>
+
+    <el-dialog
+      v-model="permissionEditorVisible"
+      :title="`${permissionForm.id ? '编辑' : '新增'}权限规则 · ${activeTool?.toolName || ''}`"
+      width="620px"
+      destroy-on-close
+      class="tool-dialog"
+    >
+      <el-form label-width="100px">
+        <el-form-item label="角色" required>
+          <el-select v-model="permissionForm.roleId" :disabled="Boolean(permissionForm.id)" style="width: 100%">
+            <el-option
+              v-for="role in roles"
+              :key="role.id"
+              :label="`${role.roleName} (${role.roleCode})`"
+              :value="role.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="行为" required>
+          <el-select v-model="permissionForm.behavior" style="width: 100%">
+            <el-option v-for="behavior in ['ALLOW', 'DENY', 'ASK', 'PASSTHROUGH']" :key="behavior" :value="behavior" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="说明">
+          <el-input v-model="permissionForm.description" type="textarea" :rows="3" maxlength="500" show-word-limit />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-switch v-model="permissionForm.status" :active-value="1" :inactive-value="0" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="permissionEditorVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="!permissionForm.roleId" @click="submitPermission">保存</el-button>
+      </template>
     </el-dialog>
   </section>
 </template>

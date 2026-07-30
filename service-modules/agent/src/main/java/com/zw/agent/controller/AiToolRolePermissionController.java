@@ -2,8 +2,11 @@ package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zw.common.context.UserContext;
 import com.zw.agent.entity.AiToolRolePermissionEntity;
 import com.zw.agent.service.AiToolRolePermissionService;
+import com.zw.agent.service.ToolManagementService;
 import com.zw.common.entity.Result;
 import com.zw.common.support.EntityDefaults;
 import lombok.AllArgsConstructor;
@@ -24,10 +27,14 @@ import java.util.List;
 @AllArgsConstructor
 public class AiToolRolePermissionController {
     private final AiToolRolePermissionService aiToolRolePermissionService;
+    private final ToolManagementService toolManagementService;
 
     @GetMapping("/list")
     public Result<List<AiToolRolePermissionEntity>> list() {
-        return Result.ok(aiToolRolePermissionService.list());
+        return Result.ok(aiToolRolePermissionService.list(
+                new LambdaQueryWrapper<AiToolRolePermissionEntity>()
+                        .eq(AiToolRolePermissionEntity::getTenantId, UserContext.get().getTenantId())
+                        .orderByDesc(AiToolRolePermissionEntity::getUpdatedAt)));
     }
 
     @GetMapping("/page")
@@ -35,12 +42,43 @@ public class AiToolRolePermissionController {
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size
     ) {
-        return Result.ok(aiToolRolePermissionService.page(new Page<>(current, size)));
+        return Result.ok(aiToolRolePermissionService.page(new Page<>(current, size),
+                new LambdaQueryWrapper<AiToolRolePermissionEntity>()
+                        .eq(AiToolRolePermissionEntity::getTenantId, UserContext.get().getTenantId())
+                        .orderByDesc(AiToolRolePermissionEntity::getUpdatedAt)));
+    }
+
+    @GetMapping("/management/page")
+    public Result<IPage<AiToolRolePermissionEntity>> managementPage(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long toolId
+    ) {
+        return Result.ok(toolManagementService.pagePermissions(current, size, toolId));
+    }
+
+    @PostMapping("/management/save")
+    public Result<AiToolRolePermissionEntity> managementSave(
+            @RequestBody AiToolRolePermissionEntity entity
+    ) {
+        try {
+            return Result.ok(toolManagementService.savePermission(entity));
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return Result.fail(exception.getMessage());
+        }
+    }
+
+    @PostMapping("/management/{id}/disable")
+    public Result<Boolean> managementDisable(@PathVariable Long id) {
+        return Result.ok(toolManagementService.disablePermission(id));
     }
 
     @GetMapping("/{id}")
     public Result<AiToolRolePermissionEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiToolRolePermissionService.getById(id));
+        return Result.ok(aiToolRolePermissionService.getOne(
+                new LambdaQueryWrapper<AiToolRolePermissionEntity>()
+                        .eq(AiToolRolePermissionEntity::getTenantId, UserContext.get().getTenantId())
+                        .eq(AiToolRolePermissionEntity::getId, id)));
     }
 
     @PostMapping("/create")

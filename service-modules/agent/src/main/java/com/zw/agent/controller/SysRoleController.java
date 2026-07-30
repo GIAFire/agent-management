@@ -2,6 +2,7 @@ package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.zw.agent.entity.SysRoleEntity;
 import com.zw.agent.service.SysRoleService;
 import com.zw.common.entity.Result;
@@ -10,6 +11,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import com.zw.common.context.UserContext;
 
 /**
  * <p>
@@ -27,7 +29,10 @@ public class SysRoleController {
 
     @GetMapping("/list")
     public Result<List<SysRoleEntity>> list() {
-        return Result.ok(sysRoleService.list());
+        return Result.ok(sysRoleService.list(new LambdaQueryWrapper<SysRoleEntity>()
+                .eq(SysRoleEntity::getTenantId, UserContext.get().getTenantId())
+                .eq(SysRoleEntity::getStatus, 1)
+                .orderByAsc(SysRoleEntity::getRoleName)));
     }
 
     @GetMapping("/page")

@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiToolInfoConfigEntity;
 import com.zw.agent.service.AiToolInfoConfigService;
+import com.zw.agent.service.ToolManagementService;
+import com.zw.agent.entity.DTO.ToolMetricsResponse;
 import com.zw.common.entity.Result;
 import com.zw.common.support.EntityDefaults;
 import lombok.AllArgsConstructor;
@@ -24,13 +26,19 @@ import java.util.List;
 public class AiToolInfoConfigController {
 
     private final AiToolInfoConfigService aiToolInfoConfigService;
+    private final ToolManagementService toolManagementService;
 
     /**
      * 查询所有工具配置列表
      */
     @GetMapping("/list")
     public Result<List<AiToolInfoConfigEntity>> list() {
-        return Result.ok(aiToolInfoConfigService.list());
+        return Result.ok(toolManagementService.listTools());
+    }
+
+    @GetMapping("/metrics")
+    public Result<ToolMetricsResponse> metrics() {
+        return Result.ok(toolManagementService.metrics());
     }
 
     /**

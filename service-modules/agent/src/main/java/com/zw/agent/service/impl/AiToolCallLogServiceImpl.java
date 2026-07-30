@@ -123,7 +123,9 @@ public class AiToolCallLogServiceImpl extends ServiceImpl<AiToolCallLogMapper, A
             AiToolCallLogEntity auditEntity = ensureAuditEntity(rawEvent.getToolCallId(), rawEvent.getToolCallName(),
                     rawEvent.getReplyId(), config, userInfo, sessionId, runId, toolAuditMap);
             auditEntity.setEndedAt(LocalDateTime.now());
-            auditEntity.setSuccessStatus(rawEvent.getState() == null ? null : rawEvent.getState().getValue());
+            auditEntity.setSuccessStatus(rawEvent.getState() == null
+                    ? null
+                    : rawEvent.getState().getValue().toUpperCase(Locale.ROOT));
             auditEntity.setToolInputJson(firstMap(
                     auditEntity.getToolInputJson(),
                     toJsonMap(bufferText(auditEntity.getToolInputBuffer()))

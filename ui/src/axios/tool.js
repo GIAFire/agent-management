@@ -6,6 +6,10 @@ export const listTools = () => {
   return get(`${baseUrl}/toolInfoConfig/list`)
 }
 
+export const getToolMetrics = () => {
+  return get(`${baseUrl}/toolInfoConfig/metrics`)
+}
+
 export const createTool = (data) => {
   return post(`${baseUrl}/toolInfoConfig/create`, data)
 }
@@ -18,10 +22,18 @@ export const listToolGroups = () => {
   return get(`${baseUrl}/toolGroupConfig/list`)
 }
 
-export const listToolCallLogs = () => {
-  return get(`${baseUrl}/toolCallLog/list`)
+export const pageToolCallLogs = (params) => {
+  return get(`${baseUrl}/toolCallLog/management/page`, params)
 }
 
-export const listToolPermissions = () => {
-  return get(`${baseUrl}/toolRolePermission/list`)
+export const pageToolPermissions = (params) => {
+  return get(`${baseUrl}/toolRolePermission/management/page`, params)
+}
+
+export const saveToolPermission = (data) => {
+  return post(`${baseUrl}/toolRolePermission/management/save`, data)
+}
+
+export const disableToolPermission = (id) => {
+  return post(`${baseUrl}/toolRolePermission/management/${id}/disable`)
 }

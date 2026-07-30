@@ -2,8 +2,12 @@ package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zw.common.context.UserContext;
 import com.zw.agent.entity.AiToolCallLogEntity;
 import com.zw.agent.service.AiToolCallLogService;
+import com.zw.agent.service.ToolManagementService;
+import com.zw.agent.entity.DTO.ToolCallLogResponse;
 import com.zw.common.entity.Result;
 import com.zw.common.support.EntityDefaults;
 import lombok.AllArgsConstructor;
@@ -24,10 +28,13 @@ import java.util.List;
 @AllArgsConstructor
 public class AiToolCallLogController {
     private final AiToolCallLogService aiToolCallLogService;
+    private final ToolManagementService toolManagementService;
 
     @GetMapping("/list")
     public Result<List<AiToolCallLogEntity>> list() {
-        return Result.ok(aiToolCallLogService.list());
+        return Result.ok(aiToolCallLogService.list(new LambdaQueryWrapper<AiToolCallLogEntity>()
+                .eq(AiToolCallLogEntity::getTenantId, UserContext.get().getTenantId())
+                .orderByDesc(AiToolCallLogEntity::getStartedAt)));
     }
 
     @GetMapping("/page")
@@ -35,12 +42,27 @@ public class AiToolCallLogController {
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size
     ) {
-        return Result.ok(aiToolCallLogService.page(new Page<>(current, size)));
+        return Result.ok(aiToolCallLogService.page(new Page<>(current, size),
+                new LambdaQueryWrapper<AiToolCallLogEntity>()
+                        .eq(AiToolCallLogEntity::getTenantId, UserContext.get().getTenantId())
+                        .orderByDesc(AiToolCallLogEntity::getStartedAt)));
+    }
+
+    @GetMapping("/management/page")
+    public Result<IPage<ToolCallLogResponse>> managementPage(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long toolId,
+            @RequestParam(required = false) String successStatus
+    ) {
+        return Result.ok(toolManagementService.pageCallLogs(current, size, toolId, successStatus));
     }
 
     @GetMapping("/{id}")
     public Result<AiToolCallLogEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiToolCallLogService.getById(id));
+        return Result.ok(aiToolCallLogService.getOne(new LambdaQueryWrapper<AiToolCallLogEntity>()
+                .eq(AiToolCallLogEntity::getTenantId, UserContext.get().getTenantId())
+                .eq(AiToolCallLogEntity::getId, id)));
     }
 
     @PostMapping("/create")
