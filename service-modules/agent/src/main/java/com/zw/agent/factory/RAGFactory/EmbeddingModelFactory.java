@@ -28,25 +28,14 @@ public class EmbeddingModelFactory {
     private String resolveApiKey(
             AiKnowledgeBaseEntity knowledgeBase
     ) {
-        String environmentKey =
-                knowledgeBase.getApiKeyRef();
-
-        if (!StringUtils.hasText(environmentKey)) {
-            throw new IllegalStateException(
-                    "知识库未配置 Embedding API Key 环境变量名称，knowledgeBaseId="
-                            + knowledgeBase.getId()
-            );
-        }
-
-        String apiKey = System.getenv(environmentKey);
+        String apiKey = knowledgeBase.getApiKey();
 
         if (!StringUtils.hasText(apiKey)) {
             throw new IllegalStateException(
-                    "Embedding API Key 不存在，environmentKey="
-                            + environmentKey
+                    "知识库未配置 Embedding API Key，knowledgeBaseId="
+                            + knowledgeBase.getId()
             );
         }
-
         return apiKey;
     }
 }

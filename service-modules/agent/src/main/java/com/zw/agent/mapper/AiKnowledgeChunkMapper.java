@@ -1,8 +1,12 @@
 package com.zw.agent.mapper;
 
 import com.zw.agent.entity.AiKnowledgeChunkEntity;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import java.util.Collection;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * <p>
@@ -15,4 +19,22 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiKnowledgeChunkMapper extends BaseMapper<AiKnowledgeChunkEntity> {
 
+    @InterceptorIgnore(tenantLine = "true")
+    List<AiKnowledgeChunkEntity> selectReadyChunks(
+            @Param("tenantId") Long tenantId,
+            @Param("knowledgeBaseId") Long knowledgeBaseId,
+            @Param("chunkIds") Collection<Long> chunkIds
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int physicalDeleteByDocument(
+            @Param("tenantId") Long tenantId,
+            @Param("documentId") Long documentId
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int physicalDeleteByKnowledgeBase(
+            @Param("tenantId") Long tenantId,
+            @Param("knowledgeBaseId") Long knowledgeBaseId
+    );
 }

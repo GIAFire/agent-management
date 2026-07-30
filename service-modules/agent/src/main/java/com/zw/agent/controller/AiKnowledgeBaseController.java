@@ -1,61 +1,89 @@
 package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zw.agent.entity.AiKnowledgeBaseEntity;
-import com.zw.agent.service.AiKnowledgeBaseService;
+import com.zw.agent.knowledge.dto.KnowledgeBaseCreateRequest;
+import com.zw.agent.knowledge.dto.KnowledgeBaseOptionResponse;
+import com.zw.agent.knowledge.dto.KnowledgeBaseResponse;
+import com.zw.agent.knowledge.dto.KnowledgeBaseUpdateRequest;
+import com.zw.agent.knowledge.dto.KnowledgeTaskResponse;
+import com.zw.agent.knowledge.service.KnowledgeManagementService;
 import com.zw.common.entity.Result;
-import com.zw.common.support.EntityDefaults;
-import lombok.AllArgsConstructor;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-/**
- * <p>
- * 知识库表：平台知识库抽象层，兼容RAGFlow及不同向量库 前端控制器
- * </p>
- *
- * @author 智纬
- * @since 2026-07-06
- */
 @RestController
-@RequestMapping("/knowledgeBase")
-@AllArgsConstructor
+@RequestMapping("/knowledgeBases")
+@RequiredArgsConstructor
 public class AiKnowledgeBaseController {
-    private final AiKnowledgeBaseService aiKnowledgeBaseService;
 
-    @GetMapping("/list")
-    public Result<List<AiKnowledgeBaseEntity>> list() {
-        return Result.ok(aiKnowledgeBaseService.list());
-    }
+    private final KnowledgeManagementService managementService;
 
-    @GetMapping("/page")
-    public Result<IPage<AiKnowledgeBaseEntity>> page(
+    @GetMapping
+    public Result<IPage<KnowledgeBaseResponse>> page(
             @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "10") long size
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Byte status
     ) {
-        return Result.ok(aiKnowledgeBaseService.page(new Page<>(current, size)));
+        return Result.ok(
+                managementService.pageKnowledgeBases(
+                        current,
+                        size,
+                        keyword,
+                        status
+                )
+        );
     }
 
-    @GetMapping("/{id}")
-    public Result<AiKnowledgeBaseEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiKnowledgeBaseService.getById(id));
+    @PostMapping
+    public Result<KnowledgeBaseResponse> create(
+            @RequestBody KnowledgeBaseCreateRequest request
+    ) {
+        return Result.ok(managementService.createKnowledgeBase(request));
     }
 
-    @PostMapping("/create")
-    public Result<Boolean> create(@RequestBody AiKnowledgeBaseEntity entity) {
-        return Result.ok(aiKnowledgeBaseService.save(EntityDefaults.create(entity)));
+    @GetMapping("/options")
+    public Result<List<KnowledgeBaseOptionResponse>> options() {
+        return Result.ok(managementService.listKnowledgeBaseOptions());
     }
 
-    @PostMapping("/update")
-    public Result<Boolean> update(@RequestBody AiKnowledgeBaseEntity entity) {
-        return Result.ok(aiKnowledgeBaseService.updateById(EntityDefaults.update(entity)));
+    @GetMapping("/{knowledgeBaseId}")
+    public Result<KnowledgeBaseResponse> get(
+            @PathVariable Long knowledgeBaseId
+    ) {
+        return Result.ok(
+                managementService.getKnowledgeBase(knowledgeBaseId)
+        );
     }
 
-    @GetMapping("/delete/{id}")
-    public Result<Boolean> delete(@PathVariable Long id) {
-        return Result.ok(aiKnowledgeBaseService.removeById(id));
+    @PutMapping("/{knowledgeBaseId}")
+    public Result<KnowledgeBaseResponse> update(
+            @PathVariable Long knowledgeBaseId,
+            @RequestBody KnowledgeBaseUpdateRequest request
+    ) {
+        return Result.ok(
+                managementService.updateKnowledgeBase(
+                        knowledgeBaseId,
+                        request
+                )
+        );
     }
 
+    @DeleteMapping("/{knowledgeBaseId}")
+    public Result<KnowledgeTaskResponse> delete(
+            @PathVariable Long knowledgeBaseId
+    ) {
+        return Result.ok(
+                managementService.deleteKnowledgeBase(knowledgeBaseId)
+        );
+    }
 }

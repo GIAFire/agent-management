@@ -5,6 +5,7 @@ import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
@@ -18,6 +19,17 @@ import java.util.List;
  */
 @Mapper
 public interface AiKnowledgeBaseMapper extends BaseMapper<AiKnowledgeBaseEntity> {
+
+    @Select("""
+            SELECT *
+            FROM ai_knowledge_base
+            WHERE id = #{knowledgeBaseId}
+              AND deleted = 0
+            FOR UPDATE
+            """)
+    AiKnowledgeBaseEntity selectByIdForUpdate(
+            @Param("knowledgeBaseId") Long knowledgeBaseId
+    );
 
     @InterceptorIgnore(tenantLine = "true")
     List<AiKnowledgeBaseEntity> getAgentBindKnowledge(

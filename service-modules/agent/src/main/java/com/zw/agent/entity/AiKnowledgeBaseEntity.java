@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.zw.agent.factory.RAGFactory.enumeration.ApiType;
 import com.zw.common.entity.BaseEntity;
 
@@ -129,10 +130,11 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
     private String modelUrl;
 
     /**
-     * API Key引用，不建议直接存明文，可存密钥管理系统引用
+     * Embedding API Key。当前按产品决策直接保存，任何查询接口均不得返回。
      */
-    @TableField("api_key_ref")
-    private String apiKeyRef;
+    @JsonIgnore
+    @TableField("api_key")
+    private String apiKey;
 
     /**
      * Embedding模型名称，例如 text-embedding-v3
@@ -150,7 +152,7 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
      * 距离度量：COSINE/IP/L2/BM25/HYBRID
      */
     @TableField("metric_type")
-    private String MetricType;
+    private String metricType;
 
     /**
      * 默认返回结果数量

@@ -3,6 +3,8 @@ package com.zw.agent.mapper;
 import com.zw.agent.entity.AiKnowledgeDocumentEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * <p>
@@ -15,4 +17,14 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiKnowledgeDocumentMapper extends BaseMapper<AiKnowledgeDocumentEntity> {
 
+    @Select("""
+            SELECT *
+            FROM ai_knowledge_document
+            WHERE id = #{documentId}
+              AND deleted = 0
+            FOR UPDATE
+            """)
+    AiKnowledgeDocumentEntity selectByIdForUpdate(
+            @Param("documentId") Long documentId
+    );
 }

@@ -33,7 +33,8 @@ public class PermissionFactory {
             "agent_send",
             "agent_list",
             "memory_save",
-            "retrieve_knowledge"
+            "retrieve_knowledge",
+            "search_agent_knowledge"
     );
 
     private final AiToolRolePermissionService toolRolePermissionService;

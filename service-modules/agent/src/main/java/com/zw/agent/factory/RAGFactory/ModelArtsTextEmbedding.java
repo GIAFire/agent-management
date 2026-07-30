@@ -11,6 +11,7 @@ import io.agentscope.core.message.ContentBlock;
 import io.agentscope.core.message.TextBlock;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +22,7 @@ import java.util.Map;
  * 与 OpenAI Embeddings 协议兼容，但不会发送 dimensions 参数。
  * 适用于不支持 Matryoshka 可变维度的 BGE-M3。
  */
-public final class ModelArtsTextEmbedding implements EmbeddingModel {
+public final class ModelArtsTextEmbedding implements EmbeddingModel, AutoCloseable {
 
     private final OpenAIClient client;
 
@@ -61,7 +62,9 @@ public final class ModelArtsTextEmbedding implements EmbeddingModel {
         OpenAIOkHttpClient.Builder clientBuilder =
                 OpenAIOkHttpClient.builder()
                         .baseUrl(normalizeBaseUrl(baseUrl))
-                        .apiKey(apiKey);
+                        .apiKey(apiKey)
+                        .timeout(Duration.ofSeconds(60))
+                        .maxRetries(0);
 
         if (headers != null && !headers.isEmpty()) {
             headers.forEach((name, value) -> {
@@ -194,6 +197,11 @@ public final class ModelArtsTextEmbedding implements EmbeddingModel {
     @Override
     public int getDimensions() {
         return dimensions;
+    }
+
+    @Override
+    public void close() {
+        client.close();
     }
 
     /**

@@ -1,37 +1,62 @@
 package com.zw.agent.factory.toolkitFactory;
 
+import com.zw.agent.entity.AiKnowledgeBaseEntity;
+import com.zw.agent.entity.AiKnowledgeChunkEntity;
 import com.zw.agent.factory.RAGFactory.runTime.KnowledgeRuntime;
+import com.zw.agent.factory.RAGFactory.runTime.KnowledgeRuntimeFactory;
+import com.zw.agent.mapper.AiKnowledgeChunkMapper;
+import com.zw.agent.service.AiKnowledgeBaseService;
 import io.agentscope.core.rag.model.Document;
 import io.agentscope.core.tool.Tool;
 import io.agentscope.core.tool.ToolParam;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.util.StringUtils;
-import reactor.core.publisher.Flux;
-
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.util.StringUtils;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 /**
- * 当前智能体绑定知识库的统一检索入口。
- *
- * 每个知识库独立召回；不同 collection 的原始向量分数不参与横向排序，
- * 结果以轮询方式合并，避免某一个 collection 独占返回结果。
+ * 智能体知识检索入口。每次工具调用重新读取绑定和知识库状态，因此停用、删除和
+ * API Key 轮换无需等待长期缓存的 Agent 实例失效。
  */
 public final class AgentKnowledgeSearchTool {
 
-    private static final Logger log = LoggerFactory.getLogger(AgentKnowledgeSearchTool.class);
+    private static final Logger log =
+            LoggerFactory.getLogger(AgentKnowledgeSearchTool.class);
     private static final int DEFAULT_LIMIT = 5;
-    private static final int MAX_LIMIT = 10;
+    private static final int MAX_LIMIT = 20;
     private static final int MAX_CONCURRENCY = 4;
 
-    private final List<KnowledgeRuntime> knowledgeRuntimes;
+    private final Long agentId;
+    private final Long agentConfigId;
+    private final Long tenantId;
+    private final AiKnowledgeBaseService knowledgeBaseService;
+    private final KnowledgeRuntimeFactory runtimeFactory;
+    private final AiKnowledgeChunkMapper chunkMapper;
 
-    public AgentKnowledgeSearchTool(List<KnowledgeRuntime> knowledgeRuntimes) {
-        this.knowledgeRuntimes = List.copyOf(knowledgeRuntimes);
+    public AgentKnowledgeSearchTool(
+            Long agentId,
+            Long agentConfigId,
+            Long tenantId,
+            AiKnowledgeBaseService knowledgeBaseService,
+            KnowledgeRuntimeFactory runtimeFactory,
+            AiKnowledgeChunkMapper chunkMapper
+    ) {
+        this.agentId = agentId;
+        this.agentConfigId = agentConfigId;
+        this.tenantId = tenantId;
+        this.knowledgeBaseService = knowledgeBaseService;
+        this.runtimeFactory = runtimeFactory;
+        this.chunkMapper = chunkMapper;
     }
 
     @Tool(
@@ -39,57 +64,187 @@ public final class AgentKnowledgeSearchTool {
             description = "检索当前智能体绑定的全部知识库。回答业务规则、产品资料、操作说明或故障处理问题前，应先使用此工具核实知识。"
     )
     public String searchKnowledge(
-            @ToolParam(name = "query", description = "需要检索的完整问题") String query,
-            @ToolParam(name = "limit", description = "最终返回的知识片段数量，默认 5，最大 10", required = false) Integer limit
+            @ToolParam(name = "query", description = "需要检索的完整问题")
+            String query,
+            @ToolParam(
+                    name = "limit",
+                    description = "最终返回的知识片段数量；不填写时采用知识库配置，最大 20",
+                    required = false
+            )
+            Integer limit
     ) {
         if (!StringUtils.hasText(query)) {
             return "检索问题不能为空。";
         }
-        if (knowledgeRuntimes.isEmpty()) {
+
+        List<AiKnowledgeBaseEntity> knowledgeBases =
+                knowledgeBaseService.getAgentBindKnowledge(
+                        agentId,
+                        agentConfigId,
+                        tenantId
+                );
+        if (knowledgeBases == null || knowledgeBases.isEmpty()) {
             return "当前智能体没有绑定可用的知识库。";
         }
 
-        List<KnowledgeHit> hits = Flux.fromIterable(knowledgeRuntimes)
-                .flatMapSequential(runtime -> runtime.getKnowledge()
-                                .retrieve(query, runtime.getRetrieveConfig())
-                                .flatMapMany(Flux::fromIterable)
-                                .map(document -> toHit(runtime, document))
-                                .onErrorResume(error -> {
-                                    log.warn("Knowledge retrieval failed, knowledgeBaseId={}, collectionName={}",
-                                            runtime.getKnowledgeBaseId(), runtime.getCollectionName(), error);
-                                    return Flux.empty();
-                                }),
-                        Math.min(knowledgeRuntimes.size(), MAX_CONCURRENCY))
+        List<KnowledgeHit> hits = Flux.fromIterable(knowledgeBases)
+                .flatMapSequential(
+                        knowledgeBase -> retrieveKnowledgeBase(
+                                knowledgeBase,
+                                query
+                        ),
+                        Math.min(knowledgeBases.size(), MAX_CONCURRENCY)
+                )
                 .collectList()
                 .block();
 
         List<KnowledgeHit> finalHits = mergeRoundRobin(
                 hits == null ? List.of() : hits,
-                normalizeLimit(limit)
+                normalizeLimit(limit, knowledgeBases)
         );
         return formatResult(finalHits);
     }
 
-    private static KnowledgeHit toHit(KnowledgeRuntime runtime, Document document) {
+    private Flux<KnowledgeHit> retrieveKnowledgeBase(
+            AiKnowledgeBaseEntity knowledgeBase,
+            String query
+    ) {
+        return Flux.using(
+                        () -> runtimeFactory.create(knowledgeBase),
+                        runtime -> runtime.getKnowledge()
+                                .retrieve(query, runtime.getRetrieveConfig())
+                                .map(documents -> readyHits(runtime, documents))
+                                .flatMapMany(Flux::fromIterable),
+                        KnowledgeRuntime::close
+                )
+                .subscribeOn(Schedulers.boundedElastic())
+                .timeout(Duration.ofSeconds(90))
+                .onErrorResume(error -> {
+                    log.warn(
+                            "Knowledge retrieval failed, knowledgeBaseId={}, errorType={}",
+                            knowledgeBase.getId(),
+                            error.getClass().getSimpleName()
+                    );
+                    return Flux.empty();
+                });
+    }
+
+    private static KnowledgeHit toHit(
+            KnowledgeRuntime runtime,
+            Document document,
+            String content
+    ) {
+        Double rawScore = document.getScore();
+        if (rawScore == null) {
+            return null;
+        }
+        double similarity = "L2".equalsIgnoreCase(runtime.getMetricType())
+                ? 1D / (1D + Math.max(0D, rawScore))
+                : rawScore;
+        if (similarity < runtime.getScoreThreshold()) {
+            return null;
+        }
         return new KnowledgeHit(
                 runtime.getKnowledgeBaseId(),
                 runtime.getKnowledgeBaseName(),
                 runtime.getCollectionName(),
-                document.getScore(),
-                document.getMetadata().getContentText()
+                similarity,
+                content
         );
     }
 
-    static List<KnowledgeHit> mergeRoundRobin(List<KnowledgeHit> hits, int limit) {
-        Map<Long, List<KnowledgeHit>> hitsByKnowledgeBase = new LinkedHashMap<>();
-        for (KnowledgeHit hit : hits) {
-            hitsByKnowledgeBase.computeIfAbsent(hit.knowledgeBaseId(), ignored -> new ArrayList<>()).add(hit);
+    List<KnowledgeHit> readyHits(
+            KnowledgeRuntime runtime,
+            List<Document> documents
+    ) {
+        if (documents == null || documents.isEmpty()) {
+            return List.of();
         }
+        List<Long> candidateIds = documents.stream()
+                .map(AgentKnowledgeSearchTool::platformChunkId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (candidateIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, String> readyContentById = new HashMap<>();
+        for (AiKnowledgeChunkEntity chunk :
+                chunkMapper.selectReadyChunks(
+                        tenantId,
+                        runtime.getKnowledgeBaseId(),
+                        candidateIds
+                )) {
+            readyContentById.put(chunk.getId(), chunk.getContent());
+        }
+        return documents.stream()
+                .filter(
+                        document -> readyContentById.containsKey(
+                                platformChunkId(document)
+                        )
+                )
+                .map(
+                        document -> toHit(
+                                runtime,
+                                document,
+                                readyContentById.get(platformChunkId(document))
+                        )
+                )
+                .filter(Objects::nonNull)
+                .sorted(
+                        Comparator.comparing(
+                                KnowledgeHit::score,
+                                Comparator.reverseOrder()
+                        )
+                )
+                .limit(runtime.getResultLimit())
+                .toList();
+    }
 
-        List<KnowledgeHit> merged = new ArrayList<>(Math.min(hits.size(), limit));
+    private static Long platformChunkId(Document document) {
+        if (document == null || document.getMetadata() == null) {
+            return null;
+        }
+        Object chunkId = document.getMetadata().getPayloadValue("chunkId");
+        if (chunkId instanceof Number number) {
+            return number.longValue();
+        }
+        try {
+            return chunkId == null ? null : Long.valueOf(chunkId.toString());
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    static List<KnowledgeHit> mergeRoundRobin(
+            List<KnowledgeHit> hits,
+            int limit
+    ) {
+        Map<Long, List<KnowledgeHit>> hitsByKnowledgeBase =
+                new LinkedHashMap<>();
+        for (KnowledgeHit hit : hits) {
+            hitsByKnowledgeBase
+                    .computeIfAbsent(
+                            hit.knowledgeBaseId(),
+                            ignored -> new ArrayList<>()
+                    )
+                    .add(hit);
+        }
+        hitsByKnowledgeBase.values().forEach(
+                values -> values.sort(
+                        Comparator.comparing(
+                                KnowledgeHit::score,
+                                Comparator.reverseOrder()
+                        )
+                )
+        );
+
+        List<KnowledgeHit> merged =
+                new ArrayList<>(Math.min(hits.size(), limit));
         for (int index = 0; merged.size() < limit; index++) {
             boolean added = false;
-            for (List<KnowledgeHit> knowledgeBaseHits : hitsByKnowledgeBase.values()) {
+            for (List<KnowledgeHit> knowledgeBaseHits :
+                    hitsByKnowledgeBase.values()) {
                 if (index < knowledgeBaseHits.size()) {
                     merged.add(knowledgeBaseHits.get(index));
                     added = true;
@@ -105,11 +260,20 @@ public final class AgentKnowledgeSearchTool {
         return merged;
     }
 
-    private static int normalizeLimit(Integer limit) {
-        if (limit == null) {
-            return DEFAULT_LIMIT;
+    private static int normalizeLimit(
+            Integer limit,
+            List<AiKnowledgeBaseEntity> knowledgeBases
+    ) {
+        if (limit != null) {
+            return Math.max(1, Math.min(limit, MAX_LIMIT));
         }
-        return Math.max(1, Math.min(limit, MAX_LIMIT));
+        int configuredLimit = knowledgeBases.stream()
+                .map(AiKnowledgeBaseEntity::getTopK)
+                .filter(Objects::nonNull)
+                .mapToInt(Integer::intValue)
+                .max()
+                .orElse(DEFAULT_LIMIT);
+        return Math.max(1, Math.min(configuredLimit, MAX_LIMIT));
     }
 
     private static String formatResult(List<KnowledgeHit> hits) {
@@ -121,18 +285,25 @@ public final class AgentKnowledgeSearchTool {
         for (int index = 0; index < hits.size(); index++) {
             KnowledgeHit hit = hits.get(index);
             result.append("【结果 ").append(index + 1).append("】\n")
-                    .append("知识库：").append(hit.knowledgeBaseName()).append("\n");
-            if (hit.score() != null) {
-                result.append("库内相关度：")
-                        .append(String.format(Locale.ROOT, "%.4f", hit.score()))
-                        .append("\n");
-            }
-            result.append("内容：").append(hit.content()).append("\n\n");
+                    .append("知识库：")
+                    .append(hit.knowledgeBaseName())
+                    .append("\n")
+                    .append("库内相关度：")
+                    .append(String.format(Locale.ROOT, "%.4f", hit.score()))
+                    .append("\n")
+                    .append("内容：")
+                    .append(hit.content())
+                    .append("\n\n");
         }
         return result.toString();
     }
 
-    record KnowledgeHit(Long knowledgeBaseId, String knowledgeBaseName, String collectionName,
-                        Double score, String content) {
+    record KnowledgeHit(
+            Long knowledgeBaseId,
+            String knowledgeBaseName,
+            String collectionName,
+            Double score,
+            String content
+    ) {
     }
 }

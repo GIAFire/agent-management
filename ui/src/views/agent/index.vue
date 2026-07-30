@@ -153,6 +153,7 @@ const form = reactive({
   agentType: 'HARNESS',
   status: 1
 })
+const isEditingAgent = computed(() => Boolean(form.id))
 
 const configForm = reactive({
   versionNo: 'v1',
@@ -639,9 +640,6 @@ const loadSubagents = async () => {
 }
 
 const loadKnowledgeBases = async () => {
-  if (knowledgeRows.value.length) {
-    return
-  }
   wizardLoading.value = true
   try {
     const knowledgeBases = await listWizardKnowledgeBases()
@@ -785,13 +783,15 @@ const nextStep = async () => {
   wizardStep.value = next
 }
 
-const prevStep = () => {
-  wizardStep.value = Math.max(wizardStep.value - 1, 1)
+const prevStep = async () => {
+  const previous = Math.max(wizardStep.value - 1, 1)
+  await ensureStepData(previous)
+  wizardStep.value = previous
 }
 
 const submitForm = async () => {
   await formRef.value.validate()
-  if (!configForm.modelId) {
+  if (!isEditingAgent.value && !configForm.modelId) {
     ElMessage.warning('请选择默认模型')
     return
   }
@@ -979,7 +979,7 @@ onMounted(async () => {
       <template #header>
         <div class="dialog-title">
           <div>
-            <span>NEW AGENT</span>
+            <span>{{ isEditingAgent ? 'EDIT AGENT' : 'NEW AGENT' }}</span>
             <h3>{{ dialogTitle }}</h3>
           </div>
           <button type="button" class="dialog-close" @click="dialogVisible = false">
@@ -988,7 +988,7 @@ onMounted(async () => {
         </div>
       </template>
 
-      <div class="wizard-steps wizard-steps-five">
+      <div v-if="!isEditingAgent" class="wizard-steps wizard-steps-five">
         <div
           v-for="(step, index) in wizardSteps"
           :key="step.title"
@@ -1057,7 +1057,8 @@ onMounted(async () => {
 
               <div class="basic-info-tip">
                 <el-icon><InfoFilled /></el-icon>
-                <span>所有字段均可暂时留空，点击下一步继续配置模型与提示词。</span>
+                <span v-if="isEditingAgent">当前编辑接口仅保存基础信息；模型、能力与知识库绑定保持不变。</span>
+                <span v-else>所有字段均可暂时留空，点击下一步继续配置模型与提示词。</span>
               </div>
             </section>
 
@@ -1560,21 +1561,29 @@ onMounted(async () => {
       </el-form>
 
       <template #footer>
-        <el-button v-if="wizardStep === 1" @click="dialogVisible = false">取消</el-button>
-        <el-button v-else @click="prevStep">上一步</el-button>
-        <el-button
-          v-if="wizardStep < wizardSteps.length"
-          type="primary"
-          :icon="ArrowRight"
-          @click="nextStep"
-        >
-          下一步：{{ wizardSteps[wizardStep]?.title }}
-        </el-button>
-        <template v-else>
-          <el-button :loading="submitting" @click="submitForm">保存草稿</el-button>
+        <template v-if="isEditingAgent">
+          <el-button @click="dialogVisible = false">取消</el-button>
           <el-button type="primary" :loading="submitting" @click="submitForm">
-            创建智能体 <el-icon><Check /></el-icon>
+            保存修改
           </el-button>
+        </template>
+        <template v-else>
+          <el-button v-if="wizardStep === 1" @click="dialogVisible = false">取消</el-button>
+          <el-button v-else @click="prevStep">上一步</el-button>
+          <el-button
+            v-if="wizardStep < wizardSteps.length"
+            type="primary"
+            :icon="ArrowRight"
+            @click="nextStep"
+          >
+            下一步：{{ wizardSteps[wizardStep]?.title }}
+          </el-button>
+          <template v-else>
+            <el-button :loading="submitting" @click="submitForm">保存草稿</el-button>
+            <el-button type="primary" :loading="submitting" @click="submitForm">
+              创建智能体 <el-icon><Check /></el-icon>
+            </el-button>
+          </template>
         </template>
       </template>
     </el-dialog>

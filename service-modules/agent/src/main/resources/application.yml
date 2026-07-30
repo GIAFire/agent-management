@@ -5,6 +5,10 @@ server:
 spring:
   application:
     name: agent
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 52MB
   cloud:
     nacos:
       server-addr: localhost:8848
@@ -62,6 +66,18 @@ agent:
   skill:
     nacos:
       namespace-id: 418ac824-016b-4eff-bbde-82b7ce26305d
+
+knowledge:
+  source:
+    # 多实例部署时必须配置为所有实例可读写的共享挂载目录。
+    root: ./knowledge-uploads
+    max-file-size: 50MB
+  tasks:
+    poll-interval: 2s
+    lease-duration: 30m
+    concurrency: 2
+    claim-batch-size: 4
+    embedding-batch-size: 20
 
 mybatis-plus:
   type-handlers-package: com.zw.agent.factory.stateStoreFactory

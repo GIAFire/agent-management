@@ -1,54 +1,81 @@
-import { get, post, request, stringifyId } from '@/axios/request'
+import { del, get, post, request, stringifyId } from '@/axios/request'
 
 const baseUrl = '/agent'
 
-export const listKnowledgeBases = () => {
-  return get(`${baseUrl}/knowledgeBase/list`)
+export const listKnowledgeBases = (params) => {
+  return get(`${baseUrl}/knowledgeBases`, params)
+}
+
+export const getKnowledgeBase = (knowledgeBaseId) => {
+  return get(`${baseUrl}/knowledgeBases/${stringifyId(knowledgeBaseId)}`)
+}
+
+export const listKnowledgeBaseOptions = () => {
+  return get(`${baseUrl}/knowledgeBases/options`)
 }
 
 export const createKnowledgeBase = (data) => {
-  return post(`${baseUrl}/knowledgeBase/create`, data)
-}
-
-export const updateKnowledgeBase = (data) => {
-  return post(`${baseUrl}/knowledgeBase/update`, data)
-}
-
-export const listKnowledgeDocuments = () => {
-  return get(`${baseUrl}/ai-knowledge-document-entity/list`)
-}
-
-export const uploadKnowledgeDocument = ({ file, knowledgeBaseId, workspaceFileId, language }) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('knowledgeBaseId', stringifyId(knowledgeBaseId))
-  if (workspaceFileId !== '' && workspaceFileId !== undefined && workspaceFileId !== null) {
-    formData.append('workspaceFileId', stringifyId(workspaceFileId))
-  }
-  if (language) {
-    formData.append('language', language)
-  }
-
   return request({
-    url: `${baseUrl}/ai-knowledge-document-entity/upload`,
-    method: 'post',
-    data: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    },
-    timeout: 60000
-  })
-}
-
-export const indexKnowledgeDocument = (data) => {
-  return request({
-    url: `${baseUrl}/chunk/index`,
+    url: `${baseUrl}/knowledgeBases`,
     method: 'post',
     data,
-    timeout: 180000
+    timeout: 120000
   })
 }
 
-export const listKnowledgeChunks = (documentId) => {
-  return get(`${baseUrl}/chunk/document/${stringifyId(documentId)}`)
+export const updateKnowledgeBase = (knowledgeBaseId, data) => {
+  return request({
+    url: `${baseUrl}/knowledgeBases/${stringifyId(knowledgeBaseId)}`,
+    method: 'put',
+    data,
+    timeout: 120000
+  })
+}
+
+export const deleteKnowledgeBase = (knowledgeBaseId) => {
+  return del(`${baseUrl}/knowledgeBases/${stringifyId(knowledgeBaseId)}`)
+}
+
+export const listKnowledgeDocuments = (knowledgeBaseId, params) => {
+  return get(`${baseUrl}/knowledgeBases/${stringifyId(knowledgeBaseId)}/documents`, params)
+}
+
+export const uploadKnowledgeDocument = (knowledgeBaseId, file) => {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  return request({
+    url: `${baseUrl}/knowledgeBases/${stringifyId(knowledgeBaseId)}/documents`,
+    method: 'post',
+    data: formData,
+    timeout: 120000
+  })
+}
+
+export const deleteKnowledgeDocument = (documentId) => {
+  return del(`${baseUrl}/knowledgeDocuments/${stringifyId(documentId)}`)
+}
+
+export const listKnowledgeChunks = (documentId, params) => {
+  return get(`${baseUrl}/knowledgeDocuments/${stringifyId(documentId)}/chunks`, params)
+}
+
+export const createDocumentIndexTask = (documentId, data) => {
+  return post(`${baseUrl}/knowledgeDocuments/${stringifyId(documentId)}/indexTasks`, data)
+}
+
+export const listDocumentTasks = (documentId, params) => {
+  return get(`${baseUrl}/knowledgeDocuments/${stringifyId(documentId)}/tasks`, params)
+}
+
+export const getKnowledgeTask = (taskId, options = {}) => {
+  return request({
+    url: `${baseUrl}/knowledgeTasks/${stringifyId(taskId)}`,
+    method: 'get',
+    skipErrorMessage: options.skipErrorMessage === true
+  })
+}
+
+export const resubmitKnowledgeTask = (taskId) => {
+  return post(`${baseUrl}/knowledgeTasks/${stringifyId(taskId)}/resubmit`)
 }

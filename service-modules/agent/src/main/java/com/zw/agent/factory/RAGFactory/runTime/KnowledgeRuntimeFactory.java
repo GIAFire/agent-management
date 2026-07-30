@@ -6,7 +6,7 @@ import com.zw.agent.factory.RAGFactory.MilvusStoreFactory;
 import io.agentscope.core.embedding.EmbeddingModel;
 import io.agentscope.core.rag.knowledge.SimpleKnowledge;
 import io.agentscope.core.rag.model.RetrieveConfig;
-import io.agentscope.core.rag.store.VDBStoreBase;
+import io.agentscope.core.rag.store.MilvusStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -20,38 +20,48 @@ public class KnowledgeRuntimeFactory {
 
     public KnowledgeRuntime create(AiKnowledgeBaseEntity knowledgeBase) {
         validate(knowledgeBase);
-        VDBStoreBase milvusStore =
+        MilvusStore milvusStore =
                 milvusStoreFactory.create(knowledgeBase);
+        try {
+            EmbeddingModel embeddingModel =
+                    embeddingModelFactory.create(knowledgeBase);
 
-        EmbeddingModel embeddingModel =
-                embeddingModelFactory.create(knowledgeBase);
+            SimpleKnowledge simpleKnowledge =
+                    SimpleKnowledge.builder()
+                            .embeddingModel(embeddingModel)
+                            .embeddingStore(milvusStore)
+                            .build();
 
-        SimpleKnowledge simpleKnowledge =
-                SimpleKnowledge.builder()
-                        .embeddingModel(embeddingModel)
-                        .embeddingStore(milvusStore)
-                        .build();
+            RetrieveConfig retrieveConfig =
+                    RetrieveConfig.builder()
+                            .limit(Math.min(
+                                    defaultValue(
+                                            knowledgeBase.getTopK(),
+                                            5
+                                    ) * 5,
+                                    100
+                            ))
+                            .scoreThreshold(0D)
+                            .build();
 
-        RetrieveConfig retrieveConfig =
-                RetrieveConfig.builder()
-                        .limit(defaultValue(
-                                knowledgeBase.getTopK(),
-                                5
-                        ))
-                        .scoreThreshold(defaultValue(
-                                knowledgeBase.getScoreThreshold(),
-                                0.5D
-                        ))
-                        .build();
-
-        return new KnowledgeRuntime(
-                knowledgeBase.getId(),
-                knowledgeBase.getKnowledgeCode(),
-                knowledgeBase.getKnowledgeName(),
-                knowledgeBase.getCollectionName(),
-                simpleKnowledge,
-                retrieveConfig
-        );
+            return new KnowledgeRuntime(
+                    knowledgeBase.getId(),
+                    knowledgeBase.getKnowledgeCode(),
+                    knowledgeBase.getKnowledgeName(),
+                    knowledgeBase.getCollectionName(),
+                    knowledgeBase.getMetricType(),
+                    defaultValue(
+                            knowledgeBase.getScoreThreshold(),
+                            0.5D
+                    ),
+                    defaultValue(knowledgeBase.getTopK(), 5),
+                    simpleKnowledge,
+                    retrieveConfig
+            );
+        } catch (RuntimeException error) {
+            milvusStore.close();
+            throw error;
+        }
     }
 
     private static int defaultValue(

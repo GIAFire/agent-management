@@ -73,7 +73,7 @@
     </appender>
 
     <!-- MyBatis Mapper SQL 日志 -->
-    <logger name="com.zw.agent.mapper" level="DEBUG" additivity="false">
+    <logger name="com.zw.agent.mapper" level="INFO" additivity="false">
         <appender-ref ref="SQL_CONSOLE"/>
     </logger>
 
@@ -84,10 +84,10 @@
     <logger name="java.sql" level="INFO"/>
 
     <!-- Spring HTTP 客户端相关日志 -->
-    <logger name="org.springframework.web.client" level="DEBUG"/>
+    <logger name="org.springframework.web.client" level="INFO"/>
 
     <!-- OpenAI SDK 相关日志 -->
-    <logger name="com.openai" level="DEBUG"/>
+    <logger name="com.openai" level="WARN"/>
 
     <!-- 根日志配置 -->
     <root level="INFO">

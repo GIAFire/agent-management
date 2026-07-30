@@ -1,9 +1,8 @@
 package com.zw.agent.factory.toolkitFactory;
 
-import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.zw.agent.entity.DTO.AgentBindToolDTO;
-import com.zw.agent.factory.RAGFactory.runTime.KnowledgeRuntime;
 import com.zw.agent.factory.RAGFactory.runTime.KnowledgeRuntimeFactory;
+import com.zw.agent.mapper.AiKnowledgeChunkMapper;
 import com.zw.agent.service.AiAgentToolService;
 import com.zw.agent.service.AiKnowledgeBaseService;
 import com.zw.common.context.UserInfo;
@@ -15,12 +14,11 @@ import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import org.springframework.util.ClassUtils;
-import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
+import java.util.List;
 
 @Component
 @RequiredArgsConstructor
@@ -32,19 +30,22 @@ public class TenantToolkitFactory {
     private final AiKnowledgeBaseService knowledgeBaseService;
     private final ApplicationContext applicationContext;
     private final KnowledgeRuntimeFactory knowledgeRuntimeFactory;
+    private final AiKnowledgeChunkMapper knowledgeChunkMapper;
 
     public Toolkit buildToolkit(Long agentId, Long agentConfigId, UserInfo userInfo) {
         Toolkit toolkit = new Toolkit();
 
         List<AgentBindToolDTO> toolList = agentToolService.agentBindTools(agentId,userInfo.getTenantId());
-        List<AiKnowledgeBaseEntity> knowledgeBaseList = knowledgeBaseService
-                .getAgentBindKnowledge(agentId, agentConfigId, userInfo.getTenantId());
-        if (!CollectionUtils.isEmpty(knowledgeBaseList)) {
-            List<KnowledgeRuntime> knowledgeRuntimes = knowledgeBaseList.stream()
-                    .map(knowledgeRuntimeFactory::create)
-                    .toList();
-            toolkit.registerTool(new AgentKnowledgeSearchTool(knowledgeRuntimes));
-        }
+        toolkit.registerTool(
+                new AgentKnowledgeSearchTool(
+                        agentId,
+                        agentConfigId,
+                        userInfo.getTenantId(),
+                        knowledgeBaseService,
+                        knowledgeRuntimeFactory,
+                        knowledgeChunkMapper
+                )
+        );
 
         Set<String> registeredClasses = new LinkedHashSet<>();
         for (AgentBindToolDTO toolInfo : toolList) {

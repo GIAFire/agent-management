@@ -28,7 +28,7 @@
         kb.endpoint,
         kb.endpoint_port,
         kb.model_url,
-        kb.api_key_ref,
+        kb.api_key,
         kb.embedding_model_name,
         kb.embedding_dimension,
         kb.metric_type,
@@ -41,9 +41,14 @@
         INNER JOIN ai_knowledge_base kb ON kab.knowledge_base_id = kb.id
         WHERE
         a.id = #{agentId}
+        AND a.tenant_id = #{tenantId}
         AND kab.agent_config_id = #{agentConfigId}
+        AND kab.tenant_id = #{tenantId}
         AND kab.status = 1
+        AND kab.deleted = 0
         AND kb.tenant_id = #{tenantId}
         AND kb.status = 1
+        AND kb.deleted = 0
+        AND a.deleted = 0
     </select>
 </mapper>

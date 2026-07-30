@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zw.common.entity.BaseEntity;
-import java.io.Serializable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -125,6 +124,30 @@ public class AiKnowledgeDocumentEntity extends BaseEntity {
      */
     @TableField("error_message")
     private String errorMessage;
+
+    /**
+     * 文档最近一次提交索引任务时确认的切片策略。
+     */
+    @TableField("chunk_strategy")
+    private String chunkStrategy;
+
+    /**
+     * CHARACTER/PARAGRAPH 策略的目标切片字符数。
+     */
+    @TableField("chunk_size")
+    private Integer chunkSize;
+
+    /**
+     * CHARACTER/PARAGRAPH 策略的重叠字符数。
+     */
+    @TableField("chunk_overlap")
+    private Integer chunkOverlap;
+
+    /**
+     * DELIMITER 策略使用的字面分隔符（已完成转义解析）。
+     */
+    @TableField("chunk_delimiter")
+    private String chunkDelimiter;
 
     /**
      * 后端特定元信息，例如RAGFlow解析进度、缩略图、OCR配置

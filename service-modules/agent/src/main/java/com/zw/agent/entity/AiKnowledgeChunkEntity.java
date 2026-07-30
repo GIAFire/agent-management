@@ -5,7 +5,6 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zw.common.entity.BaseEntity;
-import java.io.Serializable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -41,6 +40,12 @@ public class AiKnowledgeChunkEntity extends BaseEntity {
      */
     @TableField("document_id")
     private Long documentId;
+
+    /**
+     * 生成该切片的知识任务ID。
+     */
+    @TableField("knowledge_task_id")
+    private Long knowledgeTaskId;
 
     /**
      * 切片序号，从0或1开始

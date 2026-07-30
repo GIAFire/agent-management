@@ -15,7 +15,7 @@ export const listWizardTools = () => {
 }
 
 export const listWizardKnowledgeBases = () => {
-  return get(`${baseUrl}/knowledgeBase/list`)
+  return get(`${baseUrl}/knowledgeBases/options`)
 }
 
 export const listWizardSubagents = () => {

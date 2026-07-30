@@ -2,4 +2,47 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiKnowledgeChunkMapper">
 
+    <select id="selectReadyChunks"
+            resultType="com.zw.agent.entity.AiKnowledgeChunkEntity">
+        SELECT chunk.id,
+               chunk.content
+        FROM ai_knowledge_chunk chunk
+        INNER JOIN ai_knowledge_base knowledge_base
+            ON knowledge_base.id = chunk.knowledge_base_id
+            AND knowledge_base.tenant_id = #{tenantId}
+            AND knowledge_base.deleted = 0
+            AND knowledge_base.status = 1
+        INNER JOIN ai_knowledge_document document
+            ON document.id = chunk.document_id
+            AND document.tenant_id = #{tenantId}
+            AND document.knowledge_base_id = #{knowledgeBaseId}
+            AND document.deleted = 0
+            AND document.status = 1
+            AND document.parse_status = 'READY'
+        WHERE chunk.tenant_id = #{tenantId}
+          AND chunk.knowledge_base_id = #{knowledgeBaseId}
+          AND chunk.deleted = 0
+          AND chunk.status = 1
+          AND chunk.id IN
+          <foreach
+                  collection="chunkIds"
+                  item="chunkId"
+                  open="("
+                  separator=","
+                  close=")">
+              #{chunkId}
+          </foreach>
+    </select>
+
+    <delete id="physicalDeleteByDocument">
+        DELETE FROM ai_knowledge_chunk
+        WHERE tenant_id = #{tenantId}
+          AND document_id = #{documentId}
+    </delete>
+
+    <delete id="physicalDeleteByKnowledgeBase">
+        DELETE FROM ai_knowledge_chunk
+        WHERE tenant_id = #{tenantId}
+          AND knowledge_base_id = #{knowledgeBaseId}
+    </delete>
 </mapper>

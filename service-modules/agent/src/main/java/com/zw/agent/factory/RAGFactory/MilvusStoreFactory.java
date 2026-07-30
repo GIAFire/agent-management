@@ -4,8 +4,8 @@ import com.zw.agent.config.milvus.MilvusProperties;
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import io.agentscope.core.rag.exception.VectorStoreException;
 import io.agentscope.core.rag.store.MilvusStore;
-import io.agentscope.core.rag.store.VDBStoreBase;
 import io.milvus.v2.common.IndexParam;
+import io.milvus.v2.service.collection.request.DropCollectionReq;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -16,7 +16,7 @@ public class MilvusStoreFactory {
 
     private final MilvusProperties properties;
 
-    public VDBStoreBase create(AiKnowledgeBaseEntity config) {
+    public MilvusStore create(AiKnowledgeBaseEntity config) {
         if (!StringUtils.hasText(config.getCollectionName())) {
             throw new IllegalArgumentException("知识库未配置 collectionName，knowledgeBaseId=" + config.getId());
         }
@@ -47,6 +47,23 @@ public class MilvusStoreFactory {
             return builder.build();
         } catch (VectorStoreException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * 释放知识库独占 collection。MilvusStore 的构造是幂等的：collection 已不存在时
+     * 会先创建再删除，使失败删除任务可以安全重提。
+     */
+    public void dropCollection(AiKnowledgeBaseEntity config) {
+        try (MilvusStore store = create(config)) {
+            store.getClient().dropCollection(
+                    DropCollectionReq.builder()
+                            .databaseName(store.getDatabaseName())
+                            .collectionName(store.getCollectionName())
+                            .build()
+            );
+        } catch (VectorStoreException error) {
+            throw new RuntimeException("无法访问 Milvus collection", error);
         }
     }
 

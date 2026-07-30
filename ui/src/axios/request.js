@@ -95,7 +95,9 @@ service.interceptors.response.use(
           clearAuth()
           redirectToLogin()
         }
-        ElMessage.error(body.msg || '接口请求失败')
+        if (!response.config?.skipErrorMessage) {
+          ElMessage.error(body.msg || '接口请求失败')
+        }
         return Promise.reject(new Error(body.msg || '接口请求失败'))
       }
 
@@ -114,7 +116,9 @@ service.interceptors.response.use(
       clearAuth()
       redirectToLogin()
     }
-    ElMessage.error(message)
+    if (!error.config?.skipErrorMessage) {
+      ElMessage.error(message)
+    }
     return Promise.reject(error)
   }
 )

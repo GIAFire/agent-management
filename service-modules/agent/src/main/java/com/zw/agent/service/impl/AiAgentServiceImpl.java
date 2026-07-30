@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 
 import static com.zw.common.utils.DefaultValue.*;
@@ -166,9 +167,26 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
         if (knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()) {
             return;
         }
-        int priority = 1;
-        List<AiKnowledgeBaseEntity> knowledgeBaseEntities = knowledgeBaseMapper.selectList(new LambdaQueryWrapper<AiKnowledgeBaseEntity>()
-                .in(AiKnowledgeBaseEntity::getId, knowledgeBaseIds));
+        if (knowledgeBaseIds.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new AgentConfigException("知识库ID不能为空");
+        }
+        List<Long> requestedIds =
+                new ArrayList<>(new LinkedHashSet<>(knowledgeBaseIds));
+        requestedIds.sort(Long::compareTo);
+        List<AiKnowledgeBaseEntity> knowledgeBaseEntities =
+                new ArrayList<>(requestedIds.size());
+        for (Long knowledgeBaseId : requestedIds) {
+            AiKnowledgeBaseEntity knowledgeBase =
+                    knowledgeBaseMapper.selectByIdForUpdate(knowledgeBaseId);
+            if (knowledgeBase == null
+                    || knowledgeBase.getStatus() == null
+                    || knowledgeBase.getStatus() != (byte) 1) {
+                throw new AgentConfigException(
+                        "所选知识库不存在、已停用或正在删除"
+                );
+            }
+            knowledgeBaseEntities.add(knowledgeBase);
+        }
         List<AiKnowledgeAgentBindingEntity> knowledgeAgentBinding = new ArrayList<>();
         for (AiKnowledgeBaseEntity knowledgeBase : knowledgeBaseEntities) {
             if (knowledgeBase == null) {

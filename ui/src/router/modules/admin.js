@@ -49,6 +49,12 @@ export const adminRoutes = [
             meta: { title: '知识库', icon: 'Collection', section: 'KNOWLEDGE & RAG' }
           },
           {
+            path: 'knowledge/:knowledgeBaseId/documents',
+            name: 'KnowledgeDocuments',
+            component: () => import('@/views/knowledge/documents.vue'),
+            meta: { title: '知识库文档', hidden: true, activeMenu: '/agent/knowledge' }
+          },
+          {
             path: 'tool',
             name: 'ToolManage',
             component: () => import('@/views/tool/index.vue'),

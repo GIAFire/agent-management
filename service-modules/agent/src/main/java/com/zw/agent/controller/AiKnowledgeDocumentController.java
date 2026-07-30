@@ -1,65 +1,90 @@
 package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zw.agent.entity.AiKnowledgeDocumentEntity;
-import com.zw.agent.service.AiKnowledgeDocumentService;
+import com.zw.agent.knowledge.dto.KnowledgeDocumentResponse;
+import com.zw.agent.knowledge.dto.KnowledgeIndexTaskRequest;
+import com.zw.agent.knowledge.dto.KnowledgeTaskResponse;
+import com.zw.agent.knowledge.service.KnowledgeManagementService;
 import com.zw.common.entity.Result;
-import com.zw.common.support.EntityDefaults;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
-import java.util.List;
-import java.util.UUID;
-
 @RestController
-@RequestMapping("/ai-knowledge-document-entity")
 @RequiredArgsConstructor
 public class AiKnowledgeDocumentController {
 
+    private final KnowledgeManagementService managementService;
 
-    private final AiKnowledgeDocumentService aiKnowledgeDocumentService;
-
-    @GetMapping("/list")
-    public Result<List<AiKnowledgeDocumentEntity>> list() {
-        return Result.ok(aiKnowledgeDocumentService.list());
+    @GetMapping("/knowledgeBases/{knowledgeBaseId}/documents")
+    public Result<IPage<KnowledgeDocumentResponse>> page(
+            @PathVariable Long knowledgeBaseId,
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String parseStatus
+    ) {
+        return Result.ok(
+                managementService.pageDocuments(
+                        knowledgeBaseId,
+                        current,
+                        size,
+                        keyword,
+                        parseStatus
+                )
+        );
     }
 
-    @GetMapping("/page")
-    public Result<IPage<AiKnowledgeDocumentEntity>> page(
+    @PostMapping(
+            value = "/knowledgeBases/{knowledgeBaseId}/documents",
+            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
+    )
+    public Result<KnowledgeDocumentResponse> upload(
+            @PathVariable Long knowledgeBaseId,
+            @RequestPart("file") MultipartFile file
+    ) {
+        return Result.ok(
+                managementService.uploadDocument(knowledgeBaseId, file)
+        );
+    }
+
+    @DeleteMapping("/knowledgeDocuments/{documentId}")
+    public Result<KnowledgeTaskResponse> delete(
+            @PathVariable Long documentId
+    ) {
+        return Result.ok(managementService.deleteDocument(documentId));
+    }
+
+    @PostMapping("/knowledgeDocuments/{documentId}/indexTasks")
+    public Result<KnowledgeTaskResponse> createIndexTask(
+            @PathVariable Long documentId,
+            @RequestBody KnowledgeIndexTaskRequest request
+    ) {
+        return Result.ok(
+                managementService.createIndexTask(documentId, request)
+        );
+    }
+
+    @GetMapping("/knowledgeDocuments/{documentId}/tasks")
+    public Result<IPage<KnowledgeTaskResponse>> tasks(
+            @PathVariable Long documentId,
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size
     ) {
-        return Result.ok(aiKnowledgeDocumentService.page(new Page<>(current, size)));
-    }
-
-    @GetMapping("/{id}")
-    public Result<AiKnowledgeDocumentEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiKnowledgeDocumentService.getById(id));
-    }
-
-    @PostMapping("/create")
-    public Result<Boolean> create(@RequestBody AiKnowledgeDocumentEntity entity) {
-        return Result.ok(aiKnowledgeDocumentService.save(EntityDefaults.create(entity)));
-    }
-
-    @PostMapping("/update")
-    public Result<Boolean> update(@RequestBody AiKnowledgeDocumentEntity entity) {
-        return Result.ok(aiKnowledgeDocumentService.updateById(EntityDefaults.update(entity)));
-    }
-
-    @GetMapping("/delete/{id}")
-    public Result<Boolean> delete(@PathVariable Long id) {
-        return Result.ok(aiKnowledgeDocumentService.removeById(id));
+        return Result.ok(
+                managementService.pageDocumentTasks(
+                        documentId,
+                        current,
+                        size
+                )
+        );
     }
 }
