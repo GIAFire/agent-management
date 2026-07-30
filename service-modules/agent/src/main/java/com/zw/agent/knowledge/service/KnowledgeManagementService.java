@@ -34,7 +34,7 @@ import com.zw.agent.entity.AiKnowledgeDocumentEntity;
 import com.zw.agent.entity.AiKnowledgeTaskEntity;
 import com.zw.agent.factory.RAGFactory.EmbeddingModelFactory;
 import com.zw.agent.factory.RAGFactory.MilvusStoreFactory;
-import com.zw.agent.factory.RAGFactory.enumeration.ApiType;
+import com.zw.agent.constant.enumeration.ApiType;
 import com.zw.agent.knowledge.KnowledgeOperationException;
 import com.zw.agent.knowledge.dto.KnowledgeBaseCreateRequest;
 import com.zw.agent.knowledge.dto.KnowledgeBaseOptionResponse;

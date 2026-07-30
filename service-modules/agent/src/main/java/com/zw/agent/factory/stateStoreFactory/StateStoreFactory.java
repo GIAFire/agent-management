@@ -1,5 +1,6 @@
 package com.zw.agent.factory.stateStoreFactory;
 
+import com.zw.agent.constant.enumeration.StateStoreType;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import io.agentscope.core.state.JsonFileAgentStateStore;
 import io.agentscope.core.state.AgentStateStore;

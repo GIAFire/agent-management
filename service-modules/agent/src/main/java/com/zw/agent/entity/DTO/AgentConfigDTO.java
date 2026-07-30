@@ -1,7 +1,7 @@
 package com.zw.agent.entity.DTO;
 
-import com.zw.agent.factory.modelFactory.ModelType;
-import com.zw.agent.factory.stateStoreFactory.StateStoreType;
+import com.zw.agent.constant.enumeration.ModelType;
+import com.zw.agent.constant.enumeration.StateStoreType;
 import lombok.Data;
 
 import java.util.List;

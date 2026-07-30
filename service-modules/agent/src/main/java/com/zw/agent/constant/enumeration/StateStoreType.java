@@ -1,4 +1,4 @@
-package com.zw.agent.factory.stateStoreFactory;
+package com.zw.agent.constant.enumeration;
 
 import com.baomidou.mybatisplus.annotation.IEnum;
 import com.fasterxml.jackson.annotation.JsonCreator;

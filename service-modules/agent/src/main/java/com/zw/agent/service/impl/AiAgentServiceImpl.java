@@ -6,7 +6,7 @@ import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.*;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.exception.AgentConfigException;
-import com.zw.agent.factory.stateStoreFactory.StateStoreType;
+import com.zw.agent.constant.enumeration.StateStoreType;
 import com.zw.agent.mapper.*;
 import com.zw.agent.service.AiAgentService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -17,8 +17,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;

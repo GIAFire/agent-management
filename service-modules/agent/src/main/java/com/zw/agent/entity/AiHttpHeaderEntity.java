@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.zw.agent.constant.enumeration.HeaderSourceType;
 import com.zw.common.entity.BaseEntity;
 import java.io.Serializable;
 import lombok.Getter;
@@ -42,7 +43,7 @@ public class AiHttpHeaderEntity extends BaseEntity {
      * 值来源：model、subAgent
      */
     @TableField("source")
-    private String source;
+    private HeaderSourceType source;
 
     /**
      * 请求头名称，例如Authorization、X-API-Key

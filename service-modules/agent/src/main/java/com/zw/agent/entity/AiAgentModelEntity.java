@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.zw.agent.factory.modelFactory.ModelType;
+import com.zw.agent.constant.enumeration.ModelType;
 import com.zw.common.entity.BaseEntity;
 
 import java.math.BigDecimal;

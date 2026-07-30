@@ -1,17 +1,16 @@
-package com.zw.agent.factory.modelFactory;
+package com.zw.agent.constant.enumeration;
 
 import com.baomidou.mybatisplus.annotation.IEnum;
 
-public enum ModelType implements IEnum<String> {
-    OPENAI("openai", "OpenAI模型"),
-    DASH_SCOPE("dashscope", "通义千问"),
-    OLLAMA("ollama", "Ollama本地模型"),
-    ANTHROPIC("anthropic", "Anthropic模型");
+public enum HeaderSourceType implements IEnum<String> {
+    MODEL("model", "模型"),
+    EMBEDDING("embedding", "向量模型"),
+    REMOTE_SUB_AGENT("remoteSubAgent", "远程子Agent");
 
     private final String code;
     private final String desc;
 
-    ModelType(String code, String desc) {
+    HeaderSourceType(String code, String desc) {
         this.code = code;
         this.desc = desc;
     }
@@ -20,8 +19,8 @@ public enum ModelType implements IEnum<String> {
     public String getDesc() { return desc; }
 
     // 根据code获取枚举
-    public static ModelType fromCode(String code) {
-        for (ModelType type : values()) {
+    public static HeaderSourceType fromCode(String code) {
+        for (HeaderSourceType type : values()) {
             if (type.code.equals(code)) {
                 return type;
             }

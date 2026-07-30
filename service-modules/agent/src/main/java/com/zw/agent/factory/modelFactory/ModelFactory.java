@@ -1,9 +1,8 @@
 package com.zw.agent.factory.modelFactory;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.zw.agent.constant.enumeration.ModelType;
 import com.zw.agent.entity.AiHttpHeaderEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
-import com.zw.agent.service.AiAgentModelService;
 import com.zw.agent.service.AiHttpHeaderService;
 import io.agentscope.core.model.*;
 import io.agentscope.extensions.model.anthropic.AnthropicChatModel;
