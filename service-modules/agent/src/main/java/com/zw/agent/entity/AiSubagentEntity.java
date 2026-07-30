@@ -85,10 +85,4 @@ public class AiSubagentEntity extends BaseEntity {
      */
     @TableField("remark")
     private String remark;
-
-    /**
-     * 更新人ID
-     */
-    @TableField("updated_by")
-    private Long updatedBy;
 }
