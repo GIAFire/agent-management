@@ -2,6 +2,7 @@ package com.zw.agent.mapper;
 
 import com.zw.agent.entity.AiSubagentEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.zw.agent.entity.DTO.SubagentHeaderDTO;
 import org.apache.ibatis.annotations.Mapper;
 
 import java.util.List;
@@ -17,5 +18,5 @@ import java.util.List;
 @Mapper
 public interface AiSubagentMapper extends BaseMapper<AiSubagentEntity> {
 
-    List<AiSubagentEntity> subAgentList(Long agentId);
+    List<SubagentHeaderDTO> subAgentList(Long agentId);
 }

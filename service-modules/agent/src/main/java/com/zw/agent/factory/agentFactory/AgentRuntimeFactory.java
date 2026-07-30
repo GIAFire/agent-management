@@ -92,7 +92,7 @@ public class AgentRuntimeFactory {
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
             ChatModelBase chatModelBase = modelFactory.buildModel(config);
-//            List<SubagentDeclaration> subAgentList = subAgentFactory.buildSubAgent(config);
+            List<SubagentDeclaration> remoteSubAgentList = subAgentFactory.buildRemoteSubAgent(config);
             List<AiAgentEntity> subAgentIdList = subAgentFactory.buildSubAgentFactory(config);
             AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config,userInfo);
             AgentStateStore stateStore = stateStoreFactory.buildStateStore(config);
@@ -116,6 +116,7 @@ public class AgentRuntimeFactory {
                     .skillRepository(nacosSkillRepository)
                     .skillRepository(mysqlSkillRepository)
                     .workspace(workspacePath)
+                    .subagents(remoteSubAgentList)
                     .filesystem(
                             new LocalFilesystemSpec()
                                     .project(workspacePath)
@@ -140,9 +141,6 @@ public class AgentRuntimeFactory {
             if (config.getAllowShellInPlanMode() == 1){
                 agentBuilder.allowShellInPlanMode();
             }
-//            if (!subAgentList.isEmpty()){
-//                agentBuilder.subagents(subAgentList);
-//            }
             for (AiAgentEntity childAgent : subAgentIdList){
                 agentBuilder.subagentFactory(
                         childAgent.getAgentName(),

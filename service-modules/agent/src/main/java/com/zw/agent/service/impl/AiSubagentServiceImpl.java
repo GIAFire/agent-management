@@ -1,6 +1,7 @@
 package com.zw.agent.service.impl;
 
 import com.zw.agent.entity.AiSubagentEntity;
+import com.zw.agent.entity.DTO.SubagentHeaderDTO;
 import com.zw.agent.mapper.AiSubagentMapper;
 import com.zw.agent.service.AiSubagentService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -24,7 +25,7 @@ public class AiSubagentServiceImpl extends ServiceImpl<AiSubagentMapper, AiSubag
     private final AiSubagentMapper subagentMapper;
 
     @Override
-    public List<AiSubagentEntity> subAgentList(Long agentId) {
+    public List<SubagentHeaderDTO> subAgentList(Long agentId) {
         return subagentMapper.subAgentList(agentId);
     }
 }
