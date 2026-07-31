@@ -1,8 +1,11 @@
 package com.zw.agent.mapper;
 
 import com.zw.agent.entity.AiSkillAgentBindingEntity;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * <p>
@@ -15,4 +18,10 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiSkillAgentBindingMapper extends BaseMapper<AiSkillAgentBindingEntity> {
 
+    @InterceptorIgnore(tenantLine = "true")
+    @Select("SELECT COUNT(*) FROM ai_skill_agent_binding WHERE skill_id = #{skillId} AND tenant_id = #{tenantId}")
+    long countIncludingDeleted(
+            @Param("skillId") Long skillId,
+            @Param("tenantId") Long tenantId
+    );
 }

@@ -1,2650 +1,1401 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowRight,
-  Back,
   CircleCheck,
+  Clock,
   DataLine,
   Delete,
   Document,
-  DocumentAdd,
-  Download,
   Edit,
-  Finished,
-  FolderAdd,
-  FolderOpened,
-  Grid,
-  MagicStick,
-  Menu,
+  Folder,
   MoreFilled,
   Plus,
   Refresh,
   Search,
-  Stopwatch,
+  Setting,
   Upload,
-  User,
-  WarningFilled
+  User
 } from '@element-plus/icons-vue'
 import {
-  createSkillPackageNode,
   createSkill,
-  deleteSkillPackageNode,
+  createSkillPackageNode,
   deleteSkill,
+  deleteSkillPackageFolder,
+  deleteSkillPackageNode,
+  getSkill,
   getSkillFileContent,
+  getSkillMetrics,
+  listRecentSkillLogs,
   listSkillFilesBySkill,
-  listSkillLogs,
-  listSkills,
-  updateSkillPackageFile,
-  updateSkill
+  pageSkillLogs,
+  pageSkills,
+  updateSkill,
+  updateSkillPackageFile
 } from '@/axios/skill'
 import { listRole } from '@/axios/role'
 
+const ALL_ROLES = '0'
+const categories = [
+  { value: 'data', label: '数据分析' },
+  { value: 'report', label: '报告生成' },
+  { value: 'document', label: '文档处理' },
+  { value: 'code', label: '代码研发' },
+  { value: 'research', label: '信息研究' },
+  { value: 'file', label: '文件处理' },
+  { value: 'rag', label: '知识检索' },
+  { value: 'ops', label: '运维自动化' }
+]
+const riskOptions = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']
+const operationOptions = [
+  { value: 'LOAD_SKILL', label: '加载技能' },
+  { value: 'READ_REFERENCE', label: '读取资源' },
+  { value: 'RUN_SCRIPT', label: '运行脚本' }
+]
+
 const loading = ref(false)
-const saving = ref(false)
-const dialogVisible = ref(false)
-const createDialogVisible = ref(false)
-const creatingPackage = ref(false)
-const editorVisible = ref(false)
-const editorSaving = ref(false)
-const editorDirty = ref(false)
-const dialogTitle = ref('新建技能')
-const skills = ref([])
-const logs = ref([])
-const currentPage = ref(1)
-const pageSize = ref(6)
-const editorSkill = ref(null)
-const editorSkillSnapshot = ref(null)
-const editorTree = ref([])
-const editorSnapshot = ref([])
-const activeFileId = ref('')
-const editorContent = ref('')
-const roleRows = ref([])
-const viewMode = ref('grid')
-const nodeDialogVisible = ref(false)
-const nodeDialogType = ref('file')
-const nodeDialogSaving = ref(false)
-const nodeDialogParent = ref(null)
-const uploadInputRef = ref(null)
-const uploadParentNode = ref(null)
-const treeProps = {
-  children: 'children',
-  label: 'name'
-}
-const ALL_ROLE_VALUE = '0'
-
-const nodeForm = reactive({
-  name: '',
-  parentPath: '',
-  fileRole: 'ASSET'
+const rows = ref([])
+const total = ref(0)
+const metrics = reactive({
+  total: 0,
+  enabled: 0,
+  todayUses: 0,
+  useChangePercent: null,
+  successRate: null,
+  failedUses: 0,
+  averageDurationMs: null,
+  averageDurationChangeMs: null
 })
-
-const contextMenu = reactive({
-  visible: false,
-  x: 0,
-  y: 0,
-  node: null
-})
-
-let editorScrollLockState = null
-
-const queryParams = reactive({
+const filters = reactive({
   keyword: '',
   category: '',
-  status: ''
+  status: '',
+  riskLevel: '',
+  current: 1,
+  size: 8
 })
 
-const form = reactive({
+const recentLogs = ref([])
+const exceptionLogs = ref([])
+const roles = ref([])
+
+const formVisible = ref(false)
+const formSaving = ref(false)
+const formMode = ref('create')
+const skillForm = reactive({
   id: null,
-  skillKey: '',
+  skillCode: '',
   skillName: '',
   description: '',
-  skillMdContent: '',
+  category: 'data',
+  tags: [],
   riskLevel: 'LOW',
-  scopeValue: '',
-  category: 'data',
-  tagsJson: '',
-  status: 1,
-  roleCodes: [ALL_ROLE_VALUE]
+  status: 0,
+  roleCodes: [ALL_ROLES],
+  skillContent: ''
 })
 
-const createForm = reactive({
-  skillName: '',
-  description: '',
-  category: 'data',
-  roleCodes: [ALL_ROLE_VALUE]
+const editorVisible = ref(false)
+const editorSaving = ref(false)
+const editorSkill = ref(null)
+const resourceRows = ref([])
+const virtualFolders = ref([])
+const activeNode = ref({ type: 'main', path: 'SKILL.md', id: 'main' })
+const editorContent = ref('')
+const uploadInput = ref()
+
+const resourceDialogVisible = ref(false)
+const resourceSaving = ref(false)
+const resourceForm = reactive({
+  id: null,
+  path: '',
+  content: ''
 })
 
-const demoSkills = [
-]
+const folderDialogVisible = ref(false)
+const folderPath = ref('')
 
-const demoLogs = [
-]
-
-const skillRows = computed(() => {
-  const rows = skills.value.length ? skills.value : demoSkills
-  return rows.map((row, index) => normalizeSkill(row, index))
+const logDialogVisible = ref(false)
+const logLoading = ref(false)
+const logRows = ref([])
+const logTotal = ref(0)
+const logFilters = reactive({
+  current: 1,
+  size: 10,
+  skillId: null,
+  success: '',
+  operation: ''
 })
 
-const logRows = computed(() => {
-  const rows = logs.value.length ? logs.value : demoLogs
-  return rows.map((row, index) => normalizeLog(row, index))
-})
+const roleOptions = computed(() => [
+  { label: '所有角色', value: ALL_ROLES },
+  ...roles.value
+    .map((role) => ({
+      label: role.roleName || role.roleCode,
+      value: String(role.roleCode || '')
+    }))
+    .filter((role) => role.value && role.value !== ALL_ROLES)
+])
 
-const categoryOptions = computed(() => {
-  return [...new Set(skillRows.value.map((row) => row.category).filter(Boolean))]
-})
+const metricCards = computed(() => [
+  {
+    label: '技能总数',
+    value: metrics.total,
+    note: `${metrics.enabled} 个已启用`,
+    icon: User,
+    tone: 'blue'
+  },
+  {
+    label: '今日使用',
+    value: formatNumber(metrics.todayUses),
+    note: changeText(metrics.useChangePercent, '%'),
+    icon: DataLine,
+    tone: 'cyan'
+  },
+  {
+    label: '今日成功率',
+    value: formatPercent(metrics.successRate),
+    note: `失败 ${metrics.failedUses} 次`,
+    icon: CircleCheck,
+    tone: 'purple'
+  },
+  {
+    label: '平均使用时长',
+    value: formatDuration(metrics.averageDurationMs),
+    note: changeText(metrics.averageDurationChangeMs, 'ms'),
+    icon: Clock,
+    tone: 'green'
+  }
+])
 
-const roleOptions = computed(() => {
-  const options = roleRows.value
-    .map((role) => {
-      const value = roleValue(role)
-      return value
-        ? {
-            label: role.roleName || role.roleCode || `角色 ${role.id}`,
-            value
-          }
-        : null
-    })
-    .filter((option) => option && option.value !== ALL_ROLE_VALUE)
-
-  return [
-    { label: '所有角色', value: ALL_ROLE_VALUE },
-    ...options
+const resourceTree = computed(() => {
+  const root = [
+    {
+      id: 'main',
+      label: 'SKILL.md',
+      path: 'SKILL.md',
+      type: 'main',
+      children: []
+    }
   ]
-})
+  const folderMap = new Map()
+  const ensureFolder = (path) => {
+    if (!path) return null
+    if (folderMap.has(path)) return folderMap.get(path)
+    const parts = path.split('/')
+    const parentPath = parts.slice(0, -1).join('/')
+    const node = {
+      id: `folder:${path}`,
+      label: parts.at(-1),
+      path,
+      type: 'folder',
+      children: []
+    }
+    folderMap.set(path, node)
+    const parent = ensureFolder(parentPath)
+    ;(parent ? parent.children : root).push(node)
+    return node
+  }
 
-const filteredRows = computed(() => {
-  const keyword = queryParams.keyword.trim().toLowerCase()
-  return skillRows.value.filter((row) => {
-    const matchKeyword = !keyword || [
-      row.skillName,
-      row.skillKey,
-      row.description,
-      row.category
-    ].some((value) => String(value || '').toLowerCase().includes(keyword))
-    const matchCategory = !queryParams.category || row.category === queryParams.category
-    const matchStatus = queryParams.status === '' || Number(row.status) === Number(queryParams.status)
-    return matchKeyword && matchCategory && matchStatus
+  virtualFolders.value.forEach(ensureFolder)
+  resourceRows.value.forEach((resource) => {
+    const path = resource.resourcePath || resource.relativePath
+    const parts = String(path).split('/')
+    const parent = ensureFolder(parts.slice(0, -1).join('/'))
+    const node = {
+      id: `resource:${resource.id}`,
+      resourceId: resource.id,
+      label: parts.at(-1),
+      path,
+      type: 'file',
+      content: resource.resourceContent,
+      loaded: resource.resourceContent !== undefined && resource.resourceContent !== null,
+      children: []
+    }
+    ;(parent ? parent.children : root).push(node)
   })
-})
 
-const pagedRows = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredRows.value.slice(start, start + pageSize.value)
-})
-
-const activeFile = computed(() => {
-  return findTreeNode(editorTree.value, activeFileId.value)
-})
-
-const activeIsSkillInfo = computed(() => {
-  return isSkillMdNode(activeFile.value)
-})
-
-const nodeDialogTitle = computed(() => {
-  return nodeDialogType.value === 'folder' ? '新建文件夹' : '新建文件'
-})
-
-const nodeDialogNameLabel = computed(() => {
-  return nodeDialogType.value === 'folder' ? '文件夹名' : '文件名'
-})
-
-const nodeDialogPlaceholder = computed(() => {
-  return nodeDialogType.value === 'folder' ? '例如：utils' : '例如：helper.py'
-})
-
-const contextMenuActions = computed(() => {
-  if (!contextMenu.node) {
-    return []
+  const sortNodes = (nodes) => {
+    nodes.sort((left, right) => {
+      if (left.type === 'main') return -1
+      if (right.type === 'main') return 1
+      if (left.type !== right.type) return left.type === 'folder' ? -1 : 1
+      return left.label.localeCompare(right.label, 'zh-CN')
+    })
+    nodes.forEach((node) => sortNodes(node.children))
   }
-
-  if (contextMenu.node.type === 'folder') {
-    return [
-      { command: 'new-file', label: '新建文件', icon: DocumentAdd },
-      { command: 'new-folder', label: '新建文件夹', icon: FolderAdd },
-      { command: 'upload', label: '上传文件', icon: Upload },
-      { command: 'delete', label: '删除文件夹', icon: Delete, danger: true }
-    ]
-  }
-
-  return [
-    { command: 'delete', label: '删除文件', icon: Delete, danger: true }
-  ]
+  sortNodes(root)
+  return root
 })
 
-const editorLines = computed(() => {
-  const count = Math.max(1, editorContent.value.split('\n').length)
-  return Array.from({ length: count }, (_, index) => index + 1)
-})
-
-const recentLogs = computed(() => logRows.value.filter((row) => row.success).slice(0, 6))
-
-const exceptionLogs = computed(() => logRows.value.filter((row) => !row.success).slice(0, 4))
-
-const metrics = computed(() => {
-  const total = skillRows.value.length
-  const enabled = skillRows.value.filter((row) => Number(row.status) === 1).length
-  const todayRuns = skillRows.value.reduce((sum, row) => sum + row.todayRuns, 0)
-  const finishedLogs = logRows.value
-  const successRate = finishedLogs.length
-    ? (finishedLogs.filter((row) => row.success).length / finishedLogs.length) * 100
-    : average(skillRows.value.map((row) => row.successRate).filter((value) => Number.isFinite(value)))
-  const durationSource = logRows.value.length
-    ? logRows.value.map((row) => row.durationMs).filter(Boolean)
-    : skillRows.value.map((row) => row.avgDuration).filter(Boolean)
-
-  return [
-    {
-      label: '技能总数',
-      value: total,
-      sub: `${enabled} 个已启用`,
-      icon: User,
-      tone: 'blue'
-    },
-    {
-      label: '今日执行',
-      value: formatNumber(Math.max(todayRuns, 1864)),
-      sub: '较昨日 +14.6% ↑',
-      icon: DataLine,
-      tone: 'cyan',
-      positive: true
-    },
-    {
-      label: '执行成功率',
-      value: `${(successRate || 98.9).toFixed(1)}%`,
-      sub: `失败 ${exceptionLogs.value.length || 21} 次`,
-      icon: CircleCheck,
-      tone: 'indigo'
-    },
-    {
-      label: '平均执行时长',
-      value: formatDuration(average(durationSource) || 12600),
-      sub: '较昨日 -1.8s ↓',
-      icon: Stopwatch,
-      tone: 'green',
-      positive: true
-    }
-  ]
-})
-
-watch(
-  () => [queryParams.keyword, queryParams.category, queryParams.status, pageSize.value],
-  () => {
-    currentPage.value = 1
-  }
-)
-
-watch(
-  filteredRows,
-  () => {
-    const maxPage = Math.max(1, Math.ceil(filteredRows.value.length / pageSize.value))
-    if (currentPage.value > maxPage) {
-      currentPage.value = maxPage
-    }
-  }
-)
-
-watch(editorVisible, (visible) => {
-  setEditorScrollLock(visible)
-})
-
-function normalizeSkill(row, index) {
-  const metadata = parseMetadata(row.metadataJson)
-  const syntheticRuns = [428, 316, 284, 236, 358, 0][index % 6]
-  const syntheticAgents = [8, 6, 9, 4, 7, 2][index % 6]
-  const syntheticRate = [99.3, 98.8, 99.1, 97.9, 98.6, null][index % 6]
-  const category = categoryLabel(row.category || metadata.category || row.scene || ['数据分析', '报告生成', '文档处理', '研发效能', '信息检索', '文件处理'][index % 6])
-  const skillMdContent = row.skillMdContent ?? row.skillContent ?? ''
-
-  return {
-    ...row,
-    id: row.id || index + 1,
-    skillName: row.skillName || row.name || `技能 ${index + 1}`,
-    skillKey: normalizeSkillKey(row.skillKey || row.source || metadata.skillKey || row.route || `skill-${index + 1}`),
-    description: row.description || '暂无描述',
-    skillMdContent,
-    category,
-    status: Number(row.status ?? 1),
-    statusText: Number(row.status ?? 1) === 1 ? '启用' : '已停用',
-    todayRuns: Number(row.todayRuns ?? row.executeCount ?? row.runCount ?? syntheticRuns),
-    boundAgents: Number(row.boundAgents ?? row.agentCount ?? syntheticAgents),
-    successRate: row.successRate === null ? null : Number(row.successRate ?? syntheticRate),
-    avgDuration: Number(row.avgDuration ?? row.durationMs ?? [11800, 13200, 9600, 15100, 12600, 0][index % 6]),
-    riskLevel: String(row.riskLevel || 'LOW').toUpperCase(),
-    requiresShell: Number(row.requiresShell ?? metadata.requiresShell ?? 0),
-    requiresSandbox: Number(row.requiresSandbox ?? metadata.requiresSandbox ?? 0),
-    scopeType: row.scopeType || metadata.scopeType || 'TENANT',
-    scopeValue: row.scopeValue || metadata.scopeValue || '',
-    roleCodes: normalizeRoleCodes(row.roleCodes)
-  }
+function normalizeRoles(values) {
+  const normalized = (values || []).map(String).filter(Boolean)
+  if (normalized.includes(ALL_ROLES)) return [ALL_ROLES]
+  return [...new Set(normalized)]
 }
 
-function normalizeLog(row, index) {
-  const success = Number(row.success ?? (row.successStatus === 'FAILED' ? 0 : 1)) === 1
-  const skillName = row.skillName || row.skillRuntimeId || demoSkills[index % demoSkills.length]?.skillName || `技能 #${row.skillId || index + 1}`
+function handleRoleChange(values) {
+  skillForm.roleCodes = normalizeRoles(values)
+}
 
+function categoryLabel(value) {
+  return categories.find((item) => item.value === value)?.label || value || '未分类'
+}
+
+function riskType(value) {
   return {
-    ...row,
-    id: row.id || index + 1,
-    skillName,
-    agentName: row.agentName || `Agent #${row.agentId || index + 1}`,
-    operation: operationLabel(row.operation) || row.taskInput || row.errorMessage || '执行技能',
-    success,
-    createdAt: row.createdAt || row.createTime || row.startedAt || '-',
-    durationMs: Number(row.durationMs ?? [11200, 9400, 13800, 15500, 12100, 16800, 2300, 30000, 1800][index % 9]),
-    errorMessage: row.errorMessage || ''
-  }
+    LOW: 'success',
+    MEDIUM: 'warning',
+    HIGH: 'danger',
+    CRITICAL: 'danger'
+  }[value] || 'info'
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat('zh-CN').format(Number(value || 0))
+}
+
+function formatPercent(value) {
+  return value === null || value === undefined ? '--' : `${Number(value).toFixed(1)}%`
+}
+
+function formatDuration(value) {
+  if (value === null || value === undefined) return '--'
+  const duration = Number(value)
+  return duration >= 1000 ? `${(duration / 1000).toFixed(1)}s` : `${Math.round(duration)}ms`
+}
+
+function changeText(value, unit) {
+  if (value === null || value === undefined) return '暂无昨日同期数据'
+  const number = Number(value)
+  const prefix = number > 0 ? '+' : ''
+  return `较昨日同期 ${prefix}${number.toFixed(1)}${unit}`
+}
+
+function operationLabel(value) {
+  return operationOptions.find((item) => item.value === value)?.label || value || '-'
+}
+
+function generateCode(name) {
+  const code = String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return /^[a-z]/.test(code) ? code.slice(0, 64).replace(/-+$/, '') : ''
 }
 
 function resetForm() {
-  Object.assign(form, {
+  Object.assign(skillForm, {
     id: null,
-    skillKey: '',
+    skillCode: '',
     skillName: '',
     description: '',
-    skillMdContent: '',
+    category: 'data',
+    tags: [],
     riskLevel: 'LOW',
-    requiresShell: 0,
-    requiresSandbox: 0,
-    scopeType: 'TENANT',
-    scopeValue: '',
-    category: 'data',
-    tagsJson: '',
-    status: 1,
-    roleCodes: [ALL_ROLE_VALUE]
+    status: 0,
+    roleCodes: [ALL_ROLES],
+    skillContent: ''
   })
 }
 
-function resetCreateForm() {
-  Object.assign(createForm, {
-    skillName: '',
-    description: '',
-    category: 'data',
-    roleCodes: [ALL_ROLE_VALUE]
+function buildSkillPayload(source = skillForm) {
+  return {
+    id: source.id,
+    skillKey: source.skillCode,
+    source: source.skillCode,
+    skillName: source.skillName,
+    name: source.skillName,
+    description: source.description,
+    category: source.category,
+    tags: source.tags || [],
+    riskLevel: source.riskLevel,
+    status: Number(source.status),
+    roleCodes: normalizeRoles(source.roleCodes),
+    skillContent: source.skillContent,
+    skillMdContent: source.skillContent
+  }
+}
+
+async function loadDashboard() {
+  loading.value = true
+  try {
+    const [metricData, pageData, recentData, failedData] = await Promise.all([
+      getSkillMetrics(),
+      pageSkills({
+        current: filters.current,
+        size: filters.size,
+        keyword: filters.keyword || undefined,
+        category: filters.category || undefined,
+        status: filters.status === '' ? undefined : filters.status,
+        riskLevel: filters.riskLevel || undefined
+      }),
+      listRecentSkillLogs({ limit: 6 }),
+      listRecentSkillLogs({ limit: 4, success: 0 })
+    ])
+    Object.assign(metrics, metricData || {})
+    rows.value = pageData?.records || []
+    total.value = Number(pageData?.total || 0)
+    recentLogs.value = recentData || []
+    exceptionLogs.value = failedData || []
+  } finally {
+    loading.value = false
+  }
+}
+
+async function loadRoles() {
+  if (roles.value.length) return
+  const data = await listRole()
+  roles.value = Array.isArray(data) ? data.filter((role) => Number(role.status ?? 1) === 1) : []
+}
+
+function search() {
+  filters.current = 1
+  loadDashboard()
+}
+
+function resetFilters() {
+  Object.assign(filters, {
+    keyword: '',
+    category: '',
+    status: '',
+    riskLevel: '',
+    current: 1
   })
+  loadDashboard()
 }
 
-function openCreateDialog() {
-  resetCreateForm()
-  loadRoles()
-  createDialogVisible.value = true
-}
-
-function openEditDialog(row) {
+async function openCreate() {
   resetForm()
-  Object.assign(form, {
-    id: row.id,
-    skillKey: row.skillKey.replace(/^\//, ''),
-    skillName: row.skillName,
-    description: row.description,
-    skillMdContent: row.skillMdContent || '',
-    riskLevel: row.riskLevel || 'LOW',
-    requiresShell: Number(row.requiresShell ?? 0),
-    requiresSandbox: Number(row.requiresSandbox ?? 0),
-    scopeType: row.scopeType || 'TENANT',
-    scopeValue: row.scopeValue || '',
-    category: row.category || 'data',
-    tagsJson: row.tagsJson || '',
-    status: Number(row.status ?? 1),
-    roleCodes: normalizeRoleCodes(row.roleCodes)
-  })
-  dialogTitle.value = '编辑技能'
-  loadRoles()
-  dialogVisible.value = true
+  formMode.value = 'create'
+  await loadRoles()
+  formVisible.value = true
 }
 
-async function handleSave() {
-  if (!form.skillName.trim() || !form.skillKey.trim()) {
-    ElMessage.warning('请填写技能名称和唯一编码')
+async function openEdit(row) {
+  const detail = await getSkill(row.id)
+  resetForm()
+  Object.assign(skillForm, detail)
+  skillForm.tags = detail?.tags || []
+  skillForm.roleCodes = normalizeRoles(detail?.roleCodes)
+  formMode.value = 'edit'
+  await loadRoles()
+  formVisible.value = true
+}
+
+function handleNameBlur() {
+  if (formMode.value === 'create' && !skillForm.skillCode) {
+    skillForm.skillCode = generateCode(skillForm.skillName)
+  }
+}
+
+async function saveSkillForm() {
+  if (!skillForm.skillName.trim() || !skillForm.skillCode.trim()) {
+    ElMessage.warning('请填写技能名称和技能编码')
     return
   }
-
-  saving.value = true
+  if (!skillForm.description.trim()) {
+    ElMessage.warning('请填写技能描述')
+    return
+  }
+  if (!skillForm.roleCodes.length) {
+    ElMessage.warning('请至少选择一个角色范围')
+    return
+  }
+  formSaving.value = true
   try {
-    const payload = buildPayload()
-    if (form.id) {
-      await updateSkill(payload)
-      ElMessage.success('技能已更新')
-    } else {
-      await createSkill(payload)
-      ElMessage.success('技能已创建')
-    }
-    dialogVisible.value = false
-    await loadDashboard()
-  } finally {
-    saving.value = false
-  }
-}
-
-async function handleCreatePackage() {
-  if (!createForm.skillName.trim()) {
-    ElMessage.warning('请填写技能包名称')
-    return
-  }
-
-  if (!createForm.description.trim()) {
-    ElMessage.warning('请填写技能包描述')
-    return
-  }
-
-  creatingPackage.value = true
-  try {
-    const payload = buildCreatePayload()
-    const result = await createSkill(payload)
-    await loadDashboard()
-    const createdSkill = resolveCreatedSkill(payload, result)
-    createDialogVisible.value = false
-    ElMessage.success('技能包已创建')
-    openSkillEditor(createdSkill)
-  } finally {
-    creatingPackage.value = false
-  }
-}
-
-async function openSkillEditor(skill) {
-  const normalizedSkill = normalizeSkill(skill, 0)
-  editorSkill.value = normalizedSkill
-  editorSkillSnapshot.value = { ...normalizedSkill }
-  editorTree.value = buildEditorTree(normalizedSkill)
-  activeFileId.value = 'skill-md'
-  editorContent.value = findTreeNode(editorTree.value, activeFileId.value)?.content || ''
-  editorSnapshot.value = cloneTree(editorTree.value)
-  editorDirty.value = false
-  editorVisible.value = true
-  await loadSkillFilesForEditor(normalizedSkill)
-}
-
-function handleEditorInput() {
-  editorDirty.value = true
-}
-
-async function selectEditorFile(node) {
-  if (!node || node.type !== 'file' || node.id === activeFileId.value) {
-    return
-  }
-
-  persistActiveFile()
-  activeFileId.value = node.id
-  editorContent.value = node.content || ''
-  await ensureFileContent(node)
-  editorContent.value = node.content || ''
-}
-
-function createEditorFile(parentNode = null) {
-  persistActiveFile()
-  openNodeDialog('file', parentNode)
-}
-
-function createEditorFolder(parentNode = null) {
-  openNodeDialog('folder', parentNode)
-}
-
-function discardEditorChanges() {
-  editorTree.value = cloneTree(editorSnapshot.value)
-  editorSkill.value = editorSkillSnapshot.value ? { ...editorSkillSnapshot.value } : editorSkill.value
-  activeFileId.value = findTreeNode(editorTree.value, activeFileId.value)?.id || 'skill-md'
-  editorContent.value = activeFile.value?.content || ''
-  editorDirty.value = false
-}
-
-async function handleEditorBack() {
-  if (editorDirty.value) {
-    try {
-      await ElMessageBox.confirm('当前技能包还有未保存内容，确认返回技能管理页面吗？', '放弃更改', {
-        type: 'warning',
-        confirmButtonText: '返回',
-        cancelButtonText: '继续编辑'
+    if (formMode.value === 'create') {
+      const created = await createSkill({
+        ...buildSkillPayload(),
+        status: 0
       })
-    } catch {
-      return
+      formVisible.value = false
+      ElMessage.success('技能已创建，当前为停用状态')
+      await loadDashboard()
+      await openEditor(created)
+    } else {
+      await updateSkill(buildSkillPayload())
+      formVisible.value = false
+      ElMessage.success('技能配置已更新')
+      await loadDashboard()
     }
+  } finally {
+    formSaving.value = false
   }
-  closeSkillEditor()
 }
 
-async function handleSaveEditor() {
-  persistActiveFile()
-  const skill = editorSkill.value
-  const file = activeFile.value
-  const skillFile = findTreeNode(editorTree.value, 'skill-md')
-  if (!skill) {
+async function toggleStatus(row) {
+  const detail = await getSkill(row.id)
+  await updateSkill({
+    ...buildSkillPayload(detail),
+    status: Number(row.status) === 1 ? 0 : 1
+  })
+  ElMessage.success(Number(row.status) === 1 ? '技能已停用' : '技能已启用')
+  await loadDashboard()
+}
+
+async function removeSkill(row) {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除技能“${row.skillName}”吗？有关联或使用历史时将执行逻辑删除。`,
+      '删除技能',
+      { type: 'warning' }
+    )
+  } catch {
     return
   }
+  await deleteSkill(row.id)
+  ElMessage.success('技能已删除')
+  await loadDashboard()
+}
 
+async function openEditor(row) {
+  const detail = row?.skillCode ? row : await getSkill(row.id)
+  editorSkill.value = {
+    ...detail,
+    tags: detail.tags || [],
+    roleCodes: normalizeRoles(detail.roleCodes)
+  }
+  resourceRows.value = await listSkillFilesBySkill(detail.id)
+  virtualFolders.value = []
+  activeNode.value = { type: 'main', path: 'SKILL.md', id: 'main' }
+  editorContent.value = detail.skillContent || ''
+  editorVisible.value = true
+}
+
+async function selectResource(node) {
+  activeNode.value = node
+  if (node.type === 'main') {
+    editorContent.value = editorSkill.value?.skillContent || ''
+    return
+  }
+  if (node.type === 'folder') {
+    editorContent.value = ''
+    return
+  }
+  if (!node.loaded) {
+    node.content = await getSkillFileContent(node.resourceId)
+    node.loaded = true
+  }
+  editorContent.value = node.content || ''
+}
+
+async function saveEditorContent() {
+  if (!editorSkill.value || activeNode.value.type === 'folder') return
   editorSaving.value = true
   try {
-    if (isSkillMdNode(file)) {
-      const skillKey = String(skill.skillKey || '').replace(/^\//, '')
-      const skillContent = skillFile?.content || editorContent.value
-      await updateSkill({
-        id: normalizeId(skill.id),
-        name: skill.skillName,
-        skillName: skill.skillName,
-        source: skillKey,
-        skillKey,
-        description: skill.description,
-        skillContent,
-        skillMdContent: skillContent,
-        riskLevel: skill.riskLevel || 'LOW',
-        requiresShell: Number(skill.requiresShell ?? 0),
-        requiresSandbox: Number(skill.requiresSandbox ?? 0),
-        scopeType: skill.scopeType || 'TENANT',
-        scopeValue: skill.scopeValue || '',
-        category: skill.category || 'data',
-        tagsJson: skill.tagsJson || '',
-        status: Number(skill.status ?? 1),
-        roleCodes: skill.roleCodes
-      })
-      editorSkill.value = {
-        ...skill,
-        skillContent,
-        skillMdContent: skillContent
-      }
-    } else if (file?.skillFileId) {
-      const updatedFile = await updateSkillPackageFile({
-        id: normalizeId(file.skillFileId),
-        fileName: file.name,
-        fileRole: file.fileRole,
-        resourcePath: file.relativePath,
-        resourceContent: editorContent.value,
-        content: editorContent.value
-      })
-      mergeSkillFileNode(file, updatedFile)
+    if (activeNode.value.type === 'main') {
+      editorSkill.value.skillContent = editorContent.value
+      const updated = await updateSkill(buildSkillPayload(editorSkill.value))
+      editorSkill.value = { ...editorSkill.value, ...updated }
     } else {
-      ElMessage.warning('请先创建文件记录后再保存')
-      return
+      await updateSkillPackageFile({
+        id: activeNode.value.resourceId,
+        resourcePath: activeNode.value.path,
+        resourceContent: editorContent.value
+      })
+      const resource = resourceRows.value.find(
+        (item) => String(item.id) === String(activeNode.value.resourceId)
+      )
+      if (resource) resource.resourceContent = editorContent.value
+      activeNode.value.content = editorContent.value
     }
-
-    editorSnapshot.value = cloneTree(editorTree.value)
-    editorSkillSnapshot.value = editorSkill.value ? { ...editorSkill.value } : null
-    editorDirty.value = false
-    ElMessage.success('文件已保存')
+    ElMessage.success('内容已保存')
     await loadDashboard()
   } finally {
     editorSaving.value = false
   }
 }
 
-async function handleDeleteEditorSkill() {
-  const skill = editorSkill.value
-  if (!skill) {
-    return
-  }
-
-  try {
-    await ElMessageBox.confirm(`确认删除技能包「${skill.skillName}」吗？`, '删除确认', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消'
-    })
-  } catch {
-    return
-  }
-
-  await deleteSkill(skill.id)
-  ElMessage.success('技能包已删除')
-  closeSkillEditor()
-  await loadDashboard()
-}
-
-function downloadActiveEditorFile() {
-  const file = activeFile.value
-  if (!file || file.type !== 'file') {
-    return
-  }
-
-  const blob = new Blob([editorContent.value], { type: 'text/markdown;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = file.name
-  link.click()
-  URL.revokeObjectURL(url)
-}
-
-function openNodeDialog(type, parentNode = null) {
-  const parent = parentNode?.type === 'folder' ? parentNode : null
-  nodeDialogType.value = type
-  nodeDialogParent.value = parent
-  nodeForm.parentPath = parent?.relativePath || ''
-  nodeForm.name = ''
-  nodeForm.fileRole = type === 'folder' ? 'DIRECTORY' : inferFileRole(parent?.relativePath || '')
-  nodeDialogVisible.value = true
-  hideTreeContextMenu()
-}
-
-function applyQuickFolderName(name) {
-  nodeForm.name = name
-}
-
-async function handleCreateNode() {
-  const skill = editorSkill.value
-  const name = nodeForm.name.trim()
-  if (!skill?.id) {
-    ElMessage.warning('技能包信息不存在')
-    return
-  }
-
-  if (!name) {
-    ElMessage.warning(`请输入${nodeDialogNameLabel.value}`)
-    return
-  }
-
-  if (name.includes('/') || name.includes('\\')) {
-    ElMessage.warning('名称不能包含路径分隔符')
-    return
-  }
-
-  if (hasSiblingName(nodeDialogParent.value, name)) {
-    ElMessage.warning('同级目录下已存在同名文件或文件夹')
-    return
-  }
-
-  nodeDialogSaving.value = true
-  try {
-    const isFolder = nodeDialogType.value === 'folder'
-    const content = isFolder ? '' : createDefaultFileContent(name)
-    const resourcePath = buildNodeResourcePath(nodeForm.parentPath, name)
-    const node = isFolder
-      ? createVirtualFolderNode(resourcePath)
-      : skillFileToTreeNode(await createSkillPackageNode({
-          skillId: normalizeId(skill.id),
-          parentPath: nodeForm.parentPath,
-          fileName: name,
-          fileRole: nodeForm.fileRole,
-          directory: false,
-          resourcePath,
-          resourceContent: content,
-          content
-        }), skill)
-    if (!isFolder) {
-      node.content = content
-      node.loaded = true
-    }
-    insertTreeNode(node, nodeDialogParent.value)
-    sortTreeNodes(editorTree.value)
-    editorSnapshot.value = cloneTree(editorTree.value)
-    nodeDialogVisible.value = false
-    ElMessage.success(isFolder ? '文件夹已创建' : '文件已创建')
-
-    if (node.type === 'file') {
-      activeFileId.value = node.id
-      editorContent.value = node.content || ''
-    }
-  } finally {
-    nodeDialogSaving.value = false
-  }
-}
-
-function openTreeContextMenu(event, data) {
-  event.preventDefault()
-  event.stopPropagation()
-  contextMenu.node = data
-  contextMenu.x = event.clientX
-  contextMenu.y = event.clientY
-  contextMenu.visible = true
-}
-
-function hideTreeContextMenu() {
-  contextMenu.visible = false
-}
-
-function handleContextAction(command) {
-  const node = contextMenu.node
-  hideTreeContextMenu()
-  if (!node) {
-    return
-  }
-
-  if (command === 'new-file') {
-    createEditorFile(node)
-    return
-  }
-
-  if (command === 'new-folder') {
-    createEditorFolder(node)
-    return
-  }
-
-  if (command === 'upload') {
-    triggerUploadFile(node)
-    return
-  }
-
-  if (command === 'delete') {
-    deleteEditorNode(node)
-  }
-}
-
-function triggerUploadFile(parentNode = null) {
-  uploadParentNode.value = parentNode?.type === 'folder' ? parentNode : null
-  if (uploadInputRef.value) {
-    uploadInputRef.value.value = ''
-    uploadInputRef.value.click()
-  }
-}
-
-async function handleUploadFile(event) {
-  const file = event.target.files?.[0]
-  const skill = editorSkill.value
-  const parent = uploadParentNode.value
-  if (!file || !skill?.id) {
-    return
-  }
-
-  if (hasSiblingName(parent, file.name)) {
-    ElMessage.warning('同级目录下已存在同名文件或文件夹')
-    return
-  }
-
-  const content = await file.text()
-  const resourcePath = buildNodeResourcePath(parent?.relativePath || '', file.name)
-  const created = await createSkillPackageNode({
-    skillId: normalizeId(skill.id),
-    parentPath: parent?.relativePath || '',
-    fileName: file.name,
-    fileRole: inferFileRole(resourcePath),
-    directory: false,
-    resourcePath,
-    resourceContent: content,
-    content
-  })
-  const node = skillFileToTreeNode(created, skill)
-  node.content = content
-  node.loaded = true
-  insertTreeNode(node, parent)
-  sortTreeNodes(editorTree.value)
-  editorSnapshot.value = cloneTree(editorTree.value)
-  activeFileId.value = node.id
-  editorContent.value = node.content || ''
-  ElMessage.success('文件已上传')
-}
-
-async function deleteEditorNode(node) {
-  if (!node) {
-    return
-  }
-
-  if (isSkillMdNode(node)) {
-    ElMessage.warning('SKILL.md 是技能入口文件，不能删除')
-    return
-  }
-
-  const label = node.type === 'folder' ? '文件夹' : '文件'
-  try {
-    await ElMessageBox.confirm(`确认删除${label}「${node.name}」吗？`, '删除确认', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消'
-    })
-  } catch {
-    return
-  }
-
-  const removedIds = new Set(flattenTree([node]).map((item) => item.id))
-  if (node.skillFileId) {
-    await deleteSkillPackageNode(node.skillFileId)
-  } else {
-    const persistedChildren = flattenTree(node.children)
-      .filter((item) => item.skillFileId && !isSkillMdNode(item))
-      .sort((left, right) => String(right.relativePath || '').length - String(left.relativePath || '').length)
-    for (const item of persistedChildren) {
-      await deleteSkillPackageNode(item.skillFileId)
-    }
-  }
-  removeTreeNode(editorTree.value, node.id)
-  if (removedIds.has(activeFileId.value)) {
-    const fallback = findFirstFile(editorTree.value)
-    activeFileId.value = ''
-    if (fallback) {
-      await selectEditorFile(fallback)
-    } else {
-      editorContent.value = ''
-    }
-  }
-  editorSnapshot.value = cloneTree(editorTree.value)
-  editorDirty.value = false
-  ElMessage.success(`${label}已删除`)
-}
-
-function closeSkillEditor() {
-  editorVisible.value = false
-  editorSkill.value = null
-  editorSkillSnapshot.value = null
-  editorTree.value = []
-  editorSnapshot.value = []
-  activeFileId.value = ''
-  editorContent.value = ''
-  editorDirty.value = false
-  nodeDialogVisible.value = false
-  nodeDialogParent.value = null
-  uploadParentNode.value = null
-  hideTreeContextMenu()
-}
-
-function setEditorScrollLock(locked) {
-  if (typeof document === 'undefined') {
-    return
-  }
-
-  const appMain = document.querySelector('.app-main')
-  if (locked) {
-    if (editorScrollLockState) {
-      return
-    }
-    editorScrollLockState = {
-      bodyOverflow: document.body.style.overflow,
-      htmlOverflow: document.documentElement.style.overflow,
-      appMain,
-      appMainOverflow: appMain?.style.overflow || ''
-    }
-    document.body.style.overflow = 'hidden'
-    document.documentElement.style.overflow = 'hidden'
-    if (appMain) {
-      appMain.style.overflow = 'hidden'
-    }
-    return
-  }
-
-  if (!editorScrollLockState) {
-    return
-  }
-  document.body.style.overflow = editorScrollLockState.bodyOverflow
-  document.documentElement.style.overflow = editorScrollLockState.htmlOverflow
-  if (editorScrollLockState.appMain) {
-    editorScrollLockState.appMain.style.overflow = editorScrollLockState.appMainOverflow
-  }
-  editorScrollLockState = null
-}
-
-function handleEditorWheel(event) {
-  event.stopPropagation()
-}
-
-async function handleDelete(row) {
-  try {
-    await ElMessageBox.confirm(`确认删除技能「${row.skillName}」吗？`, '删除确认', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消'
-    })
-  } catch {
-    return
-  }
-
-  await deleteSkill(row.id)
-  ElMessage.success('技能已删除')
-  await loadDashboard()
-}
-
-function buildPayload() {
-  const skillName = form.skillName.trim()
-  const skillKey = form.skillKey.trim().replace(/^\//, '')
-  const payload = {
-    id: normalizeId(form.id),
-    name: skillName,
-    skillName,
-    source: skillKey,
-    skillKey,
-    description: form.description,
-    riskLevel: form.riskLevel,
-    requiresShell: Number(form.requiresShell),
-    requiresSandbox: Number(form.requiresSandbox),
-    scopeType: form.scopeType,
-    scopeValue: form.scopeValue,
-    category: form.category,
-    tagsJson: form.tagsJson,
-    status: Number(form.status),
-    roleCodes: normalizeRoleCodes(form.roleCodes)
-  }
-  if (form.id) {
-    payload.skillContent = form.skillMdContent
-    payload.skillMdContent = form.skillMdContent
-  }
-  return payload
-}
-
-function buildCreatePayload() {
-  const skillName = createForm.skillName.trim()
-  const description = createForm.description.trim()
-  const skill = {
+function openNewResource(parentPath = '') {
+  Object.assign(resourceForm, {
     id: null,
-    skillKey: generateSkillKey(skillName),
-    skillName,
-    description,
-    riskLevel: 'LOW',
-    requiresShell: 0,
-    requiresSandbox: 0,
-    scopeType: 'TENANT',
-    scopeValue: '',
-    category: createForm.category,
-    tagsJson: '',
-    status: 1
-  }
-
-  return {
-    ...skill,
-    name: skillName,
-    source: skill.skillKey,
-    roleCodes: normalizeRoleCodes(createForm.roleCodes)
-  }
-}
-
-function resolveCreatedSkill(payload, result) {
-  const resultRow = result && typeof result === 'object' ? result : {}
-  const normalizedKey = normalizeSkillKey(payload.skillKey)
-  const savedRow = skillRows.value.find((row) => {
-    return row.skillKey === normalizedKey
-      || row.skillKey.replace(/^\//, '') === payload.skillKey
-      || row.skillName === payload.skillName
+    path: parentPath ? `${parentPath}/` : '',
+    content: ''
   })
-
-  return savedRow || {
-    ...payload,
-    ...resultRow,
-    skillKey: normalizeSkillKey(resultRow.skillKey || payload.skillKey)
-  }
+  resourceDialogVisible.value = true
 }
 
-async function loadSkillFilesForEditor(skill) {
-  if (!skill?.id) {
+function openNewFolder(parentPath = '') {
+  folderPath.value = parentPath ? `${parentPath}/` : ''
+  folderDialogVisible.value = true
+}
+
+function createVirtualFolder() {
+  const path = folderPath.value.trim().replace(/\/+$/, '')
+  if (!path || path.includes('\\') || path.split('/').some((part) => !part || part === '.' || part === '..')) {
+    ElMessage.warning('请输入有效的相对目录路径')
     return
   }
-
-  try {
-    const files = await listSkillFilesBySkill(skill.id)
-    if (!Array.isArray(files) || !files.length) {
-      return
-    }
-    editorTree.value = buildEditorTree(skill, files)
-    const nextActive = findTreeNode(editorTree.value, 'skill-md') || findFirstFile(editorTree.value)
-    activeFileId.value = nextActive?.id || ''
-    if (nextActive) {
-      await ensureFileContent(nextActive)
-      editorContent.value = nextActive.content || ''
-    }
-    editorSnapshot.value = cloneTree(editorTree.value)
-    editorDirty.value = false
-  } catch {
-    editorSnapshot.value = cloneTree(editorTree.value)
-  }
+  if (!virtualFolders.value.includes(path)) virtualFolders.value.push(path)
+  folderDialogVisible.value = false
 }
 
-function buildEditorTree(skill, files = []) {
-  const root = []
-  const pathMap = new Map()
-  const sortedFiles = [...files].sort((left, right) => {
-    const leftPath = String(left.relativePath || left.resourcePath || left.fileName || '')
-    const rightPath = String(right.relativePath || right.resourcePath || right.fileName || '')
-    const leftDepth = leftPath.split('/').length
-    const rightDepth = rightPath.split('/').length
-    return leftDepth - rightDepth || leftPath.localeCompare(rightPath)
-  })
-
-  sortedFiles.forEach((file) => {
-    const node = skillFileToTreeNode(file, skill)
-    addNodeByPath(root, pathMap, node)
-  })
-
-  if (!pathMap.has('SKILL.md')) {
-    addNodeByPath(root, pathMap, {
-      id: 'skill-md',
-      name: 'SKILL.md',
-      type: 'file',
-      relativePath: 'SKILL.md',
-      fileRole: 'SKILL_MD',
-      content: skill.skillMdContent || skill.skillContent || '',
-      loaded: true,
-      children: []
+async function saveResource() {
+  if (!resourceForm.path.trim()) {
+    ElMessage.warning('请填写资源相对路径')
+    return
+  }
+  resourceSaving.value = true
+  try {
+    const created = await createSkillPackageNode({
+      skillId: editorSkill.value.id,
+      resourcePath: resourceForm.path.trim(),
+      resourceContent: resourceForm.content,
+      directory: false
     })
-  }
-
-  sortTreeNodes(root)
-  return root
-}
-
-function skillFileToTreeNode(file, skill) {
-  const relativePath = normalizeTreePath(file?.relativePath || file?.resourcePath || file?.fileName || 'SKILL.md')
-  const isDirectory = file?.fileRole === 'DIRECTORY' || file?.mimeType === 'inode/directory' || file?.directory === true
-  const isSkillMd = file?.fileRole === 'SKILL_MD' || relativePath === 'SKILL.md'
-  const content = file?.content ?? file?.resourceContent ?? ''
-  return {
-    id: isSkillMd ? 'skill-md' : `${isDirectory ? 'folder' : 'file'}-${file?.id || relativePath}`,
-    skillFileId: file?.id || null,
-    workspaceFileId: file?.workspaceFileId || null,
-    storageKey: file?.storageKey || '',
-    name: file?.fileName || pathBasename(relativePath),
-    type: isDirectory ? 'folder' : 'file',
-    relativePath,
-    fileRole: isDirectory ? 'DIRECTORY' : (file?.fileRole || (isSkillMd ? 'SKILL_MD' : 'ASSET')),
-    content: isSkillMd ? (skill.skillMdContent || skill.skillContent || '') : content,
-    loaded: isSkillMd || content !== '',
-    children: []
+    resourceRows.value.push(created)
+    resourceDialogVisible.value = false
+    ElMessage.success('资源文件已创建')
+  } finally {
+    resourceSaving.value = false
   }
 }
 
-function mergeSkillFileNode(node, file) {
-  const children = node.children || []
-  const next = skillFileToTreeNode(file, editorSkill.value || {})
-  Object.assign(node, {
-    skillFileId: next.skillFileId,
-    workspaceFileId: next.workspaceFileId,
-    storageKey: next.storageKey,
-    relativePath: next.relativePath,
-    fileRole: next.fileRole,
-    name: next.name,
-    content: editorContent.value,
-    loaded: true,
-    children
-  })
+async function deleteActiveNode() {
+  await deleteTreeNode(activeNode.value)
 }
 
-function addNodeByPath(root, pathMap, node) {
-  const existing = pathMap.get(node.relativePath)
-  if (existing) {
-    const children = existing.children || []
-    Object.assign(existing, node, { children })
-    return existing
-  }
-
-  const parentPath = pathParent(node.relativePath)
-  const parent = parentPath ? ensureFolderNode(root, pathMap, parentPath) : null
-  if (parent) {
-    parent.children = parent.children || []
-    parent.children.push(node)
-  } else {
-    root.push(node)
-  }
-  pathMap.set(node.relativePath, node)
-  return node
-}
-
-function ensureFolderNode(root, pathMap, folderPath) {
-  const normalizedPath = normalizeTreePath(folderPath)
-  const existing = pathMap.get(normalizedPath)
-  if (existing) {
-    return existing
-  }
-
-  const node = {
-    id: `folder-virtual-${normalizedPath}`,
-    skillFileId: null,
-    name: pathBasename(normalizedPath),
-    type: 'folder',
-    relativePath: normalizedPath,
-    fileRole: 'DIRECTORY',
-    loaded: true,
-    virtual: true,
-    children: []
-  }
-  const parentPath = pathParent(normalizedPath)
-  const parent = parentPath ? ensureFolderNode(root, pathMap, parentPath) : null
-  if (parent) {
-    parent.children.push(node)
-  } else {
-    root.push(node)
-  }
-  pathMap.set(normalizedPath, node)
-  return node
-}
-
-function normalizeTreePath(path) {
-  return String(path || '')
-    .replace(/\\/g, '/')
-    .replace(/^\/+/, '')
-    .replace(/\/+$/, '')
-}
-
-function pathParent(path) {
-  const normalizedPath = normalizeTreePath(path)
-  const index = normalizedPath.lastIndexOf('/')
-  return index > 0 ? normalizedPath.slice(0, index) : ''
-}
-
-function pathBasename(path) {
-  const normalizedPath = normalizeTreePath(path)
-  return normalizedPath.split('/').filter(Boolean).pop() || normalizedPath
-}
-
-function createDefaultSkillContent(skill) {
-  return ''
-}
-
-function createVirtualFolderNode(relativePath) {
-  const normalizedPath = normalizeTreePath(relativePath)
-  return {
-    id: `folder-virtual-${normalizedPath}-${Date.now()}`,
-    skillFileId: null,
-    name: pathBasename(normalizedPath),
-    type: 'folder',
-    relativePath: normalizedPath,
-    fileRole: 'DIRECTORY',
-    loaded: true,
-    virtual: true,
-    children: []
-  }
-}
-
-function createDefaultFileContent(name) {
-  if (String(name || '').toLowerCase().endsWith('.md')) {
-    const title = StringUtilsTitle(name)
-    return `# ${title}\n`
-  }
-  return ''
-}
-
-function StringUtilsTitle(name) {
-  return String(name || '新建文件').replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ')
-}
-
-function generateSkillKey(name) {
-  const key = String(name || '')
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-
-  return key || `skill-${Date.now()}`
-}
-
-function persistActiveFile() {
-  const file = activeFile.value
-  if (file && file.type === 'file') {
-    file.content = editorContent.value
-  }
-}
-
-async function ensureFileContent(node) {
-  if (!node || node.type !== 'file' || node.loaded || !node.skillFileId || isSkillMdNode(node)) {
+async function deleteTreeNode(node) {
+  if (!node || node.type === 'main') return
+  try {
+    await ElMessageBox.confirm(
+      `确认删除“${node.path}”吗？`,
+      node.type === 'folder' ? '删除目录' : '删除文件',
+      { type: 'warning' }
+    )
+  } catch {
     return
   }
-
-  node.loading = true
-  try {
-    const content = await getSkillFileContent(node.skillFileId)
-    node.content = content || ''
-    node.loaded = true
-  } finally {
-    node.loading = false
+  if (node.type === 'folder') {
+    await deleteSkillPackageFolder(editorSkill.value.id, node.path)
+    resourceRows.value = resourceRows.value.filter(
+      (item) => !String(item.resourcePath).startsWith(`${node.path}/`)
+    )
+    virtualFolders.value = virtualFolders.value.filter(
+      (path) => path !== node.path && !path.startsWith(`${node.path}/`)
+    )
+  } else {
+    await deleteSkillPackageNode(node.resourceId)
+    resourceRows.value = resourceRows.value.filter(
+      (item) => String(item.id) !== String(node.resourceId)
+    )
   }
-}
-
-function isSkillMdNode(node) {
-  return node?.id === 'skill-md' || node?.fileRole === 'SKILL_MD' || node?.relativePath === 'SKILL.md'
-}
-
-function findTreeNode(nodes, id) {
-  for (const node of nodes || []) {
-    if (node.id === id) {
-      return node
-    }
-
-    if (node.children?.length) {
-      const child = findTreeNode(node.children, id)
-      if (child) {
-        return child
-      }
-    }
+  const activePath = activeNode.value?.path || ''
+  const removedActiveNode = node.type === 'folder'
+    ? activePath === node.path || activePath.startsWith(`${node.path}/`)
+    : String(activeNode.value?.resourceId) === String(node.resourceId)
+  if (removedActiveNode) {
+    await selectResource({ type: 'main', path: 'SKILL.md', id: 'main' })
   }
-  return null
+  ElMessage.success('已删除')
 }
 
-function flattenTree(nodes) {
-  return (nodes || []).flatMap((node) => [node, ...flattenTree(node.children)])
-}
-
-function findFirstFile(nodes) {
-  for (const node of nodes || []) {
-    if (node.type === 'file') {
-      return node
-    }
-    const child = findFirstFile(node.children)
-    if (child) {
-      return child
-    }
-  }
-  return null
-}
-
-function insertTreeNode(node, parentNode) {
-  if (parentNode?.type === 'folder') {
-    parentNode.children = parentNode.children || []
-    parentNode.children.push(node)
+async function handleTreeCommand(command, node) {
+  if (command === 'new-file') {
+    openNewResource(node.path)
     return
   }
-  editorTree.value.push(node)
-}
-
-function removeTreeNode(nodes, id) {
-  const index = (nodes || []).findIndex((node) => node.id === id)
-  if (index > -1) {
-    nodes.splice(index, 1)
-    return true
+  if (command === 'new-folder') {
+    openNewFolder(node.path)
+    return
   }
-
-  for (const node of nodes || []) {
-    if (removeTreeNode(node.children || [], id)) {
-      return true
-    }
+  if (command === 'delete') {
+    await deleteTreeNode(node)
   }
-  return false
 }
 
-function hasSiblingName(parentNode, name) {
-  const siblings = parentNode?.type === 'folder' ? parentNode.children || [] : editorTree.value
-  return siblings.some((node) => node.name === name)
+function triggerUpload() {
+  uploadInput.value?.click()
 }
 
-function sortTreeNodes(nodes) {
-  ;(nodes || []).sort((left, right) => {
-    if (left.type !== right.type) {
-      return left.type === 'folder' ? -1 : 1
-    }
-    return left.name.localeCompare(right.name)
+async function handleUpload(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+  if (!file) return
+  if (file.size > 1024 * 1024) {
+    ElMessage.warning('资源文件不能超过 1 MiB')
+    return
+  }
+  const parent = activeNode.value.type === 'folder' ? `${activeNode.value.path}/` : ''
+  Object.assign(resourceForm, {
+    path: `${parent}${file.name}`,
+    content: await file.text()
   })
-  ;(nodes || []).forEach((node) => sortTreeNodes(node.children))
+  await saveResource()
 }
 
-function cloneTree(tree) {
-  return JSON.parse(JSON.stringify(tree || []))
+async function openLogs(options = {}) {
+  Object.assign(logFilters, {
+    current: 1,
+    skillId: options.skillId ?? null,
+    success: options.success ?? '',
+    operation: options.operation ?? ''
+  })
+  logDialogVisible.value = true
+  await loadLogs()
 }
 
-async function loadDashboard() {
-  loading.value = true
+async function loadLogs() {
+  logLoading.value = true
   try {
-    const [skillResult, logResult] = await Promise.allSettled([
-      listSkills(),
-      listSkillLogs()
-    ])
-    skills.value = skillResult.status === 'fulfilled' && Array.isArray(skillResult.value)
-      ? skillResult.value
-      : []
-    logs.value = logResult.status === 'fulfilled' && Array.isArray(logResult.value)
-      ? logResult.value
-      : []
+    const data = await pageSkillLogs({
+      current: logFilters.current,
+      size: logFilters.size,
+      skillId: logFilters.skillId || undefined,
+      success: logFilters.success === '' ? undefined : logFilters.success,
+      operation: logFilters.operation || undefined
+    })
+    logRows.value = data?.records || []
+    logTotal.value = Number(data?.total || 0)
   } finally {
-    loading.value = false
+    logLoading.value = false
   }
 }
 
-function statusClass(row) {
-  return {
-    enabled: Number(row.status) === 1,
-    disabled: Number(row.status) !== 1
-  }
-}
-
-function categoryTone(category) {
-  const text = String(category || '')
-  if (text.includes('报告') || text.includes('文档')) {
-    return 'green'
-  }
-  if (text.includes('研发') || text.includes('文件')) {
-    return 'orange'
-  }
-  if (text.includes('检索')) {
-    return 'violet'
-  }
-  return 'blue'
-}
-
-function categoryLabel(value) {
-  const map = {
-    data: '数据分析',
-    report: '报告生成',
-    document: '文档处理',
-    code: '研发效能',
-    research: '信息检索',
-    file: '文件处理',
-    rag: '知识检索',
-    ops: '运维操作'
-  }
-  return map[String(value || '').toLowerCase()] || value || '通用能力'
-}
-
-function operationLabel(value) {
-  const map = {
-    LIST_AVAILABLE_SKILLS: '查询可用技能',
-    LOAD_SKILL: '加载技能说明',
-    READ_REFERENCE: '读取技能参考资料',
-    RUN_SCRIPT: '执行技能脚本'
-  }
-  return map[value] || value
-}
-
-function normalizeSkillKey(value) {
-  const text = String(value || '')
-  return text.startsWith('/') ? text : `/${text}`
-}
-
-function logStatusType(log) {
-  return log.success ? 'success' : 'danger'
-}
-
-function logStatusLabel(log) {
-  return log.success ? '成功' : '失败'
-}
-
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString('en-US')
-}
-
-function formatRate(value) {
-  if (!Number.isFinite(value)) {
-    return '--'
-  }
-  return `${Number(value).toFixed(1)}%`
-}
-
-function formatDuration(value) {
-  const ms = Number(value || 0)
-  if (!ms) {
-    return '--'
-  }
-  return `${(ms / 1000).toFixed(1)}s`
-}
-
-function average(values) {
-  const numbers = values.map(Number).filter((value) => Number.isFinite(value))
-  return numbers.length ? numbers.reduce((sum, value) => sum + value, 0) / numbers.length : 0
-}
-
-function normalizeId(value) {
-  return value === '' || value === undefined || value === null ? null : String(value).trim()
-}
-
-async function loadRoles() {
-  try {
-    const rows = await listRole()
-    roleRows.value = Array.isArray(rows) ? rows : []
-  } catch {
-    roleRows.value = []
-  }
-}
-
-function roleValue(role) {
-  return String(role?.roleCode ?? role?.id ?? '').trim()
-}
-
-function handleCreateRoleChange(values) {
-  applyRoleSelection(createForm, values)
-}
-
-function handleFormRoleChange(values) {
-  applyRoleSelection(form, values)
-}
-
-function applyRoleSelection(target, values) {
-  const previous = normalizeRoleCodes(target.roleCodes)
-  const next = Array.isArray(values)
-    ? values.map(String).filter(Boolean)
-    : []
-  const addedAll = next.includes(ALL_ROLE_VALUE) && !previous.includes(ALL_ROLE_VALUE)
-  const withoutAll = [...new Set(next.filter((value) => value !== ALL_ROLE_VALUE))]
-  target.roleCodes = addedAll ? [ALL_ROLE_VALUE] : (withoutAll.length ? withoutAll : [ALL_ROLE_VALUE])
-}
-
-function normalizeRoleCodes(values) {
-  const roleCodes = (Array.isArray(values) ? values : [values])
-    .filter((value) => value !== undefined && value !== null && value !== '')
-    .map(String)
-  if (!roleCodes.length || roleCodes.includes(ALL_ROLE_VALUE)) {
-    return [ALL_ROLE_VALUE]
-  }
-  return [...new Set(roleCodes)]
-}
-
-function parseMetadata(metadataJson) {
-  if (!metadataJson) {
-    return {}
-  }
-  if (typeof metadataJson === 'object') {
-    return metadataJson
-  }
-  try {
-    return JSON.parse(metadataJson)
-  } catch {
-    return {}
-  }
-}
-
-function buildNodeResourcePath(parentPath, name) {
-  const parent = normalizeTreePath(parentPath)
-  const fileName = normalizeTreePath(name)
-  return parent ? `${parent}/${fileName}` : fileName
-}
-
-function inferFileRole(path) {
-  const normalizedPath = normalizeTreePath(path).toLowerCase()
-  if (normalizedPath.startsWith('references')) {
-    return 'REFERENCE'
-  }
-  if (normalizedPath.startsWith('scripts')) {
-    return 'SCRIPT'
-  }
-  if (normalizedPath.startsWith('examples')) {
-    return 'EXAMPLE'
-  }
-  return 'ASSET'
-}
-
-onMounted(() => {
-  loadDashboard()
-  loadRoles()
-  document.addEventListener('click', hideTreeContextMenu)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('click', hideTreeContextMenu)
-  setEditorScrollLock(false)
+onMounted(async () => {
+  await Promise.all([loadRoles(), loadDashboard()])
 })
 </script>
 
 <template>
-  <section v-loading="loading" class="skill-console">
-    <div class="skill-hero">
+  <section class="skill-page">
+    <header class="page-header">
       <div>
         <h2>技能管理</h2>
-        <p>集中管理可复用的业务流程与操作规范，为智能体提供稳定、可组合的专业能力。</p>
+        <p>集中维护技能指令、资源文件、角色范围与 Agent 绑定后的真实使用情况。</p>
       </div>
-      <div class="hero-actions">
-        <el-button size="large" type="primary" :icon="Plus" @click="openCreateDialog">新建技能</el-button>
-      </div>
-    </div>
+      <el-button type="primary" :icon="Plus" @click="openCreate">新建技能</el-button>
+    </header>
 
-    <div class="skill-metrics">
-      <article v-for="item in metrics" :key="item.label" class="skill-metric">
-        <span class="metric-icon" :class="item.tone">
-          <el-icon><component :is="item.icon" /></el-icon>
-        </span>
+    <div class="metric-grid">
+      <article v-for="card in metricCards" :key="card.label" class="metric-card">
+        <div class="metric-icon" :class="card.tone"><el-icon><component :is="card.icon" /></el-icon></div>
         <div>
-          <span>{{ item.label }}</span>
-          <strong>{{ item.value }}</strong>
-          <small :class="{ positive: item.positive }">{{ item.sub }}</small>
+          <span>{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+          <small>{{ card.note }}</small>
         </div>
       </article>
     </div>
 
-    <div class="skill-dashboard">
-      <section class="skill-list-panel">
-        <div class="panel-head">
-          <div>
-            <h3>技能列表</h3>
-            <p>共 {{ filteredRows.length }} 个技能</p>
-          </div>
-          <div class="skill-filter-bar">
-            <el-input
-              v-model="queryParams.keyword"
-              clearable
-              :prefix-icon="Search"
-              placeholder="搜索名称或描述"
-            />
-            <el-select v-model="queryParams.category" clearable placeholder="全部分类">
-              <el-option v-for="category in categoryOptions" :key="category" :label="category" :value="category" />
-            </el-select>
-            <el-select v-model="queryParams.status" clearable placeholder="全部状态">
-              <el-option label="启用" :value="1" />
-              <el-option label="已停用" :value="0" />
-            </el-select>
-            <el-button :icon="Refresh" @click="loadDashboard" />
-          </div>
-        </div>
-
-        <div class="skill-list" :class="viewMode">
-          <article v-for="row in pagedRows" :key="row.id" class="skill-card">
-            <header class="skill-card-head">
-              <span class="skill-icon" :class="categoryTone(row.category)">
-                <el-icon><MagicStick /></el-icon>
-              </span>
-              <div class="skill-main">
-                <div class="skill-title-line">
-                  <h4>{{ row.skillName }}</h4>
-                  <span>{{ row.skillKey }}</span>
-                </div>
-                <p>{{ row.description }}</p>
-              </div>
-              <em class="skill-status" :class="statusClass(row)">
-                <i />
-                {{ row.statusText }}
-              </em>
-            </header>
-
-            <div class="skill-card-stats">
-              <div>
-                <span>今日执行</span>
-                <strong>{{ formatNumber(row.todayRuns) }}</strong>
-              </div>
-              <div>
-                <span>绑定 Agent</span>
-                <strong>{{ row.boundAgents }}</strong>
-              </div>
-              <div>
-                <span>成功率</span>
-                <strong>{{ formatRate(row.successRate) }}</strong>
-              </div>
+    <div class="content-grid">
+      <main class="main-column">
+        <section class="panel list-panel">
+          <div class="panel-title">
+            <div>
+              <h3>技能列表</h3>
+              <p>列表指标均来自当天真实使用日志。</p>
             </div>
+            <el-button :icon="Refresh" circle @click="loadDashboard" />
+          </div>
 
-            <footer class="skill-card-actions">
-              <span>{{ row.category }}</span>
-              <nav>
-                <el-button link type="primary">执行记录</el-button>
-                <el-button link type="primary" @click="openSkillEditor(row)">编辑</el-button>
+          <div class="filters">
+            <el-input
+              v-model="filters.keyword"
+              clearable
+              placeholder="搜索名称、编码或描述"
+              :prefix-icon="Search"
+              @keyup.enter="search"
+            />
+            <el-select v-model="filters.category" clearable placeholder="全部分类" @change="search">
+              <el-option v-for="item in categories" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+            <el-select v-model="filters.status" clearable placeholder="全部状态" @change="search">
+              <el-option label="启用" :value="1" />
+              <el-option label="停用" :value="0" />
+            </el-select>
+            <el-select v-model="filters.riskLevel" clearable placeholder="全部风险" @change="search">
+              <el-option v-for="risk in riskOptions" :key="risk" :label="risk" :value="risk" />
+            </el-select>
+            <el-button type="primary" :icon="Search" @click="search">查询</el-button>
+            <el-button @click="resetFilters">重置</el-button>
+          </div>
+
+          <div v-loading="loading" class="skill-grid">
+            <article v-for="row in rows" :key="row.id" class="skill-card">
+              <div class="skill-card-head">
+                <div class="skill-avatar"><el-icon><Setting /></el-icon></div>
+                <div class="skill-identity">
+                  <h4>{{ row.skillName }}</h4>
+                  <code>{{ row.skillCode }}</code>
+                </div>
+                <el-tag :type="Number(row.status) === 1 ? 'success' : 'info'" effect="light">
+                  {{ Number(row.status) === 1 ? '启用' : '停用' }}
+                </el-tag>
+              </div>
+              <p class="skill-description">{{ row.description }}</p>
+              <div class="tag-line">
+                <el-tag size="small">{{ categoryLabel(row.category) }}</el-tag>
+                <el-tag size="small" :type="riskType(row.riskLevel)">{{ row.riskLevel }}</el-tag>
+                <el-tag v-if="row.hasScripts" size="small" type="warning">含脚本</el-tag>
+              </div>
+              <div class="skill-stats">
+                <span><strong>{{ row.todayUses }}</strong> 今日使用</span>
+                <span><strong>{{ row.boundAgents }}</strong> 绑定 Agent</span>
+                <span><strong>{{ formatPercent(row.successRate) }}</strong> 成功率</span>
+              </div>
+              <footer>
+                <el-button link type="primary" @click="openEditor(row)">编辑内容</el-button>
+                <el-button link @click="openEdit(row)">配置</el-button>
+                <el-button link @click="openLogs({ skillId: row.id })">使用记录</el-button>
                 <el-dropdown trigger="click">
-                  <button class="more-button" type="button" aria-label="更多操作">
-                    <el-icon><MoreFilled /></el-icon>
-                  </button>
+                  <el-button link>更多</el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
-                      <el-dropdown-item :icon="Edit" @click="openEditDialog(row)">编辑配置</el-dropdown-item>
-                      <el-dropdown-item :icon="Delete" divided @click="handleDelete(row)">删除</el-dropdown-item>
+                      <el-dropdown-item @click="toggleStatus(row)">
+                        {{ Number(row.status) === 1 ? '停用' : '启用' }}
+                      </el-dropdown-item>
+                      <el-dropdown-item divided @click="removeSkill(row)">删除</el-dropdown-item>
                     </el-dropdown-menu>
                   </template>
                 </el-dropdown>
-              </nav>
-            </footer>
-          </article>
-        </div>
-
-        <div class="skill-list-footer">
-          <span>共 {{ filteredRows.length }} 项</span>
-          <el-pagination
-            v-model:current-page="currentPage"
-            v-model:page-size="pageSize"
-            background
-            layout="prev, pager, next, sizes"
-            :page-sizes="[6, 12, 24]"
-            :total="filteredRows.length"
-          />
-        </div>
-      </section>
-
-      <aside class="skill-side">
-        <section class="side-panel">
-          <div class="side-head">
-            <h3>最近执行记录</h3>
-            <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
+              </footer>
+            </article>
+            <el-empty v-if="!loading && !rows.length" description="暂无符合条件的技能" />
           </div>
-          <div class="execution-timeline">
-            <div v-for="log in recentLogs" :key="log.id" class="execution-row">
-              <span />
-              <div>
-                <strong>{{ log.skillName }} → {{ log.agentName }}</strong>
-                <small>{{ log.operation }}</small>
-              </div>
-              <time>{{ log.createdAt }}</time>
-              <el-tag :type="logStatusType(log)">{{ logStatusLabel(log) }}</el-tag>
-            </div>
+
+          <el-pagination
+            v-model:current-page="filters.current"
+            v-model:page-size="filters.size"
+            background
+            layout="total, sizes, prev, pager, next"
+            :page-sizes="[8, 16, 32]"
+            :total="total"
+            @change="loadDashboard"
+          />
+        </section>
+      </main>
+
+      <aside class="side-column">
+        <section class="panel activity-panel">
+          <div class="panel-title compact">
+            <div><h3>最近使用记录</h3><p>最近 6 条技能读取行为</p></div>
+            <el-button link type="primary" @click="openLogs()">查看全部</el-button>
+          </div>
+          <div class="activity-list">
+            <button
+              v-for="log in recentLogs"
+              :key="log.id"
+              class="activity-item"
+              @click="openLogs({ skillId: log.skillId })"
+            >
+              <span class="activity-dot" :class="{ failed: Number(log.success) === 0 }" />
+              <span>
+                <strong>{{ log.skillName || log.skillCode || '已删除技能' }}</strong>
+                <small>{{ log.agentName || `Agent #${log.agentId}` }} · {{ operationLabel(log.operation) }}</small>
+              </span>
+              <time>{{ formatDuration(log.durationMs) }}</time>
+            </button>
+            <el-empty v-if="!recentLogs.length" :image-size="54" description="暂无使用记录" />
           </div>
         </section>
 
-        <section class="side-panel exception-panel">
-          <div class="side-head">
-            <h3>异常执行</h3>
+        <section class="panel exception-panel">
+          <div class="panel-title compact">
+            <div><h3>异常使用</h3><p>最近 4 条失败记录</p></div>
+            <el-button link type="danger" @click="openLogs({ success: 0 })">查看全部</el-button>
           </div>
-          <div class="exception-list">
-            <div v-for="log in exceptionLogs" :key="log.id" class="exception-row">
-              <div>
-                <strong>{{ log.skillName }}</strong>
-                <small>{{ log.errorMessage || log.operation }}</small>
-              </div>
-              <time>{{ log.createdAt }}</time>
-              <el-tag :type="logStatusType(log)">{{ logStatusLabel(log) }}</el-tag>
-            </div>
+          <div class="activity-list">
+            <button
+              v-for="log in exceptionLogs"
+              :key="log.id"
+              class="activity-item"
+              @click="openLogs({ skillId: log.skillId, success: 0 })"
+            >
+              <span class="activity-dot failed" />
+              <span>
+                <strong>{{ log.skillName || log.skillCode || '已删除技能' }}</strong>
+                <small>{{ log.errorMessage || '技能读取失败' }}</small>
+              </span>
+              <time>{{ log.startedAt || '-' }}</time>
+            </button>
+            <el-empty v-if="!exceptionLogs.length" :image-size="54" description="暂无异常记录" />
           </div>
         </section>
       </aside>
     </div>
 
     <el-dialog
-      v-model="createDialogVisible"
-      width="520px"
+      v-model="formVisible"
+      :title="formMode === 'create' ? '新建技能' : '编辑技能配置'"
+      width="680px"
       destroy-on-close
-      class="skill-create-dialog"
-      :show-close="false"
     >
-      <template #header>
-        <div class="skill-create-title">
-          <span>
-            <el-icon><WarningFilled /></el-icon>
-          </span>
-          <strong>新建技能包</strong>
-        </div>
-      </template>
-      <el-form label-position="top" class="skill-package-form">
-        <el-form-item label="技能包名称" required>
-          <el-input v-model="createForm.skillName" placeholder="请输入技能包名称" />
-        </el-form-item>
-        <el-form-item label="描述" required>
-          <el-input v-model="createForm.description" type="textarea" :rows="4" placeholder="请输入技能包描述" />
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-select v-model="createForm.category" placeholder="请选择分类" filterable>
-            <el-option label="数据分析" value="data" />
-            <el-option label="报告生成" value="report" />
-            <el-option label="文档处理" value="document" />
-            <el-option label="研发效能" value="code" />
-            <el-option label="信息检索" value="research" />
-            <el-option label="文件处理" value="file" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="角色选择">
-          <el-select
-            v-model="createForm.roleCodes"
-            multiple
-            filterable
-            placeholder="请选择角色"
-            @change="handleCreateRoleChange"
-          >
-            <el-option
-              v-for="role in roleOptions"
-              :key="role.value"
-              :label="role.label"
-              :value="role.value"
+      <el-form label-position="top">
+        <div class="form-grid">
+          <el-form-item label="技能名称" required>
+            <el-input
+              v-model="skillForm.skillName"
+              :disabled="formMode === 'edit'"
+              maxlength="100"
+              @blur="handleNameBlur"
             />
+          </el-form-item>
+          <el-form-item label="技能编码" required>
+            <el-input
+              v-model="skillForm.skillCode"
+              :disabled="formMode === 'edit'"
+              maxlength="64"
+              placeholder="例如 data-analysis"
+            />
+          </el-form-item>
+          <el-form-item label="分类" required>
+            <el-select v-model="skillForm.category">
+              <el-option v-for="item in categories" :key="item.value" :label="item.label" :value="item.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="风险等级">
+            <el-select v-model="skillForm.riskLevel">
+              <el-option v-for="risk in riskOptions" :key="risk" :label="risk" :value="risk" />
+            </el-select>
+          </el-form-item>
+        </div>
+        <el-form-item label="技能描述" required>
+          <el-input
+            v-model="skillForm.description"
+            :disabled="formMode === 'edit'"
+            type="textarea"
+            :rows="3"
+            maxlength="500"
+            show-word-limit
+          />
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-select v-model="skillForm.tags" multiple filterable allow-create default-first-option>
+            <el-option v-for="tag in skillForm.tags" :key="tag" :label="tag" :value="tag" />
           </el-select>
         </el-form-item>
+        <el-form-item label="可用角色" required>
+          <el-select
+            :model-value="skillForm.roleCodes"
+            multiple
+            @change="handleRoleChange"
+          >
+            <el-option v-for="role in roleOptions" :key="role.value" :label="role.label" :value="role.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="formMode === 'edit'" label="状态">
+          <el-switch v-model="skillForm.status" :active-value="1" :inactive-value="0" active-text="启用" inactive-text="停用" />
+        </el-form-item>
+        <el-alert
+          v-if="formMode === 'edit'"
+          class="metadata-alert"
+          type="info"
+          :closable="false"
+          title="技能名称和描述以 SKILL.md 顶部元数据中的 name、description 为准，请在内容编辑器中修改。"
+        />
+        <el-alert
+          v-else
+          type="info"
+          :closable="false"
+          title="新技能默认停用。创建后将自动进入 SKILL.md 编辑器，完成内容后再启用。"
+        />
       </el-form>
       <template #footer>
-        <el-button @click="createDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="creatingPackage" @click="handleCreatePackage">创建</el-button>
+        <el-button @click="formVisible = false">取消</el-button>
+        <el-button type="primary" :loading="formSaving" @click="saveSkillForm">
+          {{ formMode === 'create' ? '创建并编辑内容' : '保存配置' }}
+        </el-button>
       </template>
     </el-dialog>
 
-    <div v-if="editorVisible" class="skill-editor-overlay" @wheel="handleEditorWheel">
-      <aside class="skill-file-pane">
-        <header class="file-pane-head">
-          <el-tooltip content="返回技能管理" placement="bottom">
-            <button class="editor-icon-button" type="button" aria-label="返回技能管理" @click="handleEditorBack">
-              <el-icon><Back /></el-icon>
-            </button>
-          </el-tooltip>
-          <strong>{{ editorSkill?.skillName }}</strong>
-          <div class="file-tools">
-            <el-tooltip content="新建文件" placement="bottom">
-              <button class="editor-icon-button" type="button" aria-label="新建文件" @click="createEditorFile">
-                <el-icon><DocumentAdd /></el-icon>
-              </button>
-            </el-tooltip>
-            <el-tooltip content="新建文件夹" placement="bottom">
-              <button class="editor-icon-button" type="button" aria-label="新建文件夹" @click="createEditorFolder">
-                <el-icon><FolderAdd /></el-icon>
-              </button>
-            </el-tooltip>
-            <el-tooltip content="下载当前文件" placement="bottom">
-              <button class="editor-icon-button" type="button" aria-label="下载当前文件" @click="downloadActiveEditorFile">
-                <el-icon><Download /></el-icon>
-              </button>
-            </el-tooltip>
-          </div>
-        </header>
-
-        <div class="skill-file-tree">
-          <el-tree
-            class="editor-el-tree"
-            :data="editorTree"
-            :props="treeProps"
-            node-key="id"
-            default-expand-all
-            highlight-current
-            :expand-on-click-node="false"
-            @node-click="selectEditorFile"
-            @node-contextmenu="openTreeContextMenu"
-          >
-            <template #default="{ data }">
-              <div class="tree-node-content" :class="{ active: data.id === activeFileId, folder: data.type === 'folder' }">
-                <span class="file-type-icon">
-                  <el-icon v-if="data.type === 'folder'"><FolderOpened /></el-icon>
-                  <el-icon v-else><Document /></el-icon>
-                </span>
-                <span class="tree-node-label">{{ data.name }}</span>
-                <el-icon v-if="data.id === activeFileId" class="tree-active-icon"><CircleCheck /></el-icon>
-              </div>
-            </template>
-          </el-tree>
-        </div>
-
-        <input
-          ref="uploadInputRef"
-          class="hidden-upload-input"
-          type="file"
-          @change="handleUploadFile"
-        />
-
-        <button class="delete-package-button" type="button" @click="handleDeleteEditorSkill">
-          <el-icon><Delete /></el-icon>
-          删除技能包
-        </button>
-      </aside>
-
-      <section class="skill-editor-pane">
-        <header class="editor-topbar">
+    <el-drawer v-model="editorVisible" size="82%" :with-header="false" destroy-on-close>
+      <div v-if="editorSkill" class="editor-shell">
+        <header class="editor-header">
           <div>
-            <h3>{{ activeFile?.name || 'SKILL.md' }}</h3>
-            <span v-if="editorDirty">未保存更改</span>
+            <span>技能内容编辑器</span>
+            <h3>{{ editorSkill.skillName }} <code>{{ editorSkill.skillCode }}</code></h3>
           </div>
-          <div class="editor-actions">
-            <el-button :icon="Back" @click="discardEditorChanges">放弃更改</el-button>
-            <el-button type="primary" :icon="Finished" :loading="editorSaving" @click="handleSaveEditor">保存</el-button>
+          <div>
+            <input ref="uploadInput" type="file" hidden @change="handleUpload">
+            <el-button :icon="Upload" @click="triggerUpload">上传文本</el-button>
+            <el-button type="primary" :loading="editorSaving" @click="saveEditorContent">保存当前文件</el-button>
+            <el-button @click="editorVisible = false">关闭</el-button>
           </div>
         </header>
-        <div class="editor-body" :class="{ 'with-skill-meta': activeIsSkillInfo }">
-          <div v-if="activeIsSkillInfo && editorSkill" class="skill-meta-editor">
-            <el-form label-position="top">
-              <el-row :gutter="14">
-                <el-col :span="10">
-                  <el-form-item label="名称">
-                    <el-input v-model="editorSkill.skillName" placeholder="请输入技能名称" @input="handleEditorInput" />
-                  </el-form-item>
-                </el-col>
-                <el-col :span="14">
-                  <el-form-item label="描述">
-                    <el-input v-model="editorSkill.description" placeholder="请输入技能描述" @input="handleEditorInput" />
-                  </el-form-item>
-                </el-col>
-              </el-row>
-            </el-form>
-          </div>
-          <div class="code-editor-shell">
-            <pre class="line-numbers"><span v-for="line in editorLines" :key="line">{{ line }}</span></pre>
-            <textarea
-              v-model="editorContent"
-              class="skill-code-editor"
-              spellcheck="false"
-              placeholder="请输入技能正文内容"
-              @input="handleEditorInput"
-            />
-          </div>
-        </div>
-      </section>
-
-      <div
-        v-if="contextMenu.visible"
-        class="tree-context-menu"
-        :style="{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }"
-        @click.stop
-        @contextmenu.prevent
-      >
-        <button
-          v-for="action in contextMenuActions"
-          :key="action.command"
-          type="button"
-          :class="{ danger: action.danger }"
-          @click="handleContextAction(action.command)"
-        >
-          <el-icon><component :is="action.icon" /></el-icon>
-          <span>{{ action.label }}</span>
-        </button>
-      </div>
-
-      <el-dialog
-        v-model="nodeDialogVisible"
-        :title="nodeDialogTitle"
-        width="520px"
-        destroy-on-close
-        append-to-body
-        class="skill-node-dialog"
-      >
-        <el-form label-position="top" class="skill-node-form">
-          <el-form-item label="父目录">
-            <el-input :model-value="nodeForm.parentPath || '(根目录)'" disabled />
-          </el-form-item>
-          <el-form-item v-if="nodeDialogType === 'file'" label="文件角色">
-            <el-select v-model="nodeForm.fileRole" placeholder="请选择文件角色">
-              <el-option label="参考资料" value="REFERENCE" />
-              <el-option label="脚本" value="SCRIPT" />
-              <el-option label="样例" value="EXAMPLE" />
-              <el-option label="资源" value="ASSET" />
-            </el-select>
-          </el-form-item>
-          <el-form-item :label="nodeDialogNameLabel" required>
-            <div v-if="nodeDialogType === 'folder'" class="quick-folder-row">
-              <span>快捷选择：</span>
-              <button type="button" @click="applyQuickFolderName('scripts')">scripts</button>
-              <button type="button" @click="applyQuickFolderName('references')">references</button>
-              <button type="button" @click="applyQuickFolderName('examples')">examples</button>
+        <div class="editor-body">
+          <aside class="resource-sidebar">
+            <div class="resource-actions">
+              <el-button size="small" :icon="Plus" @click="openNewResource(activeNode.type === 'folder' ? activeNode.path : '')">文件</el-button>
+              <el-button size="small" :icon="Folder" @click="openNewFolder(activeNode.type === 'folder' ? activeNode.path : '')">目录</el-button>
+              <el-button
+                size="small"
+                type="danger"
+                plain
+                :icon="Delete"
+                :disabled="activeNode.type === 'main'"
+                @click="deleteActiveNode"
+              />
             </div>
-            <el-input v-model="nodeForm.name" :placeholder="nodeDialogPlaceholder" @keyup.enter="handleCreateNode" />
-          </el-form-item>
-        </el-form>
-        <template #footer>
-          <el-button @click="nodeDialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="nodeDialogSaving" @click="handleCreateNode">确定</el-button>
-        </template>
-      </el-dialog>
-    </div>
+            <el-tree
+              :data="resourceTree"
+              node-key="id"
+              default-expand-all
+              highlight-current
+              :expand-on-click-node="false"
+              @node-click="selectResource"
+            >
+              <template #default="{ data }">
+                <span class="tree-node">
+                  <span class="tree-node-main">
+                    <el-icon><Folder v-if="data.type === 'folder'" /><Document v-else /></el-icon>
+                    <span class="tree-node-label">{{ data.label }}</span>
+                  </span>
+                  <el-dropdown
+                    v-if="data.type !== 'main'"
+                    trigger="click"
+                    @command="(command) => handleTreeCommand(command, data)"
+                  >
+                    <button
+                      class="tree-node-more"
+                      type="button"
+                      title="更多操作"
+                      @click.stop
+                    >
+                      <el-icon><MoreFilled /></el-icon>
+                    </button>
+                    <template #dropdown>
+                      <el-dropdown-menu>
+                        <el-dropdown-item v-if="data.type === 'folder'" command="new-file">
+                          新增文件
+                        </el-dropdown-item>
+                        <el-dropdown-item v-if="data.type === 'folder'" command="new-folder">
+                          新增文件夹
+                        </el-dropdown-item>
+                        <el-dropdown-item
+                          command="delete"
+                          :divided="data.type === 'folder'"
+                        >
+                          删除
+                        </el-dropdown-item>
+                      </el-dropdown-menu>
+                    </template>
+                  </el-dropdown>
+                </span>
+              </template>
+            </el-tree>
+          </aside>
+          <main class="code-editor">
+            <div class="file-bar">
+              <span>{{ activeNode.path }}</span>
+              <small v-if="activeNode.type === 'folder'">目录由资源路径自动推导，不单独入库</small>
+            </div>
+            <el-input
+              v-if="activeNode.type !== 'folder'"
+              v-model="editorContent"
+              type="textarea"
+              resize="none"
+              spellcheck="false"
+              placeholder="输入 UTF-8 文本内容"
+            />
+            <el-empty v-else description="请选择文件，或在此目录下新建资源文件" />
+          </main>
+        </div>
+      </div>
+    </el-drawer>
 
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogTitle"
-      width="780px"
-      destroy-on-close
-      class="skill-dialog"
-    >
-      <el-form label-width="116px" class="skill-form">
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="名称" required>
-              <el-input v-model="form.skillName" placeholder="如：SQL 数据分析" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="分类">
-              <el-select v-model="form.category" filterable allow-create>
-                <el-option label="数据分析" value="data" />
-                <el-option label="报告生成" value="report" />
-                <el-option label="文档处理" value="document" />
-                <el-option label="研发效能" value="code" />
-                <el-option label="信息检索" value="research" />
-                <el-option label="文件处理" value="file" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="风险等级">
-              <el-select v-model="form.riskLevel">
-                <el-option label="低风险" value="LOW" />
-                <el-option label="中风险" value="MEDIUM" />
-                <el-option label="高风险" value="HIGH" />
-                <el-option label="关键风险" value="CRITICAL" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="状态">
-              <el-radio-group v-model="form.status">
-                <el-radio :value="1">启用</el-radio>
-                <el-radio :value="0">停用</el-radio>
-              </el-radio-group>
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="角色选择">
-              <el-select
-                v-model="form.roleCodes"
-                multiple
-                filterable
-                placeholder="请选择角色"
-                @change="handleFormRoleChange"
-              >
-                <el-option
-                  v-for="role in roleOptions"
-                  :key="role.value"
-                  :label="role.label"
-                  :value="role.value"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="描述">
-              <el-input v-model="form.description" type="textarea" :rows="3" placeholder="描述技能能力、适用场景和输出规范" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+    <el-dialog v-model="resourceDialogVisible" title="新建资源文件" width="620px">
+      <el-form label-position="top">
+        <el-form-item label="相对路径" required>
+          <el-input v-model="resourceForm.path" placeholder="例如 references/guide.md" />
+        </el-form-item>
+        <el-form-item label="文件内容">
+          <el-input v-model="resourceForm.content" type="textarea" :rows="12" />
+        </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
+        <el-button @click="resourceDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="resourceSaving" @click="saveResource">创建</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="folderDialogVisible" title="新建虚拟目录" width="500px">
+      <el-input v-model="folderPath" placeholder="例如 references/design" />
+      <template #footer>
+        <el-button @click="folderDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="createVirtualFolder">创建</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="logDialogVisible" title="技能使用记录" width="1080px">
+      <div class="log-filters">
+        <el-select v-model="logFilters.success" clearable placeholder="全部结果" @change="loadLogs">
+          <el-option label="成功" :value="1" />
+          <el-option label="失败" :value="0" />
+        </el-select>
+        <el-select v-model="logFilters.operation" clearable placeholder="全部操作" @change="loadLogs">
+          <el-option v-for="item in operationOptions" :key="item.value" :label="item.label" :value="item.value" />
+        </el-select>
+        <el-button v-if="logFilters.skillId" @click="logFilters.skillId = null; loadLogs()">清除技能筛选</el-button>
+      </div>
+      <el-table v-loading="logLoading" :data="logRows">
+        <el-table-column label="技能" min-width="150">
+          <template #default="{ row }">{{ row.skillName || row.skillCode || '已删除技能' }}</template>
+        </el-table-column>
+        <el-table-column label="Agent" min-width="140">
+          <template #default="{ row }">{{ row.agentName || `Agent #${row.agentId}` }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="110">
+          <template #default="{ row }">{{ operationLabel(row.operation) }}</template>
+        </el-table-column>
+        <el-table-column prop="resourcePath" label="资源路径" min-width="180" show-overflow-tooltip />
+        <el-table-column label="结果" width="80">
+          <template #default="{ row }">
+            <el-tag :type="Number(row.success) === 1 ? 'success' : 'danger'" size="small">
+              {{ Number(row.success) === 1 ? '成功' : '失败' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="耗时" width="90">
+          <template #default="{ row }">{{ formatDuration(row.durationMs) }}</template>
+        </el-table-column>
+        <el-table-column prop="startedAt" label="开始时间" width="170" />
+        <el-table-column prop="errorMessage" label="错误信息" min-width="180" show-overflow-tooltip />
+      </el-table>
+      <el-pagination
+        v-model:current-page="logFilters.current"
+        v-model:page-size="logFilters.size"
+        background
+        layout="total, sizes, prev, pager, next"
+        :total="logTotal"
+        @change="loadLogs"
+      />
     </el-dialog>
   </section>
 </template>
 
 <style scoped>
-.skill-console {
-  display: grid;
-  min-height: calc(100vh - 115px);
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 18px;
-  padding-bottom: 28px;
+.skill-page {
+  min-height: 100%;
+  padding: 24px;
+  background: #f5f7fb;
+  color: #172033;
 }
 
-.skill-hero {
+.page-header,
+.panel-title,
+.skill-card-head,
+.editor-header,
+.resource-actions,
+.file-bar {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
-}
-
-.skill-hero h2 {
-  margin: 14px 0 8px;
-  color: #071f40;
-  font-size: 34px;
-  font-weight: 850;
-  letter-spacing: 0;
-}
-
-.skill-hero p {
-  margin: 0;
-  color: #526b87;
-}
-
-.hero-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-}
-
-.skill-metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
-.skill-metric,
-.skill-list-panel,
-.side-panel {
-  border: 1px solid #d7e5f8;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 38px rgba(48, 94, 151, 0.08);
+.page-header {
+  margin-bottom: 20px;
 }
 
-.skill-metric {
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+}
+
+.page-header h2 {
+  font-size: 25px;
+}
+
+.page-header p,
+.panel-title p {
+  margin-top: 6px;
+  color: #768198;
+  font-size: 13px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.metric-card,
+.panel {
+  background: #fff;
+  border: 1px solid #e8ecf3;
+  border-radius: 14px;
+  box-shadow: 0 8px 26px rgb(23 32 51 / 4%);
+}
+
+.metric-card {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 10px 22px;
+  gap: 14px;
+  padding: 20px;
 }
 
 .metric-icon {
   display: grid;
-  width: 58px;
-  height: 58px;
-  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
   place-items: center;
-  border-radius: 13px;
-  color: #2f75ff;
-  background: #ecf4ff;
-  font-size: 28px;
+  border-radius: 12px;
+  font-size: 22px;
 }
 
-.metric-icon.cyan {
-  color: #0b95d8;
-  background: #e9f8ff;
-}
+.metric-icon.blue { color: #2563eb; background: #eaf1ff; }
+.metric-icon.cyan { color: #0891b2; background: #e6f8fc; }
+.metric-icon.purple { color: #7c3aed; background: #f0eaff; }
+.metric-icon.green { color: #059669; background: #e8f8f2; }
 
-.metric-icon.indigo {
-  color: #5c6cff;
-  background: #eef1ff;
-}
-
-.metric-icon.green {
-  color: #168354;
-  background: #eaf8ef;
-}
-
-.skill-metric > div > span {
+.metric-card span,
+.metric-card small {
   display: block;
-  color: #667d99;
-  font-size: 13px;
-}
-
-.skill-metric strong {
-  display: block;
-  margin-top: 8px;
-  color: #0a2547;
-  font-size: 30px;
-  font-weight: 850;
-  line-height: 1;
-}
-
-.skill-metric small {
-  display: block;
-  margin-top: 12px;
-  color: #6d819b;
+  color: #7b8497;
   font-size: 12px;
-  font-weight: 750;
 }
 
-.skill-metric small.positive {
-  color: #22a86b;
+.metric-card strong {
+  display: block;
+  margin: 4px 0;
+  font-size: 25px;
 }
 
-.skill-dashboard {
+.content-grid {
   display: grid;
-  width: 100%;
-  grid-template-columns: minmax(760px, 1fr) minmax(330px, 0.52fr);
-  align-self: stretch;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 18px;
-  min-height: 0;
+  align-items: start;
 }
 
-.skill-list-panel {
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  border-color: #d9e4f2;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 12px 30px rgba(34, 67, 112, 0.06);
+.panel {
+  padding: 20px;
 }
 
-.panel-head,
-.side-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+.panel-title {
+  margin-bottom: 16px;
 }
 
-.panel-head {
-  padding: 18px 18px 24px;
-  border-bottom: 0;
+.panel-title.compact {
+  align-items: flex-start;
 }
 
-.panel-head h3,
-.side-head h3 {
-  margin: 0;
-  color: #0a2547;
-  font-size: 17px;
-  font-weight: 800;
-}
-
-.panel-head p {
-  margin: 6px 0 0;
-  color: #6d819b;
-  font-size: 12px;
-}
-
-.skill-filter-bar {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.skill-filter-bar .el-input {
-  width: 250px;
-}
-
-.skill-filter-bar .el-select {
-  width: 128px;
-}
-
-.skill-filter-bar .el-button {
-  height: 34px;
-  border-radius: 5px;
-  font-weight: 800;
-}
-
-.view-toggle {
-  flex: 0 0 auto;
-}
-
-.skill-filter-bar :deep(.el-input__wrapper),
-.skill-filter-bar :deep(.el-select__wrapper) {
-  min-height: 34px;
-  border-radius: 5px;
-  box-shadow: 0 0 0 1px #d7e1ee inset;
-}
-
-.skill-list {
+.filters {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 18px 20px;
-  padding: 0 18px 18px;
+  grid-template-columns: minmax(200px, 1.5fr) repeat(3, minmax(120px, 0.8fr)) auto auto;
+  gap: 10px;
+  margin-bottom: 18px;
 }
 
-.skill-list.list {
-  grid-template-columns: 1fr;
-}
-
-.skill-card {
-  position: relative;
+.skill-grid {
   display: grid;
-  min-height: 160px;
-  grid-template-rows: auto 78px auto;
-  padding: 18px;
-  border: 1px solid #e0eaf6;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 10px 24px rgba(42, 72, 108, 0.05);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.skill-card:hover {
-  border-color: #a9c9ff;
-  box-shadow: 0 12px 28px rgba(47, 117, 255, 0.08);
-  transform: translateY(-1px);
-}
-
-.skill-card-head {
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
+  min-height: 240px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
-.skill-icon {
+.skill-card {
+  padding: 17px;
+  border: 1px solid #e8ecf2;
+  border-radius: 12px;
+  transition: border-color .2s, box-shadow .2s;
+}
+
+.skill-card:hover {
+  border-color: #b9cdfc;
+  box-shadow: 0 10px 24px rgb(37 99 235 / 8%);
+}
+
+.skill-avatar {
   display: grid;
-  width: 54px;
-  height: 54px;
-  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
   place-items: center;
-  border-radius: 13px;
-  color: #2f75ff;
-  background: #ecf4ff;
-  font-size: 28px;
-}
-
-.skill-icon.green {
-  color: #13a66f;
-  background: #e9f9f0;
-}
-
-.skill-icon.orange {
-  color: #e18a12;
-  background: #fff4e2;
-}
-
-.skill-icon.violet {
-  color: #7c5cff;
-  background: #f1edff;
-}
-
-.skill-main {
-  min-width: 0;
-  padding-right: 88px;
-}
-
-.skill-title-line {
-  display: flex;
-  min-width: 0;
-  align-items: flex-start;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.skill-title-line h4 {
-  min-width: 0;
-  overflow: hidden;
-  margin: 0;
-  color: #0a2547;
-  font-size: 15px;
-  font-weight: 820;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color 0.18s ease;
-}
-
-.skill-card:hover .skill-title-line h4 {
-  color: #0b63f6;
-}
-
-.skill-title-line span {
-  flex: 0 0 auto;
-  padding: 3px 7px;
-  border-radius: 6px;
-  color: #2f75ff;
-  background: #eaf2ff;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.skill-main p {
-  display: -webkit-box;
-  overflow: hidden;
-  margin: 10px 0 0;
-  color: #6d819b;
-  font-size: 12px;
-  line-height: 1.7;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
-}
-
-.skill-status {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 62px;
-  height: 24px;
-  border: 1px solid #bce8cc;
-  border-radius: 7px;
-  color: #168354;
-  background: #eaf8ef;
-  font-size: 12px;
-  font-style: normal;
-  font-weight: 800;
-}
-
-.skill-status i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.skill-status.disabled {
-  border-color: #d9e2ec;
-  color: #6d819b;
-  background: #f4f7fb;
-}
-
-.skill-card-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  overflow: hidden;
-  align-self: end;
-  border: 1px solid #e1ebf6;
-  border-radius: 8px;
-  background: #f8fbff;
-}
-
-.skill-card-stats div {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 12px;
-  border-right: 1px solid #e1ebf6;
-}
-
-.skill-card-stats div:last-child {
-  border-right: 0;
-}
-
-.skill-card-stats span {
-  color: #7e94ad;
-  font-size: 12px;
-}
-
-.skill-card-stats strong {
-  color: #203957;
-  font-size: 15px;
-}
-
-.skill-card-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 14px;
-  border-top: 1px solid #e5edf6;
-}
-
-.skill-card-actions > span {
-  color: #6d819b;
-  font-size: 13px;
-  font-weight: 750;
-}
-
-.skill-card-actions nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.skill-card-actions .el-button.is-link {
-  height: 32px;
-  padding: 0;
-  font-weight: 800;
-}
-
-.more-button {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  color: #405874;
-  background: transparent;
-  cursor: pointer;
-}
-
-.more-button:hover {
-  background: #edf4ff;
-  color: #2f75ff;
-}
-
-.skill-list-footer {
-  display: flex;
-  min-height: 58px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 0 18px 16px;
-  color: #53637b;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.skill-list-footer :deep(.el-pagination) {
-  --el-pagination-button-bg-color: #ffffff;
-  --el-pagination-hover-color: #0b63f6;
-}
-
-.skill-list-footer :deep(.el-pager li),
-.skill-list-footer :deep(.btn-prev),
-.skill-list-footer :deep(.btn-next) {
-  border: 1px solid #d9e4f2;
-  border-radius: 5px;
-  box-shadow: none;
-}
-
-.skill-list-footer :deep(.el-pager li.is-active) {
-  border-color: #0b63f6;
-  color: #0b63f6;
-  background: #ffffff;
-}
-
-.skill-side {
-  display: grid;
-  grid-template-rows: minmax(360px, 0.58fr) minmax(250px, 0.42fr);
-  gap: 18px;
-  min-height: 0;
-}
-
-.side-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  overflow: hidden;
-  padding: 18px;
-  border-radius: 8px;
-}
-
-.side-head .el-button {
-  height: auto;
-  padding: 0;
-  font-weight: 800;
-}
-
-.execution-timeline,
-.exception-list {
-  display: grid;
-  flex: 1 1 auto;
-  align-content: start;
-  min-height: 0;
-  margin-top: 18px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.execution-row {
-  position: relative;
-  display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) 72px 54px;
-  align-items: center;
-  gap: 10px;
-  min-height: 76px;
-}
-
-.execution-row::before {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 5px;
-  width: 1px;
-  background: #d9e8fb;
-  content: '';
-}
-
-.execution-row > span {
-  z-index: 1;
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: #1f78ff;
-  box-shadow: 0 0 0 4px #eaf3ff;
-}
-
-.execution-row strong,
-.exception-row strong {
-  overflow: hidden;
-  color: #0a2547;
-  font-size: 13px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.execution-row small,
-.exception-row small {
-  display: block;
-  overflow: hidden;
-  margin-top: 7px;
-  color: #7890aa;
-  font-size: 12px;
-  line-height: 1.4;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.execution-row time,
-.exception-row time {
-  color: #6d819b;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.exception-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 88px 54px;
-  align-items: center;
-  gap: 10px;
-  min-height: 70px;
-  border-bottom: 1px solid #e3edf8;
-}
-
-.exception-row:last-child {
-  border-bottom: 0;
-}
-
-.skill-dialog :deep(.el-dialog__header) {
-  margin: 0;
-  padding: 20px 22px;
-  border-bottom: 1px solid #dce8f5;
-}
-
-.skill-dialog :deep(.el-dialog__body) {
-  padding: 20px 22px;
-}
-
-.skill-form .el-select,
-.skill-form .el-input,
-.skill-form :deep(.el-textarea) {
-  width: 100%;
-}
-
-.switch-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
-}
-
-.skill-create-dialog :deep(.el-dialog) {
   border-radius: 10px;
-  box-shadow: 0 24px 56px rgba(18, 35, 58, 0.18);
+  color: #2563eb;
+  background: #edf3ff;
 }
 
-.skill-create-dialog :deep(.el-dialog__header) {
-  padding: 28px 34px 6px;
-}
-
-.skill-create-dialog :deep(.el-dialog__body) {
-  padding: 18px 34px 8px;
-}
-
-.skill-create-dialog :deep(.el-dialog__footer) {
-  padding: 10px 34px 28px;
-}
-
-.skill-create-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: #1472ff;
-  font-size: 17px;
-}
-
-.skill-create-title span {
-  display: grid;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 50%;
-  color: #ffffff;
-  background: #f8a90b;
-  font-size: 16px;
-}
-
-.skill-create-title strong {
-  font-weight: 850;
-}
-
-.skill-package-form :deep(.el-form-item__label) {
-  color: #293d55;
-  font-weight: 750;
-}
-
-.skill-package-form .el-select,
-.skill-package-form .el-input,
-.skill-package-form :deep(.el-textarea) {
-  width: 100%;
-}
-
-.skill-package-form :deep(.el-input__wrapper),
-.skill-package-form :deep(.el-select__wrapper),
-.skill-package-form :deep(.el-textarea__inner) {
-  border-radius: 7px;
-  background: #f2f5f9;
-  box-shadow: none;
-}
-
-.skill-package-form :deep(.el-input__wrapper),
-.skill-package-form :deep(.el-select__wrapper) {
-  min-height: 44px;
-}
-
-.skill-editor-overlay {
-  position: fixed;
-  z-index: 1200;
-  top: 75px;
-  right: 0;
-  bottom: 0;
-  left: 246px;
-  display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  overflow: hidden;
-  border-top: 1px solid #e1e8f2;
-  background: #ffffff;
-  box-shadow: 0 -1px 0 rgba(11, 33, 64, 0.04);
-}
-
-.skill-file-pane {
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  grid-template-rows: 58px minmax(0, 1fr) 58px;
-  border-right: 1px solid #e1e8f2;
-  background: #ffffff;
-}
-
-.file-pane-head,
-.editor-topbar {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e7edf5;
-}
-
-.file-pane-head {
-  gap: 10px;
-  padding: 0 14px;
-}
-
-.file-pane-head > strong {
+.skill-identity {
   min-width: 0;
   flex: 1;
+}
+
+.skill-identity h4 {
   overflow: hidden;
-  color: #122842;
   font-size: 16px;
-  font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.file-tools {
+code {
+  color: #6b7590;
+  font-size: 12px;
+}
+
+.skill-description {
+  min-height: 42px;
+  margin: 14px 0 10px;
+  color: #687287;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.tag-line {
   display: flex;
-  flex: 0 0 auto;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
-.editor-icon-button {
+.skill-stats {
   display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 15px 0;
+  padding: 12px 0;
+  border-block: 1px solid #eef1f6;
+  color: #81899a;
+  font-size: 11px;
+}
+
+.skill-stats strong {
+  display: block;
+  margin-bottom: 3px;
+  color: #283248;
+  font-size: 15px;
+}
+
+.skill-card footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.el-pagination {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.side-column {
+  display: grid;
+  gap: 18px;
+}
+
+.activity-list {
+  display: grid;
+  gap: 4px;
+}
+
+.activity-item {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 6px;
+  text-align: left;
+  background: transparent;
   border: 0;
-  border-radius: 6px;
-  color: #172b43;
-  background: transparent;
+  border-bottom: 1px solid #f0f2f6;
   cursor: pointer;
-  font-size: 18px;
 }
 
-.editor-icon-button:hover {
-  color: #0b63f6;
-  background: #edf4ff;
+.activity-item:hover {
+  background: #f8faff;
 }
 
-.skill-file-tree {
-  min-height: 0;
-  overflow-y: auto;
-  padding: 12px 10px;
+.activity-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: #10b981;
 }
 
-.editor-el-tree {
-  --el-tree-node-hover-bg-color: #edf4ff;
-  color: #15283f;
-  background: transparent;
+.activity-dot.failed {
+  background: #ef4444;
 }
 
-.editor-el-tree :deep(.el-tree-node__content) {
-  height: 38px;
-  border-radius: 6px;
+.activity-item strong,
+.activity-item small {
+  display: block;
 }
 
-.editor-el-tree :deep(.el-tree-node__expand-icon) {
-  color: #8a9aaf;
+.activity-item strong {
+  margin-bottom: 4px;
+  color: #283248;
+  font-size: 13px;
 }
 
-.editor-el-tree :deep(.is-current > .el-tree-node__content) {
-  background: #edf4ff;
+.activity-item small,
+.activity-item time {
+  overflow: hidden;
+  color: #8a93a5;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.tree-node-content {
+.form-grid {
   display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+.form-grid :deep(.el-select),
+.filters :deep(.el-select),
+.log-filters :deep(.el-select),
+.el-form-item :deep(.el-select) {
+  width: 100%;
+}
+
+.editor-shell {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+.editor-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid #e8ecf2;
+}
+
+.editor-header h3 {
+  margin-top: 5px;
+}
+
+.editor-header h3 code {
+  margin-left: 8px;
+}
+
+.editor-body {
+  display: grid;
+  min-height: 0;
+  flex: 1;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.resource-sidebar {
+  overflow: auto;
+  padding: 14px;
+  background: #f8f9fc;
+  border-right: 1px solid #e8ecf2;
+}
+
+.resource-actions {
+  justify-content: flex-start;
+  margin-bottom: 12px;
+}
+
+.tree-node {
+  display: flex;
   width: 100%;
   min-width: 0;
-  grid-template-columns: 24px minmax(0, 1fr) 20px;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 
-.tree-node-content.folder {
-  color: #536a85;
-}
-
-.tree-node-content.active {
-  color: #0b63f6;
-}
-
-.file-type-icon {
-  display: grid;
-  width: 24px;
-  height: 24px;
-  place-items: center;
-  color: #1484d8;
+.tree-node-main {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
 }
 
 .tree-node-label {
@@ -2653,333 +1404,83 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.tree-active-icon {
-  color: #a8b5c6;
-}
-
-.hidden-upload-input {
-  display: none;
-}
-
-.tree-context-menu {
-  position: fixed;
-  z-index: 2400;
+.tree-node-more {
   display: grid;
-  min-width: 156px;
-  gap: 4px;
-  padding: 10px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: 0 14px 34px rgba(16, 38, 68, 0.16);
-}
-
-.tree-context-menu button {
-  display: grid;
-  height: 36px;
-  grid-template-columns: 22px minmax(0, 1fr);
-  align-items: center;
-  gap: 8px;
-  border: 0;
-  border-radius: 5px;
-  color: #2f3c4d;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-}
-
-.tree-context-menu button:hover {
-  color: #0b63f6;
-  background: #edf4ff;
-}
-
-.tree-context-menu button.danger {
-  margin-top: 8px;
-  color: #ff4242;
-}
-
-.tree-context-menu button.danger:hover {
-  color: #ff4242;
-  background: #fff4f4;
-}
-
-.skill-node-form :deep(.el-input__wrapper),
-.skill-node-form :deep(.el-textarea__inner) {
-  border-radius: 6px;
-  background: #f3f6fa;
-  box-shadow: none;
-}
-
-.quick-folder-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 10px;
-  color: #8a98aa;
-  font-size: 13px;
-}
-
-.quick-folder-row button {
-  border: 0;
-  color: #303846;
-  background: transparent;
-  cursor: pointer;
-  font: inherit;
-}
-
-.quick-folder-row button:hover {
-  color: #0b63f6;
-}
-
-.delete-package-button {
-  display: flex;
-  height: 58px;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 0;
-  border-top: 1px solid #e7edf5;
-  color: #ff4242;
-  background: #ffffff;
-  cursor: pointer;
-  font: inherit;
-  font-weight: 750;
-}
-
-.delete-package-button:hover {
-  background: #fff4f4;
-}
-
-.skill-editor-pane {
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  grid-template-rows: 58px minmax(0, 1fr);
-  background: #ffffff;
-}
-
-.editor-topbar {
-  gap: 16px;
-  padding: 0 22px;
-}
-
-.editor-topbar h3 {
-  margin: 0;
-  color: #30445d;
-  font-size: 16px;
-  font-weight: 760;
-}
-
-.editor-topbar span {
-  display: block;
-  margin-top: 3px;
-  color: #e18a12;
-  font-size: 12px;
-  font-weight: 750;
-}
-
-.editor-actions {
-  display: flex;
+  width: 25px;
+  height: 25px;
   flex: 0 0 auto;
-  align-items: center;
-  gap: 10px;
-}
-
-.editor-body {
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  grid-template-rows: minmax(0, 1fr);
-}
-
-.editor-body.with-skill-meta {
-  grid-template-rows: auto minmax(0, 1fr);
-}
-
-.skill-meta-editor {
-  padding: 14px 18px 4px;
-  border-bottom: 1px solid #e7edf5;
-  background: #fbfdff;
-}
-
-.skill-meta-editor :deep(.el-form-item) {
-  margin-bottom: 12px;
-}
-
-.skill-meta-editor :deep(.el-form-item__label) {
-  color: #536a85;
-  font-weight: 750;
-}
-
-.skill-meta-editor :deep(.el-input__wrapper) {
-  min-height: 36px;
-  border-radius: 6px;
-  background: #ffffff;
-  box-shadow: 0 0 0 1px #d9e4f2 inset;
-}
-
-.code-editor-shell {
-  display: grid;
-  min-width: 0;
-  min-height: 0;
-  grid-template-columns: 64px minmax(0, 1fr);
-  overflow: hidden;
-  border: 1px solid #e0e7f0;
-  border-top: 0;
-  background: #ffffff;
-}
-
-.line-numbers {
-  display: flex;
-  overflow: hidden;
-  flex-direction: column;
-  margin: 0;
-  padding: 18px 14px;
-  border-right: 1px solid #dde6f0;
-  color: #8493a6;
-  background: #f5f7fa;
-  font-family: Consolas, 'Courier New', monospace;
-  font-size: 14px;
-  line-height: 24px;
-  text-align: right;
-  user-select: none;
-}
-
-.skill-code-editor {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  resize: none;
+  place-items: center;
+  padding: 0;
+  color: #7d8799;
+  background: transparent;
   border: 0;
-  outline: 0;
-  padding: 18px 22px 18px 10px;
-  color: #1f2d3d;
-  background: #ffffff;
-  font-family: Consolas, 'Courier New', monospace;
-  font-size: 15px;
-  line-height: 24px;
-  tab-size: 2;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: .65;
 }
 
-@media (max-width: 1320px) {
-  .skill-dashboard {
-    grid-template-columns: 1fr;
-  }
-
-  .skill-dashboard,
-  .skill-side {
-    min-height: 0;
-  }
-
-  .skill-side {
-    grid-template-rows: none;
-  }
-
-  .panel-head {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .skill-filter-bar {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
+.tree-node:hover .tree-node-more,
+.tree-node-more:focus {
+  opacity: 1;
 }
 
-@media (max-width: 980px) {
-  .skill-hero {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .skill-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .skill-filter-bar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .skill-filter-bar .el-input,
-  .skill-filter-bar .el-select,
-  .skill-filter-bar .el-button,
-  .view-toggle {
-    width: 100%;
-  }
-
-  .view-toggle {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .execution-row,
-  .exception-row {
-    grid-template-columns: 1fr;
-  }
-
-  .execution-row > span,
-  .execution-row::before {
-    display: none;
-  }
+.tree-node-more:hover {
+  color: #2563eb;
+  background: #e9f0ff;
 }
 
-@media (max-width: 640px) {
-  .skill-hero h2 {
-    font-size: 28px;
-  }
+.metadata-alert {
+  margin-bottom: 14px;
+}
 
-  .hero-actions,
-  .hero-actions .el-button {
-    width: 100%;
-  }
+.code-editor {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
 
-  .skill-metrics {
-    grid-template-columns: 1fr;
-  }
+.file-bar {
+  padding: 10px 16px;
+  color: #626d83;
+  background: #fbfcfe;
+  border-bottom: 1px solid #e8ecf2;
+}
 
-  .skill-list {
-    grid-template-columns: 1fr;
-    padding: 0 12px 14px;
-  }
+.code-editor :deep(.el-textarea) {
+  flex: 1;
+}
 
-  .skill-card-head {
-    grid-template-columns: 48px minmax(0, 1fr);
-  }
+.code-editor :deep(.el-textarea__inner) {
+  height: 100% !important;
+  padding: 20px;
+  color: #d8dee9;
+  background: #1f2430;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  font: 14px/1.7 Consolas, Monaco, monospace;
+}
 
-  .skill-icon {
-    width: 48px;
-    height: 48px;
-  }
+.log-filters {
+  display: grid;
+  grid-template-columns: 160px 180px auto;
+  gap: 10px;
+  margin-bottom: 14px;
+}
 
-  .skill-main {
-    padding-right: 0;
-  }
+@media (max-width: 1200px) {
+  .metric-grid { grid-template-columns: repeat(2, 1fr); }
+  .content-grid { grid-template-columns: 1fr; }
+  .side-column { grid-template-columns: 1fr 1fr; }
+}
 
-  .skill-status {
-    position: static;
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
-
-  .skill-card-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .skill-card-stats div {
-    border-right: 0;
-    border-bottom: 1px solid #e4edf7;
-  }
-
-  .skill-card-stats div:last-child {
-    border-bottom: 0;
-  }
-
-  .skill-card-actions,
-  .skill-list-footer {
-    align-items: flex-start;
-    flex-direction: column;
-  }
+@media (max-width: 820px) {
+  .skill-page { padding: 14px; }
+  .metric-grid,
+  .skill-grid,
+  .side-column,
+  .form-grid { grid-template-columns: 1fr; }
+  .filters { grid-template-columns: 1fr 1fr; }
+  .editor-body { grid-template-columns: 220px minmax(0, 1fr); }
 }
 </style>

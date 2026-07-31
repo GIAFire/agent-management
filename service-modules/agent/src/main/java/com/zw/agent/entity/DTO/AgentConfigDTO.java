@@ -81,6 +81,7 @@ public class AgentConfigDTO {
     private String sysPrompt;
 
     private List<Long> selectedToolIds;
+    private List<Long> selectedSkillIds;
     private List<Long> selectedKnowledgeBaseIds;
     private List<Long> selectedSubagentIds;
 

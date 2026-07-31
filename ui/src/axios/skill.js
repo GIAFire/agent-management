@@ -1,4 +1,4 @@
-import { get, post, stringifyId } from '@/axios/request'
+import { del, get, post, stringifyId } from '@/axios/request'
 
 const baseUrl = '/agent'
 
@@ -8,6 +8,10 @@ export const listSkills = () => {
 
 export const pageSkills = (params) => {
   return get(`${baseUrl}/skillInfo/page`, params)
+}
+
+export const getSkillMetrics = () => {
+  return get(`${baseUrl}/skillInfo/metrics`)
 }
 
 export const getSkill = (id) => {
@@ -23,7 +27,7 @@ export const updateSkill = (data) => {
 }
 
 export const deleteSkill = (id) => {
-  return get(`${baseUrl}/skillInfo/delete/${stringifyId(id)}`)
+  return del(`${baseUrl}/skillInfo/${stringifyId(id)}`)
 }
 
 export const listSkillFilesBySkill = (skillId) => {
@@ -43,9 +47,20 @@ export const updateSkillPackageFile = (data) => {
 }
 
 export const deleteSkillPackageNode = (id) => {
-  return get(`${baseUrl}/skillResource/delete/${stringifyId(id)}`)
+  return del(`${baseUrl}/skillResource/${stringifyId(id)}`)
 }
 
-export const listSkillLogs = () => {
-  return get(`${baseUrl}/skillLog/list`)
+export const deleteSkillPackageFolder = (skillId, path) => {
+  return del(`${baseUrl}/skillResource/folder`, {
+    skillId: stringifyId(skillId),
+    path
+  })
+}
+
+export const pageSkillLogs = (params) => {
+  return get(`${baseUrl}/skillInfo/logs/page`, params)
+}
+
+export const listRecentSkillLogs = (params) => {
+  return get(`${baseUrl}/skillInfo/logs/recent`, params)
 }

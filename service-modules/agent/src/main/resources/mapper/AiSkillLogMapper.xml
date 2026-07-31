@@ -12,9 +12,13 @@
         <result column="run_id" property="runId" />
         <result column="skill_id" property="skillId" />
         <result column="skill_runtime_id" property="skillRuntimeId" />
+        <result column="tool_call_id" property="toolCallId" />
         <result column="operation" property="operation" />
+        <result column="resource_path" property="resourcePath" />
         <result column="success" property="success" />
         <result column="error_message" property="errorMessage" />
+        <result column="started_at" property="startedAt" />
+        <result column="duration_ms" property="durationMs" />
     </resultMap>
 
 </mapper>

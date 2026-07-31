@@ -11,6 +11,7 @@ import com.zw.agent.mapper.*;
 import com.zw.agent.service.AiAgentService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.context.UserInfo;
+import com.zw.common.context.UserContext;
 import com.zw.common.support.EntityDefaults;
 import com.zw.common.utils.AESUtil;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +45,8 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
     private final AiSubagentMapper subagentMapper;
     private final AiAgentToolMapper agentToolMapper;
     private final AiToolInfoConfigMapper toolInfoConfigMapper;
+    private final AiSkillAgentBindingMapper skillAgentBindingMapper;
+    private final AiSkillInfoMapper skillInfoMapper;
 
     @Override
     public AgentConfigDTO getAgentConfigById(Long agentId, UserInfo userInfo) {
@@ -108,7 +111,11 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
                 .setDescription(firstText(agentVO.getAgentDescription(), agentVO.getAgentName()))
                 .setAgentType(firstText(agentVO.getAgentType(), "HARNESS"))
                 .setStatus(defaultInt(agentVO.getAgentStatus(), 1));
-        agent.setTenantId(defaultLong(agentVO.getTenantId(), 1L));
+        UserInfo currentUser = UserContext.get();
+        if (currentUser == null || currentUser.getTenantId() == null) {
+            throw new AgentConfigException("Authenticated tenant context is required");
+        }
+        agent.setTenantId(currentUser.getTenantId());
         aiAgentMapper.insert(EntityDefaults.create(agent));
 
         AiAgentConfigEntity config = new AiAgentConfigEntity()
@@ -153,6 +160,12 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
         createKnowledgeBindings(agentVO.getSelectedKnowledgeBaseIds(), agent.getId(), config.getId());
         createSubagentBindings(agentVO.getSelectedSubagentIds(), agent.getId(), config.getId());
         createToolBindings(agentVO.getSelectedToolIds(), agent.getId(), config.getId());
+        createSkillBindings(
+                agentVO.getSelectedSkillIds(),
+                agent.getId(),
+                config.getId(),
+                agent.getTenantId()
+        );
         return true;
     }
 
@@ -253,6 +266,44 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
             AgentToolBinding.add(EntityDefaults.create(binding));
         }
         agentToolMapper.insert(AgentToolBinding);
+    }
+
+    private void createSkillBindings(
+            List<Long> skillIds,
+            Long agentId,
+            Long agentConfigId,
+            Long tenantId
+    ) {
+        if (skillIds == null || skillIds.isEmpty()) {
+            return;
+        }
+        if (skillIds.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new AgentConfigException("Skill id must not be null");
+        }
+        List<Long> requestedIds = new ArrayList<>(new LinkedHashSet<>(skillIds));
+        requestedIds.sort(Long::compareTo);
+        List<AiSkillInfoEntity> skills = skillInfoMapper.selectList(
+                new LambdaQueryWrapper<AiSkillInfoEntity>()
+                        .eq(AiSkillInfoEntity::getTenantId, tenantId)
+                        .eq(AiSkillInfoEntity::getStatus, (byte) 1)
+                        .in(AiSkillInfoEntity::getId, requestedIds)
+        );
+        if (skills.size() != requestedIds.size()) {
+            throw new AgentConfigException(
+                    "One or more selected skills do not exist or are disabled in the current tenant"
+            );
+        }
+        List<AiSkillAgentBindingEntity> bindings = skills.stream().map(skill -> {
+            AiSkillAgentBindingEntity binding = new AiSkillAgentBindingEntity()
+                    .setAgentId(agentId)
+                    .setAgentConfigId(agentConfigId)
+                    .setSkillId(skill.getId())
+                    .setLoadMode("DYNAMIC")
+                    .setOverridePolicy("DENY_OVERRIDE");
+            binding.setTenantId(tenantId);
+            return EntityDefaults.create(binding);
+        }).toList();
+        skillAgentBindingMapper.insert(bindings);
     }
 
 

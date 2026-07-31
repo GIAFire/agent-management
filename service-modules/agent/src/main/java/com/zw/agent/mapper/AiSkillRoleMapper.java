@@ -1,8 +1,11 @@
 package com.zw.agent.mapper;
 
 import com.zw.agent.entity.AiSkillRoleEntity;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * <p>
@@ -15,4 +18,10 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiSkillRoleMapper extends BaseMapper<AiSkillRoleEntity> {
 
+    @InterceptorIgnore(tenantLine = "true")
+    @Delete("DELETE FROM ai_skill_role WHERE skill_info_id = #{skillId} AND tenant_id = #{tenantId}")
+    int hardDeleteBySkill(
+            @Param("skillId") Long skillId,
+            @Param("tenantId") Long tenantId
+    );
 }

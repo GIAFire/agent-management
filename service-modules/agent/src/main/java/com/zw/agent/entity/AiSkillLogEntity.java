@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zw.common.entity.BaseEntity;
+import java.time.LocalDateTime;
 import java.io.Serializable;
 import lombok.Getter;
 import lombok.Setter;
@@ -75,10 +76,22 @@ public class AiSkillLogEntity extends BaseEntity {
     private String skillRuntimeId;
 
     /**
+     * AgentScope工具调用ID
+     */
+    @TableField("tool_call_id")
+    private String toolCallId;
+
+    /**
      * 操作类型：LIST_AVAILABLE_SKILLS，LOAD_SKILL，READ_REFERENCE，RUN_SCRIPT
      */
     @TableField("operation")
     private String operation;
+
+    /**
+     * 被读取的技能内相对路径
+     */
+    @TableField("resource_path")
+    private String resourcePath;
 
     /**
      * 是否成功：1成功，0失败
@@ -91,4 +104,16 @@ public class AiSkillLogEntity extends BaseEntity {
      */
     @TableField("error_message")
     private String errorMessage;
+
+    /**
+     * 技能使用开始时间
+     */
+    @TableField("started_at")
+    private LocalDateTime startedAt;
+
+    /**
+     * 技能使用耗时，单位毫秒
+     */
+    @TableField("duration_ms")
+    private Long durationMs;
 }

@@ -15,6 +15,7 @@ import com.zw.agent.factory.stateStoreFactory.StateStoreFactory;
 import com.zw.agent.factory.subAgentFactory.SubAgentFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
+import com.zw.agent.runtime.skill.SkillUsageLogMiddlewareFactory;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
 import com.zw.agent.service.AiAgentService;
 import com.zw.agent.service.AiAgentStateLogService;
@@ -77,6 +78,7 @@ public class AgentRuntimeFactory {
     private final SkillFactory mysqlSkillFactory;
     private final AiAgentService agentService;
     private final StateStoreFactory stateStoreFactory;
+    private final SkillUsageLogMiddlewareFactory skillUsageLogMiddlewareFactory;
 
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
@@ -109,6 +111,7 @@ public class AgentRuntimeFactory {
                     .sysPrompt(config.getSysPrompt())
                     .model(chatModelBase)
                     .toolkit(toolkit)
+                    .middleware(skillUsageLogMiddlewareFactory.create(config))
                     .permissionContext(permissionContextState)
                     .maxIters(config.getMaxIters())
                     .stateStore(stateStore)
@@ -487,6 +490,7 @@ public class AgentRuntimeFactory {
                 .sysPrompt(childConfig.getSysPrompt())
                 .model(childModel)
                 .toolkit(childToolkit)
+                .middleware(skillUsageLogMiddlewareFactory.create(childConfig))
                 .permissionContext(permissionContextState)
                 .permissionContext(PermissionContextState.builder()
                         .mode(PermissionMode.DONT_ASK)

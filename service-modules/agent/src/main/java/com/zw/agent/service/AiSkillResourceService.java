@@ -1,20 +1,21 @@
 package com.zw.agent.service;
 
-import com.zw.agent.entity.AiSkillResourceEntity;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zw.agent.entity.AiSkillResourceEntity;
 import com.zw.agent.entity.DTO.AiSkillResourceSaveRequest;
+import java.util.List;
 
-/**
- * <p>
- * Skill附属文件表：保存Skill目录下的SKILL.md、references、scripts和样例资源 服务类
- * </p>
- *
- * @author 智伟
- * @since 2026-07-16
- */
 public interface AiSkillResourceService extends IService<AiSkillResourceEntity> {
+
+    List<AiSkillResourceEntity> listBySkill(Long skillId);
+
+    String getContent(Long id);
 
     AiSkillResourceEntity createResource(AiSkillResourceSaveRequest request);
 
     AiSkillResourceEntity updateResource(AiSkillResourceSaveRequest request);
+
+    boolean deleteResource(Long id);
+
+    int deleteFolder(Long skillId, String folderPath);
 }

@@ -1,61 +1,32 @@
 package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zw.agent.entity.AiSkillLogEntity;
-import com.zw.agent.service.AiSkillLogService;
+import com.zw.agent.entity.DTO.SkillUseLogResponse;
+import com.zw.agent.service.SkillManagementService;
 import com.zw.common.entity.Result;
-import com.zw.common.support.EntityDefaults;
-import lombok.AllArgsConstructor;
-import org.springframework.web.bind.annotation.*;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-/**
- * <p>
- * Skill使用日志表：记录Agent读取、加载、执行Skill的行为 前端控制器
- * </p>
- *
- * @author 智伟
- * @since 2026-07-16
- */
 @RestController
 @RequestMapping("/skillLog")
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class AiSkillLogController {
 
-    private final AiSkillLogService aiSkillLogService;
-
-    @GetMapping("/list")
-    public Result<List<AiSkillLogEntity>> list() {
-        return Result.ok(aiSkillLogService.list());
-    }
+    private final SkillManagementService managementService;
 
     @GetMapping("/page")
-    public Result<IPage<AiSkillLogEntity>> page(
+    public Result<IPage<SkillUseLogResponse>> page(
             @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "10") long size
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long skillId,
+            @RequestParam(required = false) Byte success,
+            @RequestParam(required = false) String operation
     ) {
-        return Result.ok(aiSkillLogService.page(new Page<>(current, size)));
+        return Result.ok(managementService.pageLogs(
+                current, size, skillId, success, operation
+        ));
     }
-
-    @GetMapping("/{id}")
-    public Result<AiSkillLogEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiSkillLogService.getById(id));
-    }
-
-    @PostMapping("/create")
-    public Result<Boolean> create(@RequestBody AiSkillLogEntity entity) {
-        return Result.ok(aiSkillLogService.save(EntityDefaults.create(entity)));
-    }
-
-    @PostMapping("/update")
-    public Result<Boolean> update(@RequestBody AiSkillLogEntity entity) {
-        return Result.ok(aiSkillLogService.updateById(EntityDefaults.update(entity)));
-    }
-
-    @GetMapping("/delete/{id}")
-    public Result<Boolean> delete(@PathVariable Long id) {
-        return Result.ok(aiSkillLogService.removeById(id));
-    }
-
 }

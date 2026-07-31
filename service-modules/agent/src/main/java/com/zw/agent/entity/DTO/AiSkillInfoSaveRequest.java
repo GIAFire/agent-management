@@ -23,25 +23,13 @@ public class AiSkillInfoSaveRequest {
 
     private String source;
 
-    private String metadataJson;
-
     private String riskLevel;
 
-    private String tagsJson;
+    private List<String> tags;
 
     private Byte status;
 
     private String category;
 
-    private Byte requiresShell;
-
-    private Byte requiresSandbox;
-
-    private String scopeType;
-
-    private String scopeValue;
-
     private List<String> roleCodes;
-
-    private List<String> roleIds;
 }

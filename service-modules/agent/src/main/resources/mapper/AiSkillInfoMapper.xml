@@ -38,50 +38,76 @@
         </collection>
     </resultMap>
 
-    <select id="getAgentSkill" resultMap="SkillFileMap" parameterType="String">
+    <sql id="RuntimeSkillColumns">
         SELECT
             si.id,
-            si.NAME,
+            si.source AS name,
             si.description,
             si.skill_content,
-            si.source,
+            'mysql' AS source,
+            si.metadata_json,
+            si.risk_level,
+            si.tags_json,
+            si.status,
             sf.id file_id,
             sf.skill_id skill_id,
             sf.file_role,
             sf.file_name,
             sf.resource_path,
             sf.resource_content
+    </sql>
+
+    <sql id="RuntimeSkillJoins">
         FROM
             ai_skill_info si
-                LEFT JOIN ai_skill_resource sf ON si.id = sf.skill_id
-                LEFT JOIN ai_skill_agent_binding sab ON sab.skill_id = si.id
+                INNER JOIN ai_skill_agent_binding sab
+                    ON sab.skill_id = si.id
+                    AND sab.agent_id = #{agentId}
+                    AND sab.agent_config_id = #{agentConfigId}
+                    AND sab.tenant_id = #{tenantId}
+                    AND sab.deleted = 0
+                LEFT JOIN ai_skill_resource sf
+                    ON sf.skill_id = si.id
+                    AND sf.tenant_id = #{tenantId}
+                    AND sf.deleted = 0
+    </sql>
+
+    <sql id="RuntimeSkillFilters">
+            si.tenant_id = #{tenantId}
+            AND si.status = 1
+            AND si.deleted = 0
+            AND EXISTS (
+                SELECT 1
+                FROM ai_skill_role sr
+                WHERE sr.skill_info_id = si.id
+                  AND sr.tenant_id = #{tenantId}
+                  AND sr.deleted = 0
+                  AND (
+                      sr.role_code = '0'
+                      <if test="roleCodes != null and roleCodes.size() > 0">
+                          OR sr.role_code IN
+                          <foreach collection="roleCodes" item="roleCode" open="(" separator="," close=")">
+                              #{roleCode}
+                          </foreach>
+                      </if>
+                  )
+            )
+    </sql>
+
+    <select id="getAgentSkill" resultMap="SkillFileMap">
+        <include refid="RuntimeSkillColumns"/>
+        <include refid="RuntimeSkillJoins"/>
         WHERE
-            si.NAME = #{name}
-            AND sab.agent_id = #{agentId}
-            AND si.tenant_id = #{tenantId}
+            <include refid="RuntimeSkillFilters"/>
+            AND LOWER(si.source) = LOWER(#{skillCode})
     </select>
 
     <select id="getAgentSkillName" resultMap="SkillFileMap">
-        SELECT
-            si.id,
-            si.NAME,
-            si.description,
-            si.skill_content,
-            si.source,
-            sf.id file_id,
-            sf.skill_id skill_id,
-            sf.file_role,
-            sf.file_name,
-            sf.resource_path,
-            sf.resource_content
-        FROM
-            ai_skill_info si
-                LEFT JOIN ai_skill_resource sf ON si.id = sf.skill_id
-                LEFT JOIN ai_skill_agent_binding sab ON sab.skill_id = si.id
+        <include refid="RuntimeSkillColumns"/>
+        <include refid="RuntimeSkillJoins"/>
         WHERE
-            sab.agent_id = #{agentId}
-            AND si.tenant_id = #{tenantId}
-            AND si.status = 1
+            <include refid="RuntimeSkillFilters"/>
+        ORDER BY si.name ASC, si.id ASC, sf.resource_path ASC
     </select>
 
 </mapper>

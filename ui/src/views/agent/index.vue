@@ -31,6 +31,7 @@ import {
   Tools
 } from '@element-plus/icons-vue'
 import { createAgentFull, deleteAgent, getAgent, getAgentInfoList, updateAgent } from '@/axios/agent'
+import { listSkills } from '@/axios/skill'
 import {
   listWizardKnowledgeBases,
   listWizardModels,
@@ -69,36 +70,7 @@ const toolRows = ref([])
 const knowledgeRows = ref([])
 const subagentRows = ref([])
 
-const skillRows = ref([
-  {
-    id: 'sql-analysis',
-    skillName: 'SQL 数据分析',
-    skillKey: '/sql-analysis',
-    description: '查询业务数据并生成分析结论',
-    enabled: true
-  },
-  {
-    id: 'report-generator',
-    skillName: '数据报告生成',
-    skillKey: '/report-generator',
-    description: '将分析结果整理为结构化报告',
-    enabled: true
-  },
-  {
-    id: 'document-summary',
-    skillName: '文档总结',
-    skillKey: '/document-summary',
-    description: '提取文档重点并形成摘要',
-    enabled: true
-  },
-  {
-    id: 'git-analysis',
-    skillName: 'Git 仓库分析',
-    skillKey: '/git-analysis',
-    description: '分析代码结构、提交记录和变更',
-    enabled: true
-  }
-])
+const skillRows = ref([])
 
 const mcpRows = ref([
   {
@@ -412,7 +384,7 @@ const getSkillKey = (skill) => skill?.skillKey || skill?.route || skill?.version
 
 const getSkillDesc = (skill) => skill?.description || skill?.scene || '暂无技能说明'
 
-const isSkillEnabled = (skill) => skill?.enabled !== false && skill?.status !== '停用'
+const isSkillEnabled = (skill) => skill?.enabled !== false && Number(skill?.status ?? 1) === 1
 
 const getSubagentTitle = (subagent) => subagent?.subagentName || subagent?.subagentKey || `子智能体 #${subagent?.id}`
 
@@ -639,6 +611,16 @@ const loadSubagents = async () => {
   }
 }
 
+const loadSkills = async () => {
+  wizardLoading.value = true
+  try {
+    const skills = await listSkills()
+    skillRows.value = Array.isArray(skills) ? skills : []
+  } finally {
+    wizardLoading.value = false
+  }
+}
+
 const loadKnowledgeBases = async () => {
   wizardLoading.value = true
   try {
@@ -654,8 +636,7 @@ const ensureStepData = async (step) => {
     await loadModelAndPrompts()
   }
   if (step === 3) {
-    await loadTools()
-    await loadSubagents()
+    await Promise.all([loadTools(), loadSkills(), loadSubagents()])
   }
   if (step === 4) {
     await loadKnowledgeBases()
@@ -728,7 +709,6 @@ const buildCreateAgentPayload = () => ({
   ...buildAgentPayload(),
   agentDescription: form.description,
   agentStatus: form.status,
-  tenantId: 1,
   versionNo: configForm.versionNo,
   sysPromptId: normalizeId(configForm.sysPromptId),
   sysPrompt: configForm.sysPrompt,
@@ -765,6 +745,7 @@ const buildCreateAgentPayload = () => ({
   sandboxEnabled: toSwitchValue(configForm.sandboxEnabled),
   sandboxConfigId: normalizeId(configForm.sandboxConfigId),
   selectedToolIds: selections.toolIds.map(normalizeId).filter(Boolean),
+  selectedSkillIds: selections.skillIds.map(normalizeId).filter(Boolean),
   selectedKnowledgeBaseIds: selections.knowledgeBaseIds.map(normalizeId).filter(Boolean),
   selectedSubagentIds: selections.subagentIds.map(normalizeId).filter(Boolean)
 })

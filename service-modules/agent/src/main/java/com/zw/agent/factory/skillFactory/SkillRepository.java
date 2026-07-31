@@ -3,17 +3,12 @@ package com.zw.agent.factory.skillFactory;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.zw.agent.entity.DTO.FileDTO;
 import com.zw.agent.entity.DTO.SkillFileDTO;
-import com.zw.agent.service.AiSkillResourceService;
 import com.zw.agent.service.AiSkillInfoService;
-import com.zw.common.context.UserInfo;
 import io.agentscope.core.skill.AgentSkill;
 import io.agentscope.core.skill.repository.AgentSkillRepository;
 import io.agentscope.core.skill.repository.AgentSkillRepositoryInfo;
 import io.agentscope.core.util.JsonUtils;
-import lombok.Data;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
 import java.io.IOException;
@@ -33,26 +28,32 @@ public class SkillRepository implements AgentSkillRepository {
     private static final String SKILL_MD_PATH = "SKILL.md";
 
     private final Long agentId;
+    private final Long agentConfigId;
     private final Long tenantId;
+    private final List<String> roleCodes;
     private final AiSkillInfoService skillInfoService;
-    private final AiSkillResourceService skillResourceService;
 
     public SkillRepository(
             Long agentId,
+            Long agentConfigId,
             Long tenantId,
-            AiSkillInfoService skillInfoService,
-            AiSkillResourceService skillResourceService) {
+            Collection<String> roleCodes,
+            AiSkillInfoService skillInfoService) {
         this.agentId = Objects.requireNonNull(agentId);
+        this.agentConfigId = Objects.requireNonNull(agentConfigId);
         this.tenantId = Objects.requireNonNull(tenantId);
+        this.roleCodes = roleCodes == null ? List.of() : List.copyOf(roleCodes);
         this.skillInfoService = Objects.requireNonNull(skillInfoService);
-        this.skillResourceService = Objects.requireNonNull(skillResourceService);
     }
 
 
 
     @Override
     public AgentSkill getSkill(String name) {
-        SkillFileDTO skillInfo = skillInfoService.getAgentSkill(name,agentId,tenantId);
+        String skillCode = normalizeRuntimeSkillId(name);
+        SkillFileDTO skillInfo = skillInfoService.getAgentSkill(
+                skillCode, agentId, agentConfigId, tenantId, roleCodes
+        );
         if (skillInfo == null) {
             throw new IllegalArgumentException("Skill not found: " + name);
         }
@@ -69,14 +70,16 @@ public class SkillRepository implements AgentSkillRepository {
 
     @Override
     public List<String> getAllSkillNames() {
-        List<String> skillNames = new ArrayList<>();
-        skillInfoService.list().forEach(skillInfo -> skillNames.add(skillInfo.getName()));
-        return null;
+        return getRuntimeSkillFiles().stream()
+                .map(SkillFileDTO::getName)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
     }
 
     @Override
     public List<AgentSkill> getAllSkills() {
-        List<SkillFileDTO> skillInfo = skillInfoService.getAgentSkillName(agentId,tenantId);
+        List<SkillFileDTO> skillInfo = getRuntimeSkillFiles();
         Map<Long, LoadedSkillRecord> skillRecords = new HashMap<>();
         for (SkillFileDTO skill : skillInfo){
             LoadedSkillRecord loadedSkillRecord = skillRecords.computeIfAbsent(
@@ -120,7 +123,8 @@ public class SkillRepository implements AgentSkillRepository {
 
     @Override
     public boolean skillExists(String skillName) {
-        return false;
+        return getAllSkillNames().stream()
+                .anyMatch(name -> name.equalsIgnoreCase(normalizeRuntimeSkillId(skillName)));
     }
 
     @Override
@@ -240,6 +244,23 @@ public class SkillRepository implements AgentSkillRepository {
 
     private String resolveSource(String source) {
         return StringUtils.hasText(source) ? source.trim() : REPOSITORY_SOURCE;
+    }
+
+    private List<SkillFileDTO> getRuntimeSkillFiles() {
+        return skillInfoService.getAgentSkillNames(
+                agentId, agentConfigId, tenantId, roleCodes
+        );
+    }
+
+    private String normalizeRuntimeSkillId(String value) {
+        if (!StringUtils.hasText(value)) {
+            return value;
+        }
+        String normalized = value.trim();
+        String suffix = "_" + REPOSITORY_SOURCE;
+        return normalized.endsWith(suffix)
+                ? normalized.substring(0, normalized.length() - suffix.length())
+                : normalized;
     }
 
 }
