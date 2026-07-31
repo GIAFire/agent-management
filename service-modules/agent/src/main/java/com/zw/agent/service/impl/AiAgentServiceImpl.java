@@ -13,7 +13,6 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.context.UserInfo;
 import com.zw.common.context.UserContext;
 import com.zw.common.support.EntityDefaults;
-import com.zw.common.utils.AESUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +38,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
 
     private final AiAgentMapper aiAgentMapper;
     private final AiAgentConfigMapper agentConfigMapper;
+    private final AiAgentModelMapper agentModelMapper;
     private final AiKnowledgeAgentBindingMapper knowledgeAgentBindingMapper;
     private final AiKnowledgeBaseMapper knowledgeBaseMapper;
     private final AiSubagentAgentBindingMapper subagentAgentBindingMapper;
@@ -73,12 +73,10 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
         if (agentConfig == null) {
             throw new AgentConfigException("未找到当前会话绑定的智能体配置");
         }
-
-        try {
-            String decrypt = AESUtil.decrypt(agentConfig.getApiKey());
-            agentConfig.setApiKey(decrypt);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        if (agentConfig.getProtocol() == null
+                || !Integer.valueOf(1).equals(agentConfig.getModelStatus())
+                || !Integer.valueOf(0).equals(agentConfig.getModelDeleted())) {
+            throw new AgentConfigException("当前智能体绑定的模型配置已停用、删除或不可用");
         }
 
         return agentConfig;
@@ -115,6 +113,7 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
         if (currentUser == null || currentUser.getTenantId() == null) {
             throw new AgentConfigException("Authenticated tenant context is required");
         }
+        requireEnabledModel(agentVO.getModelId(), currentUser.getTenantId());
         agent.setTenantId(currentUser.getTenantId());
         aiAgentMapper.insert(EntityDefaults.create(agent));
 
@@ -166,6 +165,58 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
                 config.getId(),
                 agent.getTenantId()
         );
+        return true;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public Boolean updateAgent(AgentConfigDTO agentVO) {
+        if (agentVO == null || agentVO.getAgentId() == null) {
+            throw new IllegalArgumentException("agentId must not be null");
+        }
+        UserInfo currentUser = UserContext.get();
+        if (currentUser == null || currentUser.getTenantId() == null) {
+            throw new AgentConfigException("Authenticated tenant context is required");
+        }
+        requireEnabledModel(agentVO.getModelId(), currentUser.getTenantId());
+        AiAgentEntity stored = aiAgentMapper.selectOne(
+                new LambdaQueryWrapper<AiAgentEntity>()
+                        .eq(AiAgentEntity::getTenantId, currentUser.getTenantId())
+                        .eq(AiAgentEntity::getId, agentVO.getAgentId())
+        );
+        if (stored == null) {
+            throw new AgentConfigException("Agent does not exist in the current tenant");
+        }
+        if (hasText(agentVO.getAgentCode())) {
+            stored.setAgentCode(agentVO.getAgentCode());
+        }
+        if (hasText(agentVO.getAgentName())) {
+            stored.setAgentName(agentVO.getAgentName());
+        }
+        if (agentVO.getAgentDescription() != null) {
+            stored.setDescription(agentVO.getAgentDescription());
+        }
+        if (hasText(agentVO.getAgentType())) {
+            stored.setAgentType(agentVO.getAgentType());
+        }
+        if (agentVO.getAgentStatus() != null) {
+            stored.setStatus(agentVO.getAgentStatus());
+        }
+        aiAgentMapper.updateById(EntityDefaults.update(stored));
+
+        AiAgentConfigEntity config = agentConfigMapper.selectOne(
+                new LambdaQueryWrapper<AiAgentConfigEntity>()
+                        .eq(AiAgentConfigEntity::getTenantId, currentUser.getTenantId())
+                        .eq(AiAgentConfigEntity::getAgentId, stored.getId())
+                        .orderByDesc(AiAgentConfigEntity::getCreatedAt)
+                        .orderByDesc(AiAgentConfigEntity::getId)
+                        .last("LIMIT 1")
+        );
+        if (config == null) {
+            throw new AgentConfigException("Agent configuration does not exist");
+        }
+        config.setModelId(agentVO.getModelId());
+        agentConfigMapper.updateById(EntityDefaults.update(config));
         return true;
     }
 
@@ -266,6 +317,24 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
             AgentToolBinding.add(EntityDefaults.create(binding));
         }
         agentToolMapper.insert(AgentToolBinding);
+    }
+
+    private AiAgentModelEntity requireEnabledModel(Long modelId, Long tenantId) {
+        if (modelId == null) {
+            throw new AgentConfigException("Please select an enabled model configuration");
+        }
+        AiAgentModelEntity model = agentModelMapper.selectOne(
+                new LambdaQueryWrapper<AiAgentModelEntity>()
+                        .eq(AiAgentModelEntity::getTenantId, tenantId)
+                        .eq(AiAgentModelEntity::getId, modelId)
+                        .eq(AiAgentModelEntity::getStatus, 1)
+        );
+        if (model == null) {
+            throw new AgentConfigException(
+                    "The selected model configuration is unavailable; select an enabled model"
+            );
+        }
+        return model;
     }
 
     private void createSkillBindings(

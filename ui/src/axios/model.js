@@ -1,27 +1,28 @@
-import { get, post, stringifyId } from '@/axios/request'
+import { del, get, post, request, stringifyId } from '@/axios/request'
 
-const baseUrl = '/agent'
+const baseUrl = '/agent/modelConfig'
 
-export const listModelConfig = () => {
-  return get(`${baseUrl}/modelConfig/list`)
-}
+export const getModelMetrics = () => get(`${baseUrl}/metrics`)
 
-export const pageModelConfig = (params) => {
-  return get(`${baseUrl}/modelConfig/page`, params)
-}
+export const getModelAnalytics = (days = 7) => get(`${baseUrl}/analytics`, { days })
 
-export const getModelConfig = (id) => {
-  return get(`${baseUrl}/modelConfig/${stringifyId(id)}`)
-}
+export const listModelConfig = () => get(`${baseUrl}/list`)
 
-export const addModelConfig = (data) => {
-  return post(`${baseUrl}/modelConfig/create`, data)
-}
+export const pageModelConfig = (params) => get(`${baseUrl}/page`, params)
 
-export const updateModelConfig = (data) => {
-  return post(`${baseUrl}/modelConfig/update`, data)
-}
+export const getModelConfig = (id) => get(`${baseUrl}/${stringifyId(id)}`)
 
-export const deleteModelConfig = (id) => {
-  return get(`${baseUrl}/modelConfig/delete/${stringifyId(id)}`)
-}
+export const addModelConfig = (data) => post(`${baseUrl}/create`, data)
+
+export const updateModelConfig = (data) => post(`${baseUrl}/update`, data)
+
+export const deleteModelConfig = (id) => del(`${baseUrl}/${stringifyId(id)}`)
+
+export const testModelConfig = (data) => request({
+  url: `${baseUrl}/test`,
+  method: 'post',
+  data,
+  timeout: 620000
+})
+
+export const pageModelCallLogs = (params) => get(`${baseUrl}/logs/page`, params)

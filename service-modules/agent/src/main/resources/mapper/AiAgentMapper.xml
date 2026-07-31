@@ -55,20 +55,23 @@
 
         <!-- ModelConfig 字段映射 -->
         <result property="modelId" column="model_id"/>
-        <result property="provider" column="provider"/>
+        <result property="modelConfigName" column="model_config_name"/>
+        <result property="providerName" column="provider_name"/>
+        <result property="protocol" column="protocol"/>
         <result property="baseUrl" column="base_url"/>
         <result property="apiKey" column="api_key"/>
         <result property="modelName" column="model_name"/>
-        <result property="modelType" column="model_type"/>
         <result property="streaming" column="streaming"/>
         <result property="thinking" column="thinking"/>
         <result property="thinkingBudget" column="thinking_budget"/>
         <result property="temperature" column="temperature"/>
         <result property="topP" column="top_p"/>
         <result property="maxTokens" column="max_tokens"/>
+        <result property="timeoutMs" column="timeout_ms"/>
         <result property="maxAttempts" column="max_attempts"/>
         <result property="fallbackModelConfigId" column="fallback_model_config_id"/>
         <result property="modelStatus" column="model_status"/>
+        <result property="modelDeleted" column="model_deleted"/>
 
         <result property="promptName" column="prompt_name"/>
         <result property="sysPrompt" column="sys_prompt"/>
@@ -118,21 +121,23 @@
             ac.sandbox_enabled AS sandboxEnabled,
             ac.sandbox_config_id AS sandboxConfigId,
             ac.state_store_type AS stateStoreType,
-            model.id AS modelId,
-            model.provider AS provider,
+            model.config_name AS modelConfigName,
+            model.provider_name AS providerName,
+            model.protocol AS protocol,
             model.base_URL AS baseUrl,
             model.api_key AS apiKey,
             model.model_name AS modelName,
-            model.model_type AS modelType,
             model.streaming AS streaming,
             model.thinking AS thinking,
             model.thinking_budget AS thinkingBudget,
             model.temperature AS temperature,
             model.top_p AS topP,
             model.max_tokens AS maxTokens,
+            model.timeout_ms AS timeoutMs,
             model.max_attempts AS maxAttempts,
             model.fallback_model_config_id AS fallbackModelConfigId,
             model.STATUS AS modelStatus,
+            model.deleted AS modelDeleted,
             sp.prompt_name promptName,
             sp.sys_prompt sysPrompt
         FROM
@@ -195,21 +200,22 @@
             ac.sandbox_enabled AS sandboxEnabled,
             ac.sandbox_config_id AS sandboxConfigId,
             ac.state_store_type AS stateStoreType,
-            model.id AS modelId,
-            model.provider AS provider,
+            model.config_name AS modelConfigName,
+            model.provider_name AS providerName,
+            model.protocol AS protocol,
             model.base_URL AS baseUrl,
-            model.api_key AS apiKey,
             model.model_name AS modelName,
-            model.model_type AS modelType,
             model.streaming AS streaming,
             model.thinking AS thinking,
             model.thinking_budget AS thinkingBudget,
             model.temperature AS temperature,
             model.top_p AS topP,
             model.max_tokens AS maxTokens,
+            model.timeout_ms AS timeoutMs,
             model.max_attempts AS maxAttempts,
             model.fallback_model_config_id AS fallbackModelConfigId,
             model.STATUS AS modelStatus,
+            model.deleted AS modelDeleted,
             sp.prompt_name promptName,
             sp.sys_prompt sysPrompt
         FROM

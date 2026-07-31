@@ -1,6 +1,6 @@
 package com.zw.agent.entity.DTO;
 
-import com.zw.agent.constant.enumeration.ModelType;
+import com.zw.agent.constant.enumeration.ModelProtocol;
 import com.zw.agent.constant.enumeration.StateStoreType;
 import lombok.Data;
 
@@ -61,11 +61,12 @@ public class AgentConfigDTO {
     private Long sandboxConfigId;
 
     private Long modelId;
-    private ModelType provider;
+    private String modelConfigName;
+    private String providerName;
+    private ModelProtocol protocol;
     private String baseUrl;
     private String apiKey;
     private String modelName;
-    private String modelType;
     private Boolean streaming;
     private Boolean thinking;
     private Integer thinkingBudget;
@@ -76,6 +77,7 @@ public class AgentConfigDTO {
     private Integer maxAttempts;
     private Long fallbackModelConfigId;
     private Integer modelStatus;
+    private Integer modelDeleted;
 
     private String promptName;
     private String sysPrompt;

@@ -1,6 +1,7 @@
 package com.zw.agent.service.impl;
 
 import com.zw.agent.entity.AiHttpHeaderEntity;
+import com.zw.agent.constant.enumeration.HeaderSourceType;
 import com.zw.agent.mapper.AiHttpHeaderMapper;
 import com.zw.agent.service.AiHttpHeaderService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -24,7 +25,11 @@ public class AiHttpHeaderServiceImpl extends ServiceImpl<AiHttpHeaderMapper, AiH
     private final AiHttpHeaderMapper aiHttpHeaderMapper;
 
     @Override
-    public List<AiHttpHeaderEntity> getHeaderlist(Long sourceId, Long tenantId) {
-        return aiHttpHeaderMapper.getHeaderlist(sourceId, tenantId);
+    public List<AiHttpHeaderEntity> getHeaderList(
+            Long sourceId,
+            Long tenantId,
+            HeaderSourceType source
+    ) {
+        return aiHttpHeaderMapper.getHeaderList(sourceId, tenantId, source);
     }
 }

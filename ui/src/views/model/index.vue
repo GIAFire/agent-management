@@ -1,1589 +1,1361 @@
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  Box,
-  CircleCheck,
-  DataLine,
+  Connection,
   Delete,
   Edit,
-  MoreFilled,
-  OfficeBuilding,
+  Hide,
+  Key,
   Plus,
   Refresh,
   Search,
-  User,
+  Setting,
+  TrendCharts,
+  View,
   Warning
 } from '@element-plus/icons-vue'
-import ApiKeyCrypto from '@/utils/encryption'
 import {
   addModelConfig,
   deleteModelConfig,
+  getModelAnalytics,
   getModelConfig,
-  listModelConfig,
+  getModelMetrics,
+  pageModelCallLogs,
+  pageModelConfig,
+  testModelConfig,
   updateModelConfig
 } from '@/axios/model'
 
 const loading = ref(false)
 const submitting = ref(false)
-const dialogVisible = ref(false)
-const providerDialogVisible = ref(false)
-const dialogTitle = ref('新建模型')
+const testing = ref(false)
+const drawerVisible = ref(false)
+const logVisible = ref(false)
+const showApiKey = ref(false)
 const formRef = ref()
-const page = ref(1)
-const pageSize = ref(6)
-const modelRows = ref([])
-const activeType = ref('all')
+const rows = ref([])
+const total = ref(0)
+const metricsData = ref({})
+const analytics = ref({ trend: [], providerDistribution: [] })
+const trendDays = ref(7)
 
-const queryParams = reactive({
+const query = reactive({
+  current: 1,
+  size: 6,
   keyword: '',
   provider: '',
+  protocol: '',
   status: ''
 })
 
-const form = reactive({
+const createForm = () => ({
   id: null,
-  credentialId: null,
-  agentId: null,
-  apiKey: '',
+  configName: '',
+  providerName: '',
+  protocol: 'openaiCompatible',
   baseURL: '',
-  provider: '',
+  apiKey: '',
+  removeApiKey: false,
   description: '',
   modelName: '',
-  modelType: [],
   streaming: 1,
   thinking: 0,
   temperature: 0.7,
-  topP: 0.8,
-  maxTokens: 2048,
+  topP: 1,
+  maxTokens: 4096,
   timeoutMs: 60000,
-  maxAttempts: 3,
-  fallbackModelConfigId: null,
-  status: 1
+  thinkingBudget: null,
+  maxAttempts: 1,
+  status: 1,
+  headers: []
 })
+
+const form = reactive(createForm())
+
+const logs = reactive({
+  loading: false,
+  model: null,
+  records: [],
+  total: 0,
+  current: 1,
+  size: 10,
+  callSource: '',
+  status: ''
+})
+
+const protocols = [
+  { value: 'openaiCompatible', label: 'OpenAI 兼容协议' },
+  { value: 'dashscope', label: 'DashScope' },
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'ollama', label: 'Ollama' }
+]
 
 const rules = {
-  apiKey: [{ required: true, message: '请输入 API Key', trigger: 'blur' }],
-  baseURL: [{ required: true, message: '请输入模型 URL 地址', trigger: 'blur' }],
-  provider: [{ required: true, message: '请选择供应商', trigger: 'change' }],
-  modelName: [{ required: true, message: '请输入真实模型名称', trigger: 'blur' }],
-  modelType: [{ type: 'array', required: true, message: '请选择模型类型', trigger: 'change' }],
-  status: [{ required: true, message: '请选择状态', trigger: 'change' }]
+  configName: [{ required: true, message: '请输入配置名称', trigger: 'blur' }],
+  providerName: [{ required: true, message: '请输入模型供应商', trigger: 'blur' }],
+  protocol: [{ required: true, message: '请选择接口协议', trigger: 'change' }],
+  baseURL: [
+    { required: true, message: '请输入 Base URL', trigger: 'blur' },
+    { type: 'url', message: '请输入合法的 HTTP/HTTPS 地址', trigger: 'blur' }
+  ],
+  modelName: [{ required: true, message: '请输入模型名称', trigger: 'blur' }],
+  maxTokens: [{ required: true, message: '请输入最大输出 Token', trigger: 'change' }],
+  timeoutMs: [{ required: true, message: '请输入超时时间', trigger: 'change' }],
+  maxAttempts: [{ required: true, message: '请输入最大尝试次数', trigger: 'change' }]
 }
 
-const demoModels = [
+const providerOptions = computed(() => (
+  (analytics.value.providerDistribution || []).map((item) => item.providerName)
+))
+
+const drawerTitle = computed(() => form.id ? '编辑模型配置' : '新建模型配置')
+
+const metricCards = computed(() => [
   {
-    id: 1,
-    provider: 'DeepSeek',
-    modelName: 'deepseek-chat',
-    displayName: 'DeepSeek V3',
-    modelType: 'CHAT',
-    maxTokens: 64000,
-    todayCalls: 4286,
-    status: 1,
-    baseURL: 'https://api.deepseek.com',
-    description: '高性价比中文对话模型'
+    label: '模型配置',
+    value: formatNumber(metricsData.value.total),
+    note: `已启用 ${formatNumber(metricsData.value.enabled)}`,
+    icon: Setting,
+    tone: 'blue'
   },
   {
-    id: 2,
-    provider: '阿里云百炼',
-    modelName: 'qwen-max',
-    displayName: '通义千问 Max',
-    modelType: 'CHAT',
-    maxTokens: 32000,
-    todayCalls: 3742,
-    status: 1,
-    baseURL: 'https://dashscope.aliyuncs.com',
-    description: '通用对话与复杂推理模型'
+    label: '今日调用',
+    value: formatNumber(metricsData.value.todayCalls),
+    note: changeText(metricsData.value.callChangePercent, '较昨日同期'),
+    icon: TrendCharts,
+    tone: 'violet'
   },
   {
-    id: 3,
-    provider: 'OpenAI',
-    modelName: 'gpt-4.1',
-    displayName: 'GPT-4.1',
-    modelType: 'REASONING',
-    maxTokens: 1000000,
-    todayCalls: 2156,
-    status: 1,
-    baseURL: 'https://api.openai.com/v1',
-    description: '复杂推理、代码与工具调用'
+    label: '调用成功率',
+    value: metricsData.value.successRate == null ? '--' : `${metricsData.value.successRate}%`,
+    note: `失败 ${formatNumber(metricsData.value.failedCalls)} 次`,
+    icon: Connection,
+    tone: 'green'
   },
   {
-    id: 4,
-    provider: 'Anthropic',
-    modelName: 'claude-3-7-sonnet',
-    displayName: 'Claude 3.7 Sonnet',
-    modelType: 'REASONING',
-    maxTokens: 200000,
-    todayCalls: 1208,
-    status: 0,
-    baseURL: 'https://api.anthropic.com',
-    description: '长文本理解和稳健推理'
-  },
-  {
-    id: 5,
-    provider: '本地模型',
-    modelName: 'bge-m3',
-    displayName: 'BGE-M3',
-    modelType: 'EMBEDDING',
-    maxTokens: 8192,
-    todayCalls: 936,
-    status: 1,
-    baseURL: 'http://localhost:11434',
-    description: '多语言向量嵌入模型'
+    label: '平均耗时',
+    value: metricsData.value.averageDurationMs == null
+      ? '--'
+      : formatDuration(metricsData.value.averageDurationMs),
+    note: durationChangeText(metricsData.value.averageDurationChangeMs),
+    icon: Warning,
+    tone: 'amber'
   }
-]
+])
 
-const typeTabs = [
-  { label: '全部模型', value: 'all' },
-  { label: '文本模型', value: 'CHAT' },
-  { label: '图像模型', value: 'IMAGE' },
-  { label: '音频模型', value: 'AUDIO' },
-  { label: '视频模型', value: 'VIDEO' }
-]
-
-const providerSelectOptions = [
-  { label: 'OPENAI', value: 'OPENAI' },
-  { label: 'DASH_SCOPE', value: 'DASH_SCOPE' },
-  { label: 'OLLAMA', value: 'OLLAMA' },
-  { label: 'ANTHROPIC', value: 'ANTHROPIC' }
-]
-
-const modelTypeOptions = [
-  { label: '文本模型', value: 'CHAT' },
-  { label: '图像模型', value: 'IMAGE' },
-  { label: '音频模型', value: 'AUDIO' },
-  { label: '视频模型', value: 'VIDEO' }
-]
-
-const rows = computed(() => {
-  const source = modelRows.value.length ? modelRows.value : demoModels
-  return source.map((row, index) => normalizeModel(row, index))
-})
-
-const filteredRows = computed(() => {
-  const keyword = queryParams.keyword.trim().toLowerCase()
-  return rows.value.filter((row) => {
-    const matchKeyword = !keyword || [row.displayName, row.provider, row.modelName, row.description]
-      .some((value) => String(value || '').toLowerCase().includes(keyword))
-    const matchProvider = !queryParams.provider || row.provider === queryParams.provider
-    const matchStatus = queryParams.status === '' || Number(row.status) === Number(queryParams.status)
-    const matchType = activeType.value === 'all' || modelTypeIncludes(row.modelType, activeType.value)
-    return matchKeyword && matchProvider && matchStatus && matchType
+const trendChart = computed(() => {
+  const values = (analytics.value.trend || []).map((item) => Number(item.calls || 0))
+  if (!values.length) {
+    return { points: '', area: '', max: 0 }
+  }
+  const width = 420
+  const height = 150
+  const paddingX = 14
+  const paddingY = 16
+  const max = Math.max(...values, 1)
+  const usableWidth = width - paddingX * 2
+  const usableHeight = height - paddingY * 2
+  const points = values.map((value, index) => {
+    const x = values.length === 1
+      ? width / 2
+      : paddingX + (index / (values.length - 1)) * usableWidth
+    const y = height - paddingY - (value / max) * usableHeight
+    return `${x.toFixed(1)},${y.toFixed(1)}`
   })
-})
-
-const pagedRows = computed(() => {
-  const start = (page.value - 1) * pageSize.value
-  return filteredRows.value.slice(start, start + pageSize.value)
-})
-
-const providerOptions = computed(() => {
-  return [...new Set(rows.value.map((row) => row.provider).filter(Boolean))]
-})
-
-const providerStats = computed(() => {
-  const total = rows.value.length || 1
-  const grouped = providerOptions.value.map((provider) => {
-    const count = rows.value.filter((row) => row.provider === provider).length
-    return {
-      provider,
-      count,
-      percent: Math.round((count / total) * 1000) / 10
-    }
-  }).sort((a, b) => b.count - a.count)
-
-  if (modelRows.value.length) {
-    return grouped
-  }
-  return [
-    { provider: '阿里云百炼', percent: 28.6 },
-    { provider: 'OpenAI', percent: 25.0 },
-    { provider: 'DeepSeek', percent: 17.9 },
-    { provider: 'Anthropic', percent: 14.3 },
-    { provider: '本地模型', percent: 10.7 },
-    { provider: '其他', percent: 3.6 }
-  ]
-})
-
-const metrics = computed(() => {
-  const total = rows.value.length
-  const enabled = rows.value.filter((row) => Number(row.status) === 1).length
-  const providers = providerOptions.value.length
-  const calls = rows.value.reduce((sum, row) => sum + row.todayCalls, 0)
-
-  return [
-    { label: '模型总数', value: total, sub: '较昨日 +2 ↑', icon: Box, tone: 'blue', positive: true },
-    { label: '已启用', value: enabled, sub: `启用率 ${total ? ((enabled / total) * 100).toFixed(1) : '0.0'}%`, icon: CircleCheck, tone: 'green' },
-    { label: '模型供应商', value: providers, sub: '较昨日 +0', icon: OfficeBuilding, tone: 'violet' },
-    { label: '今日调用', value: formatNumber(Math.max(calls, 12680)), sub: '较昨日 +8.6% ↑', icon: DataLine, tone: 'blue', positive: true }
-  ]
-})
-
-const normalizeModel = (row, index) => {
-  const provider = providerLabel(row.provider || row.providerName || 'Unknown')
-  const modelType = normalizeModelType(row.modelType || row.type || inferModelType(row.modelName))
-  const maxTokens = Number(row.maxTokens || row.contextWindow || [64000, 32000, 1000000, 200000, 8192][index % 5])
-
   return {
-    ...row,
-    id: row.id || index + 1,
-    provider,
-    displayName: row.displayName || row.alias || displayName(row.modelName, provider),
-    modelName: row.modelName || `model-${index + 1}`,
-    modelType,
-    maxTokens,
-    contextWindow: formatContext(maxTokens),
-    todayCalls: Number(row.todayCalls || row.callCount || [4286, 3742, 2156, 1208, 936][index % 5]),
-    status: Number(row.status ?? 1),
-    baseURL: row.baseURL || row.baseUrl || '',
-    description: row.description || modelTypeLabel(modelType)
+    points: points.join(' '),
+    area: `${paddingX},${height - paddingY} ${points.join(' ')} ${width - paddingX},${height - paddingY}`,
+    max
   }
-}
+})
 
-const providerLabel = (value) => {
-  const text = resolveProviderText(value)
-  const map = {
-    DASH_SCOPE: '阿里云百炼',
-    DASHSCOPE: '阿里云百炼',
-    QWEN: '阿里云百炼',
-    OPENAI: 'OpenAI',
-    DEEPSEEK: 'DeepSeek',
-    ANTHROPIC: 'Anthropic',
-    OLLAMA: 'Ollama',
-    LOCAL: '本地模型'
-  }
-  return map[text.toUpperCase()] || text
-}
+const trendLabels = computed(() => {
+  const data = analytics.value.trend || []
+  if (!data.length) return []
+  const indexes = [...new Set([0, Math.floor((data.length - 1) / 2), data.length - 1])]
+  return indexes.map((index) => ({
+    index,
+    text: String(data[index]?.date || '').slice(5)
+  }))
+})
 
-const resolveProviderText = (value) => {
-  if (value && typeof value === 'object') {
-    return String(value.name || value.code || value.value || value.desc || '')
-  }
-  return String(value || '')
-}
-
-const normalizeProvider = (value) => {
-  const text = resolveProviderText(value).trim()
-  const upper = text.toUpperCase()
-  const map = {
-    OPENAI: 'OPENAI',
-    DASH_SCOPE: 'DASH_SCOPE',
-    DASHSCOPE: 'DASH_SCOPE',
-    DASHSCOPE_ALIYUN: 'DASH_SCOPE',
-    QWEN: 'DASH_SCOPE',
-    '阿里云百炼': 'DASH_SCOPE',
-    '通义千问': 'DASH_SCOPE',
-    OLLAMA: 'OLLAMA',
-    LOCAL: 'OLLAMA',
-    '本地模型': 'OLLAMA',
-    ANTHROPIC: 'ANTHROPIC',
-    CLAUDE: 'ANTHROPIC'
-  }
-  return map[upper] || map[text] || ''
-}
-
-const displayName = (modelName = '', provider = '') => {
-  if (!modelName) {
-    return provider || '未命名模型'
-  }
-  const map = {
-    'deepseek-chat': 'DeepSeek V3',
-    'qwen-max': '通义千问 Max',
-    'gpt-4.1': 'GPT-4.1',
-    'claude-3-7-sonnet': 'Claude 3.7 Sonnet',
-    'bge-m3': 'BGE-M3'
-  }
-  return map[modelName] || modelName
-}
-
-const inferModelType = (modelName = '') => {
-  const text = String(modelName).toLowerCase()
-  if (text.includes('bge') || text.includes('embedding') || text.includes('embed')) {
-    return 'EMBEDDING'
-  }
-  if (text.includes('rerank')) {
-    return 'RERANK'
-  }
-  if (text.includes('reason') || text.includes('r1') || text.includes('o1')) {
-    return 'REASONING'
-  }
-  return 'CHAT'
-}
-
-const normalizeModelTypeValue = (value) => {
-  const text = String(value || '').trim()
-  const upper = text.toUpperCase()
-  const map = {
-    CHAT: 'CHAT',
-    TEXT: 'CHAT',
-    REASONING: 'CHAT',
-    EMBEDDING: 'CHAT',
-    RERANK: 'CHAT',
-    '文本模型': 'CHAT',
-    '对话模型': 'CHAT',
-    '推理模型': 'CHAT',
-    '嵌入模型': 'CHAT',
-    '重排序模型': 'CHAT',
-    IMAGE: 'IMAGE',
-    '图像模型': 'IMAGE',
-    AUDIO: 'AUDIO',
-    '音频模型': 'AUDIO',
-    VIDEO: 'VIDEO',
-    '视频模型': 'VIDEO'
-  }
-  return map[upper] || map[text] || ''
-}
-
-const normalizeModelTypes = (value, fallback = []) => {
-  const source = Array.isArray(value)
-    ? value
-    : String(value || '')
-      .split(/[,，、/\s|]+/)
-      .filter(Boolean)
-  const normalized = source.map(normalizeModelTypeValue).filter(Boolean)
-  return [...new Set(normalized.length ? normalized : fallback)]
-}
-
-const normalizeModelType = (value) => {
-  return normalizeModelTypes(value, ['CHAT']).join(',')
-}
-
-const modelTypeIncludes = (value, type) => {
-  return normalizeModelTypes(value).includes(type)
-}
-
-const modelTypeLabel = (type) => {
-  const map = {
-    CHAT: '文本模型',
-    IMAGE: '图像模型',
-    AUDIO: '音频模型',
-    VIDEO: '视频模型'
-  }
-  const types = normalizeModelTypes(type)
-  return types.length ? types.map((item) => map[item] || item).join('、') : type
-}
-
-const providerClass = (provider) => {
-  const text = String(provider || '').toLowerCase()
-  if (text.includes('openai')) return 'openai'
-  if (text.includes('deepseek')) return 'deepseek'
-  if (text.includes('阿里') || text.includes('qwen')) return 'qwen'
-  if (text.includes('anthropic') || text.includes('claude')) return 'claude'
-  if (text.includes('本地')) return 'local'
-  return 'other'
-}
-
-const providerMark = (provider) => {
-  const text = String(provider || '')
-  if (text.includes('DeepSeek')) return 'D'
-  if (text.includes('阿里')) return 'Q'
-  if (text.includes('OpenAI')) return 'O'
-  if (text.includes('Anthropic')) return 'AI'
-  if (text.includes('本地')) return 'L'
-  return text.charAt(0).toUpperCase() || 'M'
-}
-
-const formatContext = (value) => {
-  const number = Number(value || 0)
-  if (number >= 1000000) return `${Math.round(number / 1000000)}M`
-  if (number >= 1000) return `${Math.round(number / 1000)}K`
-  return String(number || '-')
-}
-
-const formatNumber = (value) => Number(value || 0).toLocaleString('en-US')
-
-const resetForm = () => {
-  Object.assign(form, {
-    id: null,
-    credentialId: null,
-    agentId: null,
-    apiKey: '',
-    baseURL: '',
-    provider: '',
-    description: '',
-    modelName: '',
-    modelType: [],
-    streaming: 1,
-    thinking: 0,
-    temperature: 0.7,
-    topP: 0.8,
-    maxTokens: 2048,
-    timeoutMs: 60000,
-    maxAttempts: 3,
-    fallbackModelConfigId: null,
-    status: 1
-  })
-}
-
-const normalizeNumber = (value) => {
-  return value === '' || value === undefined ? null : value
-}
-
-const normalizeId = (value) => {
-  return value === '' || value === undefined || value === null ? null : String(value).trim()
-}
-
-const loadModelList = async () => {
+const loadDashboard = async () => {
   loading.value = true
   try {
-    const data = await listModelConfig()
-    modelRows.value = Array.isArray(data) ? data : []
-  } catch {
-    modelRows.value = []
+    const [metricResult, analyticsResult, pageResult] = await Promise.all([
+      getModelMetrics(),
+      getModelAnalytics(trendDays.value),
+      pageModelConfig({
+        current: query.current,
+        size: query.size,
+        keyword: query.keyword || undefined,
+        provider: query.provider || undefined,
+        protocol: query.protocol || undefined,
+        status: query.status === '' ? undefined : query.status
+      })
+    ])
+    metricsData.value = metricResult || {}
+    analytics.value = analyticsResult || { trend: [], providerDistribution: [] }
+    rows.value = pageResult?.records || []
+    total.value = Number(pageResult?.total || 0)
   } finally {
     loading.value = false
   }
 }
 
-const handleQuery = () => {
-  page.value = 1
-}
-
-const handleAdd = async () => {
-  dialogTitle.value = '新建模型'
-  resetForm()
-  dialogVisible.value = true
-  await nextTick()
-  formRef.value?.clearValidate()
-}
-
-const handleEdit = async (row) => {
-  dialogTitle.value = '编辑模型'
-  resetForm()
-  const data = modelRows.value.length ? await getModelConfig(row.id) : row
-  Object.assign(form, {
-    id: data?.id,
-    credentialId: data?.credentialId ?? null,
-    agentId: data?.agentId ?? null,
-    apiKey: data?.apiKey || '',
-    baseURL: data?.baseURL || data?.baseUrl || '',
-    provider: normalizeProvider(data?.provider || ''),
-    description: data?.description || '',
-    modelName: data?.modelName || '',
-    modelType: normalizeModelTypes(data?.modelType || row.modelType),
-    streaming: Number(data?.streaming ?? 1),
-    thinking: Number(data?.thinking ?? 0),
-    temperature: Number(data?.temperature ?? 0.7),
-    topP: Number(data?.topP ?? 0.8),
-    maxTokens: data?.maxTokens ?? 2048,
-    timeoutMs: data?.timeoutMs ?? 60000,
-    maxAttempts: data?.maxAttempts ?? 3,
-    fallbackModelConfigId: data?.fallbackModelConfigId ?? null,
-    status: Number(data?.status ?? 1)
-  })
-  dialogVisible.value = true
-  await nextTick()
-  formRef.value?.clearValidate()
-}
-
-const buildPayload = async () => {
-  const encryptedKey = form.apiKey && !String(form.apiKey).includes('****')
-    ? await ApiKeyCrypto.encrypt(form.apiKey, ApiKeyCrypto.masterKeyB64key)
-    : form.apiKey
-  return {
-    id: normalizeId(form.id),
-    credentialId: normalizeId(form.credentialId),
-    agentId: normalizeId(form.agentId),
-    apiKey: encryptedKey,
-    baseURL: form.baseURL,
-    provider: form.provider,
-    description: form.description,
-    modelName: form.modelName,
-    modelType: normalizeModelTypes(form.modelType).join(','),
-    streaming: form.streaming,
-    thinking: form.thinking,
-    temperature: normalizeNumber(form.temperature),
-    topP: normalizeNumber(form.topP),
-    maxTokens: normalizeNumber(form.maxTokens),
-    timeoutMs: normalizeNumber(form.timeoutMs),
-    maxAttempts: normalizeNumber(form.maxAttempts),
-    fallbackModelConfigId: normalizeId(form.fallbackModelConfigId),
-    status: form.status
+const loadPage = async () => {
+  loading.value = true
+  try {
+    const result = await pageModelConfig({
+      current: query.current,
+      size: query.size,
+      keyword: query.keyword || undefined,
+      provider: query.provider || undefined,
+      protocol: query.protocol || undefined,
+      status: query.status === '' ? undefined : query.status
+    })
+    rows.value = result?.records || []
+    total.value = Number(result?.total || 0)
+  } finally {
+    loading.value = false
   }
 }
 
+const reloadAnalytics = async () => {
+  analytics.value = await getModelAnalytics(trendDays.value) || {
+    trend: [],
+    providerDistribution: []
+  }
+}
+
+const resetForm = () => {
+  Object.assign(form, createForm())
+  showApiKey.value = false
+}
+
+const openCreate = async () => {
+  resetForm()
+  drawerVisible.value = true
+  await nextTick()
+  formRef.value?.clearValidate()
+}
+
+const openEdit = async (row) => {
+  resetForm()
+  const detail = await getModelConfig(row.id)
+  Object.assign(form, {
+    ...createForm(),
+    ...detail,
+    id: detail?.id || row.id,
+    apiKey: detail?.apiKey || '',
+    headers: (detail?.headers || []).map((header) => ({
+      ...header,
+      remove: false,
+      visible: false
+    }))
+  })
+  drawerVisible.value = true
+  await nextTick()
+  formRef.value?.clearValidate()
+}
+
+const addHeader = () => {
+  form.headers.push({
+    id: null,
+    headerName: '',
+    headerValue: '',
+    remove: false,
+    visible: false
+  })
+}
+
+const removeHeader = (header, index) => {
+  if (header.id) {
+    header.remove = true
+    return
+  }
+  form.headers.splice(index, 1)
+}
+
+const restoreHeader = (header) => {
+  header.remove = false
+}
+
+const clearApiKey = () => {
+  form.apiKey = ''
+  form.removeApiKey = true
+}
+
+const buildPayload = () => ({
+  id: form.id,
+  configName: form.configName.trim(),
+  providerName: form.providerName.trim(),
+  protocol: form.protocol,
+  baseURL: form.baseURL.trim(),
+  apiKey: form.removeApiKey ? null : form.apiKey,
+  removeApiKey: form.removeApiKey,
+  description: form.description?.trim() || '',
+  modelName: form.modelName.trim(),
+  streaming: Number(form.streaming),
+  thinking: Number(form.thinking),
+  temperature: Number(form.temperature),
+  topP: Number(form.topP),
+  maxTokens: Number(form.maxTokens),
+  timeoutMs: Number(form.timeoutMs),
+  thinkingBudget: Number(form.thinking) === 1 && form.thinkingBudget
+    ? Number(form.thinkingBudget)
+    : null,
+  maxAttempts: Number(form.maxAttempts),
+  status: Number(form.status),
+  headers: form.headers.map(({ visible, ...header }) => header)
+})
+
 const submitForm = async () => {
-  await formRef.value.validate()
+  await formRef.value?.validate()
   submitting.value = true
   try {
-    const payload = await buildPayload()
     if (form.id) {
-      await updateModelConfig(payload)
-      ElMessage.success('模型配置更新成功')
+      await updateModelConfig(buildPayload())
+      ElMessage.success('模型配置已更新，后续调用立即生效')
     } else {
-      await addModelConfig(payload)
+      await addModelConfig(buildPayload())
       ElMessage.success('模型配置创建成功')
     }
-    dialogVisible.value = false
-    await loadModelList()
+    drawerVisible.value = false
+    await loadDashboard()
   } finally {
     submitting.value = false
   }
 }
 
-const handleDelete = async (row) => {
+const runTest = async (source) => {
+  let payload
+  if (source === 'form') {
+    await formRef.value?.validate()
+    payload = buildPayload()
+  } else {
+    payload = { id: source.id }
+  }
+  testing.value = true
   try {
-    await ElMessageBox.confirm(`确认删除模型「${row.displayName || row.modelName}」吗？`, '删除确认', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消'
-    })
+    const result = await testModelConfig(payload)
+    if (result?.success) {
+      ElMessage.success(`连接成功，耗时 ${formatDuration(result.durationMs)}`)
+    } else {
+      ElMessage.error(result?.errorMessage || '模型测试失败')
+    }
+    await loadDashboard()
+  } finally {
+    testing.value = false
+  }
+}
+
+const removeModel = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除模型配置“${row.configName}”吗？有关联记录时将保留历史调用快照。`,
+      '删除模型配置',
+      {
+        type: 'warning',
+        confirmButtonText: '确认删除',
+        cancelButtonText: '取消'
+      }
+    )
   } catch {
     return
   }
-
   await deleteModelConfig(row.id)
-  ElMessage.success('模型配置删除成功')
-  await loadModelList()
-}
-
-const handleTest = (row) => {
-  ElMessage.success(`${row.displayName} 测试请求已准备`)
-}
-
-watch(
-  () => [queryParams.keyword, queryParams.provider, queryParams.status, activeType.value, pageSize.value],
-  () => {
-    page.value = 1
+  ElMessage.success('模型配置已删除')
+  if (rows.value.length === 1 && query.current > 1) {
+    query.current -= 1
   }
+  await loadDashboard()
+}
+
+const openLogs = async (row) => {
+  logs.model = row
+  logs.current = 1
+  logs.callSource = ''
+  logs.status = ''
+  logVisible.value = true
+  await loadLogs()
+}
+
+const loadLogs = async () => {
+  if (!logs.model?.id) return
+  logs.loading = true
+  try {
+    const result = await pageModelCallLogs({
+      current: logs.current,
+      size: logs.size,
+      modelConfigId: logs.model.id,
+      callSource: logs.callSource || undefined,
+      status: logs.status || undefined
+    })
+    logs.records = result?.records || []
+    logs.total = Number(result?.total || 0)
+  } finally {
+    logs.loading = false
+  }
+}
+
+const search = () => {
+  query.current = 1
+  loadPage()
+}
+
+const resetQuery = () => {
+  Object.assign(query, {
+    current: 1,
+    keyword: '',
+    provider: '',
+    protocol: '',
+    status: ''
+  })
+  loadPage()
+}
+
+const protocolLabel = (value) => (
+  protocols.find((item) => item.value === value)?.label || value || '--'
 )
 
-onMounted(loadModelList)
+const formatNumber = (value) => Number(value || 0).toLocaleString('zh-CN')
+
+const formatDuration = (value) => {
+  const duration = Number(value || 0)
+  return duration >= 1000 ? `${(duration / 1000).toFixed(2)} s` : `${Math.round(duration)} ms`
+}
+
+const changeText = (value, prefix) => {
+  if (value == null) return `${prefix} --`
+  const number = Number(value)
+  return `${prefix} ${number > 0 ? '+' : ''}${number}%`
+}
+
+const durationChangeText = (value) => {
+  if (value == null) return '较昨日同期 --'
+  const number = Number(value)
+  if (number === 0) return '较昨日同期持平'
+  return `较昨日同期 ${number > 0 ? '增加' : '减少'} ${formatDuration(Math.abs(number))}`
+}
+
+const statusType = (status) => ({
+  SUCCESS: 'success',
+  FAILED: 'danger',
+  RUNNING: 'warning',
+  CANCELLED: 'info'
+}[status] || 'info')
+
+onMounted(loadDashboard)
 </script>
 
 <template>
-  <section v-loading="loading" class="model-console">
-    <div class="model-hero">
+  <section v-loading="loading" class="model-page">
+    <header class="page-hero">
       <div>
+        <span class="eyebrow">MODEL RUNTIME</span>
         <h2>模型管理</h2>
-        <p>统一管理大模型供应商、模型配置与调用状态。</p>
+        <p>集中维护文本模型连接、生成参数与调用状态。配置变更会应用于后续所有请求。</p>
       </div>
       <div class="hero-actions">
-        <el-button size="large" type="primary" :icon="Plus" @click="handleAdd">新建模型</el-button>
-        <el-button size="large" :icon="User" @click="providerDialogVisible = true">供应商管理</el-button>
+        <el-button :icon="Refresh" size="large" @click="loadDashboard">刷新</el-button>
+        <el-button :icon="Plus" size="large" type="primary" @click="openCreate">
+          新建模型配置
+        </el-button>
       </div>
-    </div>
+    </header>
 
-    <div class="model-metrics">
-      <article v-for="item in metrics" :key="item.label" class="model-metric">
+    <div class="metric-grid">
+      <article v-for="item in metricCards" :key="item.label" class="metric-card">
         <span class="metric-icon" :class="item.tone">
           <el-icon><component :is="item.icon" /></el-icon>
         </span>
         <div>
-          <span>{{ item.label }}</span>
+          <small>{{ item.label }}</small>
           <strong>{{ item.value }}</strong>
-          <small :class="{ positive: item.positive }">{{ item.sub }}</small>
+          <p>{{ item.note }}</p>
         </div>
       </article>
     </div>
 
-    <div class="model-dashboard">
-      <section class="model-list-panel">
-        <div class="panel-head">
+    <div class="content-grid">
+      <main class="list-panel">
+        <div class="panel-title">
           <div>
-            <h3>模型列表</h3>
-            <p>共 {{ filteredRows.length }} 个模型</p>
-          </div>
-          <div class="model-filters">
-            <el-input
-              v-model="queryParams.keyword"
-              clearable
-              :prefix-icon="Search"
-              placeholder="搜索模型名称或标识"
-              @keyup.enter="handleQuery"
-            />
-            <el-select v-model="activeType" placeholder="全部类型">
-              <el-option v-for="tab in typeTabs" :key="tab.value" :label="tab.label" :value="tab.value" />
-            </el-select>
-            <el-select v-model="queryParams.provider" clearable placeholder="全部供应商">
-              <el-option v-for="provider in providerOptions" :key="provider" :label="provider" :value="provider" />
-            </el-select>
-            <el-select v-model="queryParams.status" clearable placeholder="全部状态">
-              <el-option label="已启用" :value="1" />
-              <el-option label="已停用" :value="0" />
-            </el-select>
-            <el-button :icon="Refresh" @click="loadModelList">刷新</el-button>
-            <el-button type="primary" :icon="Plus" @click="handleAdd">新建模型</el-button>
+            <h3>模型配置</h3>
+            <p>共 {{ total }} 条配置，仅管理聊天与文本生成模型</p>
           </div>
         </div>
 
-        <div class="model-list">
-          <article v-for="row in pagedRows" :key="row.id" class="model-card">
-            <header class="model-card-head">
-              <span class="model-avatar" :class="providerClass(row.provider)">
-                {{ providerMark(row.provider) }}
-              </span>
-              <div class="model-main">
-                <div class="model-title-line">
-                  <h4>{{ row.displayName }}</h4>
-                  <span>{{ modelTypeLabel(row.modelType) }}</span>
+        <div class="filter-bar">
+          <el-input
+            v-model="query.keyword"
+            clearable
+            :prefix-icon="Search"
+            placeholder="搜索配置名、供应商或模型名"
+            @clear="search"
+            @keyup.enter="search"
+          />
+          <el-select v-model="query.provider" clearable placeholder="全部供应商" @change="search">
+            <el-option
+              v-for="provider in providerOptions"
+              :key="provider"
+              :label="provider"
+              :value="provider"
+            />
+          </el-select>
+          <el-select v-model="query.protocol" clearable placeholder="全部协议" @change="search">
+            <el-option
+              v-for="item in protocols"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+          <el-select v-model="query.status" clearable placeholder="全部状态" @change="search">
+            <el-option label="已启用" :value="1" />
+            <el-option label="已停用" :value="0" />
+          </el-select>
+          <el-button @click="resetQuery">重置</el-button>
+        </div>
+
+        <div v-if="rows.length" class="model-list">
+          <article v-for="row in rows" :key="row.id" class="model-card">
+            <header>
+              <span class="provider-mark">{{ (row.providerName || 'M').slice(0, 1).toUpperCase() }}</span>
+              <div class="model-heading">
+                <div>
+                  <h4>{{ row.configName }}</h4>
+                  <el-tag :type="Number(row.status) === 1 ? 'success' : 'info'" effect="light">
+                    {{ Number(row.status) === 1 ? '已启用' : '已停用' }}
+                  </el-tag>
                 </div>
-                <p>{{ row.description }}</p>
+                <p>{{ row.description || '暂无描述' }}</p>
               </div>
-              <span class="model-status" :class="{ disabled: Number(row.status) !== 1 }">
-                <i />
-                {{ Number(row.status) === 1 ? '已启用' : '已停用' }}
-              </span>
+              <el-dropdown trigger="click">
+                <el-button circle text>
+                  <el-icon><Edit /></el-icon>
+                </el-button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item :icon="Edit" @click="openEdit(row)">编辑配置</el-dropdown-item>
+                    <el-dropdown-item :icon="TrendCharts" @click="openLogs(row)">调用日志</el-dropdown-item>
+                    <el-dropdown-item
+                      :icon="Delete"
+                      divided
+                      class="danger-item"
+                      @click="removeModel(row)"
+                    >
+                      删除
+                    </el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
             </header>
-            <div class="model-card-stats">
-              <div>
-                <span>供应商</span>
-                <strong>{{ row.provider }}</strong>
-              </div>
-              <div>
-                <span>上下文</span>
-                <strong>{{ row.contextWindow }}</strong>
-              </div>
-              <div>
-                <span>今日调用</span>
-                <strong>{{ formatNumber(row.todayCalls) }}</strong>
-              </div>
+
+            <div class="model-facts">
+              <span><small>供应商</small><b>{{ row.providerName }}</b></span>
+              <span><small>接口协议</small><b>{{ protocolLabel(row.protocol) }}</b></span>
+              <span><small>模型名称</small><b>{{ row.modelName }}</b></span>
+              <span><small>最大输出</small><b>{{ formatNumber(row.maxTokens) }} Token</b></span>
             </div>
-            <footer class="model-card-actions">
-              <span class="model-id">{{ row.modelName }}</span>
-              <nav>
-                <el-button link type="primary" @click="handleEdit(row)">配置</el-button>
-                <el-button link type="primary" @click="handleTest(row)">测试</el-button>
-                <el-dropdown trigger="click">
-                  <button class="more-action" type="button" aria-label="更多操作">
-                    <el-icon><MoreFilled /></el-icon>
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item :icon="Edit" @click="handleEdit(row)">编辑</el-dropdown-item>
-                      <el-dropdown-item :icon="Refresh" @click="loadModelList">刷新</el-dropdown-item>
-                      <el-dropdown-item :icon="Delete" divided @click="handleDelete(row)">删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </nav>
+
+            <footer>
+              <div>
+                <b>今日 {{ formatNumber(row.todayCalls) }} 次</b>
+                <small v-if="row.lastTestAt">
+                  最近测试 {{ row.lastTestStatus === 'SUCCESS' ? '成功' : '失败' }}
+                  · {{ formatDuration(row.lastTestDurationMs) }}
+                </small>
+                <small v-else>尚未测试连接</small>
+              </div>
+              <div>
+                <el-button :loading="testing" @click="runTest(row)">测试</el-button>
+                <el-button type="primary" plain @click="openEdit(row)">配置</el-button>
+              </div>
             </footer>
           </article>
         </div>
+        <el-empty v-else description="暂无符合条件的模型配置">
+          <el-button type="primary" @click="openCreate">新建模型配置</el-button>
+        </el-empty>
 
-        <div class="model-list-footer">
-          <span>共 {{ filteredRows.length }} 条</span>
-          <el-pagination
-            v-model:current-page="page"
-            v-model:page-size="pageSize"
-            :total="filteredRows.length"
-            :page-sizes="[6, 12, 24]"
-            background
-            layout="prev, pager, next, sizes"
-          />
-        </div>
-      </section>
+        <el-pagination
+          v-model:current-page="query.current"
+          v-model:page-size="query.size"
+          class="pagination"
+          layout="total, prev, pager, next, sizes"
+          :page-sizes="[6, 12, 24, 48]"
+          :total="total"
+          @current-change="loadPage"
+          @size-change="search"
+        />
+      </main>
 
-      <aside class="model-side">
-        <section class="side-panel trend-panel">
-          <div class="side-head">
-            <h3>调用趋势 <el-icon><Warning /></el-icon></h3>
-            <el-select model-value="近7天" size="small">
-              <el-option label="近7天" value="近7天" />
-              <el-option label="近30天" value="近30天" />
-            </el-select>
+      <aside class="analytics-column">
+        <section class="analytics-card trend-card">
+          <header>
+            <div>
+              <h3>调用趋势</h3>
+              <p>仅统计智能体实际运行调用</p>
+            </div>
+            <el-segmented v-model="trendDays" :options="[7, 30]" size="small" @change="reloadAnalytics" />
+          </header>
+          <div class="chart-summary">
+            <b>{{ formatNumber((analytics.trend || []).reduce((sum, item) => sum + Number(item.calls || 0), 0)) }}</b>
+            <span>近 {{ trendDays }} 天调用</span>
           </div>
-          <svg class="trend-chart" viewBox="0 0 420 260" role="img" aria-label="模型调用趋势">
+          <svg class="trend-svg" viewBox="0 0 420 150" role="img" aria-label="模型调用趋势">
             <defs>
-              <linearGradient id="modelTrendArea" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stop-color="#2f75ff" stop-opacity="0.24" />
-                <stop offset="100%" stop-color="#2f75ff" stop-opacity="0.02" />
+              <linearGradient id="modelTrendFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#5b7cff" stop-opacity=".3" />
+                <stop offset="100%" stop-color="#5b7cff" stop-opacity="0" />
               </linearGradient>
             </defs>
-            <path class="chart-grid" d="M40 32H400M40 82H400M40 132H400M40 182H400M40 232H400" />
-            <path class="trend-area" d="M40 182 C72 146 92 122 125 112 C164 98 184 126 220 108 C252 90 264 36 298 48 C330 60 344 92 370 88 C388 86 394 96 400 98 L400 238 L40 238 Z" />
-            <path class="trend-line" d="M40 182 C72 146 92 122 125 112 C164 98 184 126 220 108 C252 90 264 36 298 48 C330 60 344 92 370 88 C388 86 394 96 400 98" />
-            <g>
-              <circle cx="40" cy="182" r="5" />
-              <circle cx="125" cy="112" r="5" />
-              <circle cx="220" cy="108" r="5" />
-              <circle cx="298" cy="48" r="5" />
-              <circle cx="370" cy="88" r="5" />
-              <circle cx="400" cy="98" r="5" />
-            </g>
+            <line x1="14" y1="134" x2="406" y2="134" stroke="#e9edf6" />
+            <polygon v-if="trendChart.area" :points="trendChart.area" fill="url(#modelTrendFill)" />
+            <polyline
+              v-if="trendChart.points"
+              :points="trendChart.points"
+              fill="none"
+              stroke="#5b7cff"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="3"
+            />
           </svg>
-          <div class="chart-axis">
-            <span>05-11</span>
-            <span>05-12</span>
-            <span>05-13</span>
-            <span>05-14</span>
-            <span>05-15</span>
-            <span>05-16</span>
-            <span>05-17</span>
-          </div>
-          <div class="legend">
-            <span><i /> 调用次数</span>
+          <div class="trend-labels">
+            <span v-for="label in trendLabels" :key="label.index">{{ label.text }}</span>
           </div>
         </section>
 
-        <section class="side-panel provider-panel">
-          <div class="side-head">
-            <h3>供应商分布</h3>
-          </div>
-          <div class="provider-bars">
-            <div v-for="item in providerStats" :key="item.provider" class="provider-bar">
-              <span>{{ item.provider }}</span>
-              <div><i :style="{ width: `${item.percent}%` }" /></div>
-              <strong>{{ item.percent }}%</strong>
+        <section class="analytics-card provider-card">
+          <header>
+            <div>
+              <h3>供应商分布</h3>
+              <p>按未删除配置数量统计</p>
+            </div>
+          </header>
+          <div v-if="analytics.providerDistribution?.length" class="provider-list">
+            <div v-for="item in analytics.providerDistribution" :key="item.providerName">
+              <span><b>{{ item.providerName }}</b><em>{{ item.modelCount }} 个 · {{ item.percent }}%</em></span>
+              <i><u :style="{ width: `${item.percent}%` }" /></i>
             </div>
           </div>
+          <el-empty v-else description="暂无供应商数据" :image-size="70" />
         </section>
       </aside>
     </div>
 
-    <el-dialog
-      v-model="dialogVisible"
-      :title="dialogTitle"
-      width="760px"
+    <el-drawer
+      v-model="drawerVisible"
+      :title="drawerTitle"
+      size="min(760px, 94vw)"
       destroy-on-close
-      class="model-dialog"
+      class="model-drawer"
     >
-      <el-form ref="formRef" :model="form" :rules="rules" label-width="116px" class="model-form">
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="供应商" prop="provider">
-              <el-select v-model="form.provider" placeholder="请选择供应商">
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
+        <section class="form-section">
+          <div class="section-heading">
+            <span>01</span>
+            <div><h4>身份与连接</h4><p>配置名称用于平台内识别，模型名称会原样发送给供应商。</p></div>
+          </div>
+          <div class="form-grid">
+            <el-form-item label="配置名称" prop="configName">
+              <el-input v-model="form.configName" maxlength="100" placeholder="例如：生产环境 GPT-4.1" />
+            </el-form-item>
+            <el-form-item label="模型供应商" prop="providerName">
+              <el-input v-model="form.providerName" maxlength="100" placeholder="例如：OpenAI、阿里云、本地部署" />
+            </el-form-item>
+            <el-form-item label="接口协议" prop="protocol">
+              <el-select v-model="form.protocol">
                 <el-option
-                  v-for="item in providerSelectOptions"
+                  v-for="item in protocols"
                   :key="item.value"
                   :label="item.label"
                   :value="item.value"
                 />
               </el-select>
             </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="模型标识" prop="modelName">
-              <el-input v-model="form.modelName" placeholder="如 gpt-4.1 / qwen-max" />
+            <el-form-item label="模型名称" prop="modelName">
+              <el-input v-model="form.modelName" maxlength="200" placeholder="例如：gpt-4.1、qwen-max" />
             </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="模型 URL" prop="baseURL">
+            <el-form-item class="span-2" label="Base URL" prop="baseURL">
               <el-input v-model="form.baseURL" placeholder="https://api.example.com/v1" />
             </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="API Key" prop="apiKey">
-              <el-input v-model="form.apiKey" show-password placeholder="请输入 API Key" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="模型类型" prop="modelType">
-              <el-select
-                v-model="form.modelType"
-                multiple
-                placeholder="请选择模型类型"
+            <el-form-item class="span-2" label="API Key（可选）">
+              <el-input
+                v-model="form.apiKey"
+                :type="showApiKey ? 'text' : 'password'"
+                autocomplete="new-password"
+                placeholder="本地模型或 Header 鉴权可留空"
+                @input="form.removeApiKey = false"
               >
-                <el-option v-for="item in modelTypeOptions" :key="item.value" :label="item.label" :value="item.value" />
-              </el-select>
+                <template #prefix><el-icon><Key /></el-icon></template>
+                <template #suffix>
+                  <el-icon class="eye-button" @click="showApiKey = !showApiKey">
+                    <component :is="showApiKey ? Hide : View" />
+                  </el-icon>
+                </template>
+              </el-input>
+              <el-button v-if="form.id && form.apiKey" link type="danger" @click="clearApiKey">
+                清空密钥
+              </el-button>
             </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="状态" prop="status">
+            <el-form-item class="span-2" label="描述">
+              <el-input
+                v-model="form.description"
+                type="textarea"
+                :rows="3"
+                maxlength="500"
+                show-word-limit
+                placeholder="说明使用场景、环境或限制"
+              />
+            </el-form-item>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <div class="section-heading">
+            <span>02</span>
+            <div><h4>生成参数</h4><p>超时与最大尝试次数会真实应用到每次逻辑模型调用。</p></div>
+          </div>
+          <div class="form-grid">
+            <el-form-item label="流式输出">
+              <el-switch v-model="form.streaming" :active-value="1" :inactive-value="0" />
+            </el-form-item>
+            <el-form-item label="思考模式">
+              <el-switch v-model="form.thinking" :active-value="1" :inactive-value="0" />
+            </el-form-item>
+            <el-form-item label="Temperature">
+              <el-input-number v-model="form.temperature" :min="0" :max="2" :step="0.1" :precision="2" />
+            </el-form-item>
+            <el-form-item label="Top P">
+              <el-input-number v-model="form.topP" :min="0" :max="1" :step="0.05" :precision="2" />
+            </el-form-item>
+            <el-form-item label="最大输出 Token" prop="maxTokens">
+              <el-input-number v-model="form.maxTokens" :min="1" :max="10000000" :step="256" />
+            </el-form-item>
+            <el-form-item v-if="Number(form.thinking) === 1" label="思考预算 Token">
+              <el-input-number v-model="form.thinkingBudget" :min="1" :max="10000000" :step="256" />
+            </el-form-item>
+            <el-form-item label="超时时间（毫秒）" prop="timeoutMs">
+              <el-input-number v-model="form.timeoutMs" :min="1000" :max="600000" :step="1000" />
+            </el-form-item>
+            <el-form-item label="最大尝试次数（含首次）" prop="maxAttempts">
+              <el-input-number v-model="form.maxAttempts" :min="1" :max="10" />
+            </el-form-item>
+            <el-form-item label="配置状态">
               <el-radio-group v-model="form.status">
-                <el-radio :value="1">启用</el-radio>
-                <el-radio :value="0">停用</el-radio>
+                <el-radio-button :value="1">启用</el-radio-button>
+                <el-radio-button :value="0">停用</el-radio-button>
               </el-radio-group>
             </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="温度">
-              <el-input-number v-model="form.temperature" :min="0" :max="2" :step="0.1" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="Top P">
-              <el-input-number v-model="form.topP" :min="0" :max="1" :step="0.1" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="上下文窗口">
-              <el-input-number v-model="form.maxTokens" :min="1" :step="1024" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="超时(ms)">
-              <el-input-number v-model="form.timeoutMs" :min="1000" :step="1000" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="最大重试">
-              <el-input-number v-model="form.maxAttempts" :min="0" :max="8" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="兜底模型 ID">
-              <el-input v-model="form.fallbackModelConfigId" placeholder="可为空" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="能力开关">
-              <div class="switch-row">
-                <el-checkbox v-model="form.streaming" :true-value="1" :false-value="0">流式输出</el-checkbox>
-                <el-checkbox v-model="form.thinking" :true-value="1" :false-value="0">思考能力</el-checkbox>
-              </div>
-            </el-form-item>
-          </el-col>
-          <el-col :span="24">
-            <el-form-item label="说明">
-              <el-input v-model="form.description" type="textarea" :rows="3" placeholder="描述模型能力、成本或适用场景" />
-            </el-form-item>
-          </el-col>
-        </el-row>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitForm">保存</el-button>
-      </template>
-    </el-dialog>
+          </div>
+        </section>
 
-    <el-dialog
-      v-model="providerDialogVisible"
-      title="供应商管理"
-      width="620px"
-      destroy-on-close
-      class="model-dialog"
-    >
-      <div class="provider-manager">
-        <div v-for="item in providerStats" :key="item.provider">
-          <span class="provider-mark" :class="providerClass(item.provider)">{{ providerMark(item.provider) }}</span>
-          <strong>{{ item.provider }}</strong>
-          <small>{{ item.percent }}%</small>
+        <section class="form-section">
+          <div class="section-heading header-heading">
+            <span>03</span>
+            <div><h4>自定义 Header</h4><p>Header 名称在当前配置内忽略大小写且不可重复。</p></div>
+            <el-button :icon="Plus" @click="addHeader">新增 Header</el-button>
+          </div>
+          <div v-if="form.headers.length" class="header-list">
+            <div
+              v-for="(header, index) in form.headers"
+              :key="header.id || index"
+              class="header-row"
+              :class="{ removed: header.remove }"
+            >
+              <template v-if="!header.remove">
+                <el-input v-model="header.headerName" placeholder="Header 名称" />
+                <el-input
+                  v-model="header.headerValue"
+                  :type="header.visible ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="Header 值"
+                >
+                  <template #suffix>
+                    <el-icon class="eye-button" @click="header.visible = !header.visible">
+                      <component :is="header.visible ? Hide : View" />
+                    </el-icon>
+                  </template>
+                </el-input>
+                <el-button circle text type="danger" :icon="Delete" @click="removeHeader(header, index)" />
+              </template>
+              <template v-else>
+                <span>{{ header.headerName }} 将在保存时删除</span>
+                <el-button link type="primary" @click="restoreHeader(header)">撤销</el-button>
+              </template>
+            </div>
+          </div>
+          <el-empty v-else description="未配置自定义 Header" :image-size="64" />
+        </section>
+      </el-form>
+
+      <template #footer>
+        <div class="drawer-footer">
+          <el-button @click="drawerVisible = false">取消</el-button>
+          <el-button :loading="testing" @click="runTest('form')">测试连接</el-button>
+          <el-button type="primary" :loading="submitting" @click="submitForm">保存配置</el-button>
         </div>
+      </template>
+    </el-drawer>
+
+    <el-dialog v-model="logVisible" width="min(1120px, 94vw)" :title="`${logs.model?.configName || ''} · 调用日志`">
+      <div class="log-filters">
+        <el-select v-model="logs.callSource" clearable placeholder="全部来源" @change="loadLogs">
+          <el-option label="智能体运行" value="AGENT_RUN" />
+          <el-option label="手动测试" value="MANUAL_TEST" />
+        </el-select>
+        <el-select v-model="logs.status" clearable placeholder="全部状态" @change="loadLogs">
+          <el-option label="运行中" value="RUNNING" />
+          <el-option label="成功" value="SUCCESS" />
+          <el-option label="失败" value="FAILED" />
+          <el-option label="已取消" value="CANCELLED" />
+        </el-select>
+        <el-button :icon="Refresh" @click="loadLogs">刷新</el-button>
       </div>
+      <el-table v-loading="logs.loading" :data="logs.records" stripe>
+        <el-table-column label="开始时间" prop="startedAt" min-width="170" />
+        <el-table-column label="来源" min-width="120">
+          <template #default="{ row }">
+            {{ row.callSource === 'MANUAL_TEST' ? '手动测试' : row.sourcePath || '智能体运行' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="statusType(row.status)">{{ row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="耗时" width="110">
+          <template #default="{ row }">{{ row.durationMs == null ? '--' : formatDuration(row.durationMs) }}</template>
+        </el-table-column>
+        <el-table-column label="Token" width="120">
+          <template #default="{ row }">{{ row.totalTokens == null ? '--' : formatNumber(row.totalTokens) }}</template>
+        </el-table-column>
+        <el-table-column label="错误" min-width="240" show-overflow-tooltip>
+          <template #default="{ row }">{{ row.errorMessage || '--' }}</template>
+        </el-table-column>
+      </el-table>
+      <el-pagination
+        v-model:current-page="logs.current"
+        v-model:page-size="logs.size"
+        class="pagination"
+        layout="total, prev, pager, next"
+        :total="logs.total"
+        @current-change="loadLogs"
+      />
     </el-dialog>
   </section>
 </template>
 
 <style scoped>
-.model-console {
-  display: grid;
-  min-height: calc(100vh - 115px);
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 18px;
-  padding-bottom: 28px;
+.model-page {
+  min-height: 100%;
+  padding: 24px;
+  color: #172033;
+  background:
+    radial-gradient(circle at 8% 4%, rgba(91, 124, 255, .1), transparent 28%),
+    linear-gradient(180deg, #f7f9fd 0%, #f4f6fb 100%);
 }
 
-.model-hero {
+.page-hero,
+.panel-title,
+.analytics-card header,
+.model-card header,
+.model-card footer,
+.section-heading,
+.drawer-footer,
+.log-filters {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 16px;
 }
 
-.model-hero h2 {
-  margin: 0 0 14px;
-  color: #071f40;
-  font-size: 34px;
-  font-weight: 850;
-  letter-spacing: 0;
+.page-hero {
+  margin-bottom: 22px;
 }
 
-.model-hero p {
+.eyebrow {
+  display: block;
+  margin-bottom: 7px;
+  color: #5b7cff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .18em;
+}
+
+h2,
+h3,
+h4,
+p {
   margin: 0;
-  color: #526b87;
+}
+
+.page-hero h2 {
+  font-size: 28px;
+  letter-spacing: -.03em;
+}
+
+.page-hero p {
+  margin-top: 7px;
+  color: #718096;
+  font-size: 14px;
 }
 
 .hero-actions {
   display: flex;
-  flex: 0 0 auto;
-  gap: 12px;
+  gap: 10px;
 }
 
-.model-metrics {
+.metric-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+  margin-bottom: 18px;
 }
 
-.model-metric,
-.model-list-panel,
-.side-panel {
-  border: 1px solid #d7e5f8;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 18px 38px rgba(48, 94, 151, 0.08);
+.metric-card,
+.list-panel,
+.analytics-card {
+  border: 1px solid #e8ecf4;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .95);
+  box-shadow: 0 12px 34px rgba(31, 44, 77, .05);
 }
 
-.model-metric {
+.metric-card {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 10px 22px;
+  gap: 15px;
+  padding: 20px;
 }
 
 .metric-icon {
   display: grid;
-  width: 58px;
-  height: 58px;
-  flex: 0 0 auto;
+  flex: 0 0 46px;
+  height: 46px;
   place-items: center;
-  border-radius: 13px;
-  color: #2f75ff;
-  background: #ecf4ff;
-  font-size: 28px;
+  border-radius: 14px;
+  font-size: 22px;
 }
 
-.metric-icon.green {
-  color: #18a668;
-  background: #eaf8ef;
-}
+.metric-icon.blue { color: #4668e8; background: #edf1ff; }
+.metric-icon.violet { color: #7b53de; background: #f3edff; }
+.metric-icon.green { color: #17926b; background: #e8f8f2; }
+.metric-icon.amber { color: #c27b16; background: #fff5e2; }
 
-.metric-icon.violet {
-  color: #7c5cff;
-  background: #f1edff;
-}
-
-.model-metric > div > span {
-  display: block;
-  color: #667d99;
+.metric-card small {
+  color: #7b879c;
   font-size: 13px;
 }
 
-.model-metric strong {
+.metric-card strong {
   display: block;
-  margin-top: 8px;
-  color: #0a2547;
-  font-size: 30px;
-  font-weight: 850;
-  line-height: 1;
+  margin: 3px 0;
+  color: #131a2a;
+  font-size: 26px;
 }
 
-.model-metric small {
-  display: block;
-  margin-top: 12px;
-  color: #6d819b;
+.metric-card p {
+  color: #8b96a8;
   font-size: 12px;
-  font-weight: 750;
 }
 
-.model-metric small.positive {
-  color: #22a86b;
-}
-
-.model-dashboard {
+.content-grid {
   display: grid;
-  width: 100%;
-  grid-template-columns: minmax(760px, 1fr) minmax(330px, 0.36fr);
-  align-self: stretch;
-  align-items: stretch;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
   gap: 18px;
-  min-height: 0;
 }
 
-.model-list-panel {
+.list-panel {
   min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  border-color: #d9e4f2;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 12px 30px rgba(34, 67, 112, 0.06);
+  padding: 20px;
 }
 
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 18px 18px 24px;
-  border-bottom: 0;
-}
-
-.panel-head h3 {
-  margin: 0;
-  color: #0a2547;
+.panel-title h3,
+.analytics-card h3 {
   font-size: 17px;
-  font-weight: 800;
 }
 
-.panel-head p {
-  margin: 6px 0 0;
-  color: #6d819b;
+.panel-title p,
+.analytics-card header p {
+  margin-top: 4px;
+  color: #8a95a8;
   font-size: 12px;
 }
 
-.model-filters {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 14px;
-}
-
-.model-filters .el-input {
-  width: 250px;
-}
-
-.model-filters .el-select {
-  width: 128px;
-}
-
-.model-filters .el-button {
-  height: 34px;
-  border-radius: 5px;
-  font-weight: 800;
-}
-
-.model-filters :deep(.el-input__wrapper),
-.model-filters :deep(.el-select__wrapper) {
-  min-height: 34px;
-  border-radius: 5px;
-  box-shadow: 0 0 0 1px #d7e1ee inset;
+.filter-bar {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(130px, 1fr)) auto;
+  gap: 10px;
+  margin: 18px 0;
 }
 
 .model-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 18px 20px;
-  padding: 0 18px 18px;
-}
-
-.model-card {
-  position: relative;
-  display: grid;
-  min-height: 160px;
-  grid-template-rows: auto minmax(78px, 1fr) auto;
-  padding: 18px;
-  border: 1px solid #e0eaf6;
-  border-radius: 8px;
-  background: #ffffff;
-  box-shadow: 0 10px 24px rgba(42, 72, 108, 0.05);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.model-card:hover {
-  border-color: #a9c9ff;
-  box-shadow: 0 12px 28px rgba(47, 117, 255, 0.08);
-  transform: translateY(-1px);
-}
-
-.model-card-head {
-  display: grid;
-  grid-template-columns: 54px minmax(0, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
-.model-main {
-  min-width: 0;
-  padding-right: 84px;
+.model-card {
+  overflow: hidden;
+  border: 1px solid #e5eaf3;
+  border-radius: 16px;
+  background: #fff;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
 
-.model-title-line {
-  display: flex;
-  min-width: 0;
+.model-card:hover {
+  transform: translateY(-2px);
+  border-color: #cfd8f5;
+  box-shadow: 0 14px 30px rgba(35, 55, 100, .08);
+}
+
+.model-card header {
   align-items: flex-start;
-  flex-direction: column;
-  gap: 8px;
+  padding: 17px 17px 12px;
 }
 
-.model-title-line h4 {
-  overflow: hidden;
-  margin: 0;
-  color: #0a2547;
-  font-size: 15px;
-  font-weight: 850;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color 0.18s ease;
-}
-
-.model-card:hover .model-title-line h4 {
-  color: #0b63f6;
-}
-
-.model-title-line span {
-  flex: 0 0 auto;
-  padding: 3px 7px;
-  border-radius: 6px;
-  color: #2f75ff;
-  background: #eaf2ff;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.model-main p {
-  display: -webkit-box;
-  overflow: hidden;
-  margin: 10px 0 0;
-  color: #6d819b;
-  font-size: 12px;
-  line-height: 1.7;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-}
-
-.model-avatar,
 .provider-mark {
   display: grid;
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
+  flex: 0 0 42px;
+  height: 42px;
   place-items: center;
-  border-radius: 10px;
-  color: #2f75ff;
-  background: #edf4ff;
-  font-size: 13px;
-  font-weight: 900;
-}
-
-.model-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-}
-
-.provider-mark.openai,
-.model-avatar.openai {
-  color: #0a2547;
-  background: #f1f5f9;
-}
-
-.provider-mark.deepseek,
-.model-avatar.deepseek {
-  color: #326bff;
-  background: #eef3ff;
-}
-
-.provider-mark.qwen,
-.model-avatar.qwen {
-  color: #7c5cff;
-  background: #f1edff;
-}
-
-.provider-mark.claude,
-.model-avatar.claude {
-  color: #9a5b25;
-  background: #fff1e5;
-}
-
-.provider-mark.local,
-.model-avatar.local {
-  color: #366fa8;
-  background: #edf7ff;
-}
-
-.model-status {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-width: 76px;
-  height: 24px;
-  border: 1px solid #bce8cc;
-  border-radius: 7px;
-  color: #168354;
-  background: #eaf8ef;
-  font-size: 12px;
+  border-radius: 13px;
+  color: #fff;
+  background: linear-gradient(145deg, #5b7cff, #764dd9);
   font-weight: 800;
 }
 
-.model-status i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.model-status.disabled {
-  border-color: #d9e2ec;
-  color: #7e8ca0;
-  background: #f0f2f5;
-}
-
-.model-card-stats {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  overflow: hidden;
-  align-self: end;
-  border: 1px solid #e1ebf6;
-  border-radius: 8px;
-  background: #f8fbff;
-}
-
-.model-card-stats div {
-  display: grid;
-  gap: 4px;
+.model-heading {
   min-width: 0;
-  padding: 12px;
-  border-right: 1px solid #e1ebf6;
+  flex: 1;
 }
 
-.model-card-stats div:last-child {
-  border-right: 0;
-}
-
-.model-card-stats span {
-  color: #7e94ad;
-  font-size: 12px;
-}
-
-.model-card-stats strong {
-  overflow: hidden;
-  color: #203957;
-  font-size: 15px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-card-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 14px;
-  border-top: 1px solid #e5edf6;
-}
-
-.model-id {
-  overflow: hidden;
-  color: #405874;
-  font-size: 12px;
-  font-weight: 750;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.model-card-actions nav {
+.model-heading > div {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.model-card-actions .el-button.is-link {
-  height: auto;
-  padding: 0;
-  font-weight: 800;
-}
-
-.more-action {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  color: #405874;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-}
-
-.more-action:hover {
-  background: #edf4ff;
-  color: #2f75ff;
-}
-
-.model-list-footer {
-  display: flex;
-  min-height: 58px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-  padding: 0 18px 16px;
-  color: #53637b;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.model-list-footer :deep(.el-pagination) {
-  --el-pagination-button-bg-color: #ffffff;
-  --el-pagination-hover-color: #0b63f6;
-}
-
-.model-list-footer :deep(.el-pager li),
-.model-list-footer :deep(.btn-prev),
-.model-list-footer :deep(.btn-next) {
-  border: 1px solid #d9e4f2;
-  border-radius: 5px;
-  box-shadow: none;
-}
-
-.model-list-footer :deep(.el-pager li.is-active) {
-  border-color: #0b63f6;
-  color: #0b63f6;
-  background: #ffffff;
-}
-
-.model-side {
-  display: grid;
-  grid-template-rows: minmax(150px, 0.42fr) minmax(260px, 0.58fr);
-  align-content: stretch;
-  gap: 18px;
-  min-height: 0;
-}
-
-.side-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+.model-heading h4 {
   overflow: hidden;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-heading p {
+  overflow: hidden;
+  margin-top: 6px;
+  color: #8a95a8;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 17px 16px;
+}
+
+.model-facts span {
+  min-width: 0;
+  padding: 10px 11px;
+  border-radius: 10px;
+  background: #f7f8fb;
+}
+
+.model-facts small {
+  display: block;
+  margin-bottom: 4px;
+  color: #929cad;
+  font-size: 11px;
+}
+
+.model-facts b {
+  display: block;
+  overflow: hidden;
+  color: #384258;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-card footer {
+  padding: 12px 17px;
+  border-top: 1px solid #eef1f6;
+  background: #fbfcfe;
+}
+
+.model-card footer > div:first-child {
+  min-width: 0;
+}
+
+.model-card footer b,
+.model-card footer small {
+  display: block;
+}
+
+.model-card footer b {
+  color: #44516a;
+  font-size: 12px;
+}
+
+.model-card footer small {
+  overflow: hidden;
+  margin-top: 3px;
+  color: #949dae;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pagination {
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+.analytics-column {
+  display: grid;
+  gap: 18px;
+}
+
+.analytics-card {
   padding: 18px;
 }
 
-.side-head {
+.chart-summary {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 18px;
 }
 
-.side-head h3 {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  color: #0a2547;
-  font-size: 17px;
-  font-weight: 850;
+.chart-summary b {
+  font-size: 25px;
 }
 
-.side-head h3 .el-icon {
-  color: #91a4bc;
-  font-size: 15px;
+.chart-summary span {
+  color: #8a95a8;
+  font-size: 11px;
 }
 
-.trend-chart {
+.trend-svg {
   display: block;
   width: 100%;
-  height: 260px;
-  margin-top: 18px;
+  margin-top: 4px;
 }
 
-.chart-grid {
-  fill: none;
-  stroke: #e2ebf6;
-  stroke-dasharray: 4 4;
-}
-
-.trend-area {
-  fill: url(#modelTrendArea);
-}
-
-.trend-line {
-  fill: none;
-  stroke: #2f75ff;
-  stroke-linecap: round;
-  stroke-width: 4;
-}
-
-.trend-chart circle {
-  fill: #ffffff;
-  stroke: #2f75ff;
-  stroke-width: 4;
-}
-
-.chart-axis {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  color: #7890aa;
-  font-size: 12px;
-}
-
-.legend {
+.trend-labels {
   display: flex;
-  justify-content: center;
-  margin-top: 18px;
-  color: #405874;
+  justify-content: space-between;
+  color: #9aa3b3;
+  font-size: 10px;
+}
+
+.provider-list {
+  display: grid;
+  gap: 15px;
+  margin-top: 19px;
+}
+
+.provider-list span {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 7px;
   font-size: 12px;
 }
 
-.legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+.provider-list em {
+  color: #8b96a8;
+  font-style: normal;
 }
 
-.legend i {
-  width: 16px;
-  height: 8px;
-  border-radius: 999px;
-  background: #2f75ff;
-}
-
-.provider-bars {
-  display: grid;
-  gap: 18px;
-  margin-top: 26px;
-}
-
-.provider-bar {
-  display: grid;
-  grid-template-columns: 90px minmax(0, 1fr) 52px;
-  align-items: center;
-  gap: 12px;
-  color: #405874;
-  font-size: 13px;
-}
-
-.provider-bar div {
-  height: 10px;
+.provider-list i {
+  display: block;
   overflow: hidden;
+  height: 7px;
   border-radius: 999px;
-  background: #e7effa;
+  background: #edf0f6;
 }
 
-.provider-bar i {
+.provider-list u {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #66c3ff, #2f75ff);
+  background: linear-gradient(90deg, #5b7cff, #8b62e6);
 }
 
-.provider-bar strong {
-  color: #6d819b;
-  font-weight: 750;
+.form-section {
+  margin-bottom: 18px;
+  padding: 20px;
+  border: 1px solid #e7ebf3;
+  border-radius: 16px;
+  background: #fff;
 }
 
-.model-dialog :deep(.el-dialog__header) {
-  margin: 0;
-  padding: 20px 22px;
-  border-bottom: 1px solid #dce8f5;
+.section-heading {
+  justify-content: flex-start;
+  margin-bottom: 18px;
 }
 
-.model-dialog :deep(.el-dialog__body) {
-  padding: 20px 22px;
+.section-heading > span {
+  display: grid;
+  flex: 0 0 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  color: #4e6ee8;
+  background: #edf1ff;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.model-form .el-select,
-.model-form .el-input,
-.model-form :deep(.el-input-number),
-.model-form :deep(.el-textarea) {
-  width: 100%;
+.section-heading > div {
+  flex: 1;
 }
 
-.switch-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 18px;
+.section-heading h4 {
+  font-size: 15px;
 }
 
-.provider-manager {
+.section-heading p {
+  margin-top: 3px;
+  color: #8a95a8;
+  font-size: 11px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 16px;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+.header-heading {
+  justify-content: flex-start;
+}
+
+.header-list {
   display: grid;
   gap: 10px;
 }
 
-.provider-manager > div {
+.header-row {
   display: grid;
-  grid-template-columns: 40px minmax(0, 1fr) 56px;
+  grid-template-columns: minmax(150px, .8fr) minmax(220px, 1.4fr) auto;
   align-items: center;
-  gap: 12px;
-  min-height: 54px;
-  padding: 10px 12px;
-  border: 1px solid #e0eaf6;
+  gap: 10px;
+}
+
+.header-row.removed {
+  display: flex;
+  justify-content: space-between;
+  padding: 11px 13px;
   border-radius: 10px;
+  color: #a26b6b;
+  background: #fff4f4;
 }
 
-.provider-manager strong {
-  color: #0a2547;
+.eye-button {
+  cursor: pointer;
 }
 
-.provider-manager small {
-  color: #6d819b;
+.drawer-footer {
+  justify-content: flex-end;
 }
 
-@media (max-width: 1320px) {
-  .model-dashboard {
+.log-filters {
+  justify-content: flex-start;
+  margin-bottom: 15px;
+}
+
+.log-filters .el-select {
+  width: 160px;
+}
+
+:deep(.danger-item) {
+  color: #d95050;
+}
+
+:deep(.model-drawer .el-drawer__body) {
+  padding: 0 20px 20px;
+  background: #f7f8fb;
+}
+
+:deep(.model-drawer .el-drawer__footer) {
+  border-top: 1px solid #e8ebf2;
+}
+
+:deep(.form-grid .el-input-number),
+:deep(.form-grid .el-select) {
+  width: 100%;
+}
+
+@media (max-width: 1250px) {
+  .content-grid {
     grid-template-columns: 1fr;
   }
 
-  .model-dashboard,
-  .model-side {
-    min-height: 0;
-  }
-
-  .model-side {
-    grid-template-rows: none;
-  }
-
-  .panel-head {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .model-filters {
-    flex-wrap: wrap;
-    justify-content: flex-start;
+  .analytics-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 980px) {
-  .model-hero {
-    flex-direction: column;
-  }
-
-  .model-metrics {
+@media (max-width: 900px) {
+  .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .model-filters {
-    align-items: stretch;
-    flex-direction: column;
+  .model-list,
+  .analytics-column {
+    grid-template-columns: 1fr;
   }
 
-  .model-filters .el-input,
-  .model-filters .el-select,
-  .model-filters .el-button {
-    width: 100%;
+  .filter-bar {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (max-width: 640px) {
-  .model-metrics {
-    grid-template-columns: 1fr;
+  .model-page {
+    padding: 14px;
   }
 
-  .hero-actions {
-    width: 100%;
-    flex-direction: column;
-  }
-
-  .model-list {
-    grid-template-columns: 1fr;
-    padding: 0 12px 14px;
-  }
-
-  .model-list-footer {
+  .page-hero {
     align-items: flex-start;
     flex-direction: column;
-    padding-right: 12px;
-    padding-left: 12px;
   }
 
-  .model-card-head {
-    grid-template-columns: 48px minmax(0, 1fr);
-  }
-
-  .model-avatar {
-    width: 48px;
-    height: 48px;
-  }
-
-  .model-main {
-    padding-right: 0;
-  }
-
-  .model-status {
-    position: static;
-    grid-column: 1 / -1;
-    justify-self: start;
-  }
-
-  .model-card-stats {
+  .metric-grid,
+  .filter-bar,
+  .form-grid {
     grid-template-columns: 1fr;
   }
 
-  .model-card-stats div {
-    border-right: 0;
-    border-bottom: 1px solid #e1ebf6;
+  .span-2 {
+    grid-column: span 1;
   }
 
-  .model-card-stats div:last-child {
-    border-bottom: 0;
+  .header-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .header-row .el-input:nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
   }
 }
 </style>

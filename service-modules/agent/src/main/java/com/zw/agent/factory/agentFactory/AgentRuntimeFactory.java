@@ -28,7 +28,6 @@ import io.agentscope.core.message.Msg;
 import io.agentscope.core.message.MsgRole;
 import io.agentscope.core.message.ToolResultBlock;
 import io.agentscope.core.message.UserMessage;
-import io.agentscope.core.model.ChatModelBase;
 import io.agentscope.core.model.Model;
 import io.agentscope.core.nacos.skill.NacosSkillRepository;
 import io.agentscope.core.permission.PermissionContextState;
@@ -93,7 +92,11 @@ public class AgentRuntimeFactory {
             PermissionContextState permissionContextState = permissionFactory.buildPermissionContext(config, userInfo, toolkit);
             CompactionConfig compactionConfig = compactionFactory.buildCompaction(config);
             ToolResultEvictionConfig toolResultEvictionConfig = toolResultEvictionFactory.buildToolResultEviction(config);
-            ChatModelBase chatModelBase = modelFactory.buildModel(config);
+            Model chatModelBase = modelFactory.buildRuntimeModel(
+                    config,
+                    userInfo,
+                    "main"
+            );
             List<SubagentDeclaration> remoteSubAgentList = subAgentFactory.buildRemoteSubAgent(config);
             List<AiAgentEntity> subAgentIdList = subAgentFactory.buildSubAgentFactory(config);
             AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config,userInfo);
@@ -187,7 +190,10 @@ public class AgentRuntimeFactory {
         agentStateLogService.saveStateLog(runId,userInfo, config, sessionId);
         Flux<AgentRuntimeEvent> runtimeEvents = harnessAgent
                 .streamEvents(userMessage, runtimeContext)
-                .map(this::toRuntimeEvent);
+                .map(this::toRuntimeEvent)
+                .contextWrite(context -> context
+                        .put(AgentRuntimeKeys.MODEL_AUDIT_RUN_ID, runId)
+                        .put(AgentRuntimeKeys.MODEL_AUDIT_SESSION_ID, sessionId));
 
         return new AgentRuntimeStream(
                 harnessAgent,
@@ -215,8 +221,12 @@ public class AgentRuntimeFactory {
                 .textContent("")
                 .build();
 
-        Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(confirmMsg), runtimeContext)
-                .map(this::toRuntimeEvent);
+        Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent
+                .streamEvents(List.of(confirmMsg), runtimeContext)
+                .map(this::toRuntimeEvent)
+                .contextWrite(context -> context
+                        .put(AgentRuntimeKeys.MODEL_AUDIT_RUN_ID, runId)
+                        .put(AgentRuntimeKeys.MODEL_AUDIT_SESSION_ID, sessionId));
 
         return new AgentRuntimeStream(harnessAgent, runtimeContext, runtimeEvent);
     }
@@ -238,8 +248,12 @@ public class AgentRuntimeFactory {
                 .content(content)
                 .build();
 
-        Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent.streamEvents(List.of(toolMsg), runtimeContext)
-                .map(this::toRuntimeEvent);
+        Flux<AgentRuntimeEvent> runtimeEvent = harnessAgent
+                .streamEvents(List.of(toolMsg), runtimeContext)
+                .map(this::toRuntimeEvent)
+                .contextWrite(context -> context
+                        .put(AgentRuntimeKeys.MODEL_AUDIT_RUN_ID, runId)
+                        .put(AgentRuntimeKeys.MODEL_AUDIT_SESSION_ID, sessionId));
 
         return new AgentRuntimeStream(harnessAgent, runtimeContext, runtimeEvent);
     }
@@ -437,7 +451,11 @@ public class AgentRuntimeFactory {
 
 
         // 2. 构建子 Agent 自己的模型
-        ChatModelBase childModel = modelFactory.buildModel(childConfig);
+        Model childModel = modelFactory.buildRuntimeModel(
+                childConfig,
+                userInfo,
+                "local-subagent/" + childConfig.getAgentCode()
+        );
 
         // 3. 查询子 Agent 自己绑定的工具
         Toolkit childToolkit = toolkitFactory.buildToolkit(
@@ -512,5 +530,9 @@ public class AgentRuntimeFactory {
 
         // 6. 构建独立的子 Agent
         return childBuilder.build();
+    }
+
+    public void invalidateAllAgents() {
+        agentCache.invalidateAll();
     }
 }

@@ -218,6 +218,13 @@ const selectedModel = computed(() => {
   return modelRows.value.find((item) => normalizeId(item.id) === normalizeId(configForm.modelId))
 })
 
+const editingModelUnavailable = computed(() => (
+  isEditingAgent.value
+  && Boolean(configForm.modelId)
+  && modelRows.value.length > 0
+  && !selectedModel.value
+))
+
 const selectedPrompt = computed(() => {
   return promptRows.value.find((item) => normalizeId(item.id) === normalizeId(configForm.sysPromptId))
 })
@@ -236,21 +243,21 @@ const formatProvider = (provider) => {
 }
 
 const formatModelContext = (model) => {
-  const value = model?.contextWindow || model?.contextTokens || model?.maxContextTokens || model?.maxTokens
+  const value = model?.maxTokens
   if (!value) {
-    return '上下文 默认'
+    return '最大输出 Token：默认'
   }
   const numberValue = Number(value)
   if (!Number.isFinite(numberValue)) {
-    return `上下文 ${value}`
+    return `最大输出 Token：${value}`
   }
   if (numberValue >= 1000000) {
-    return `上下文 ${Math.round(numberValue / 1000000)}M`
+    return `最大输出 Token：${Math.round(numberValue / 1000000)}M`
   }
   if (numberValue >= 1000) {
-    return `上下文 ${Math.round(numberValue / 1000)}K`
+    return `最大输出 Token：${Math.round(numberValue / 1000)}K`
   }
-  return `上下文 ${numberValue}`
+  return `最大输出 Token：${numberValue}`
 }
 
 const selectModel = (model) => {
@@ -283,7 +290,22 @@ const getRowStatus = (row) => Number(row?.agentStatus ?? row?.status ?? 0)
 
 const getRowType = (row) => row?.agentType || row?.type || 'HARNESS'
 
-const getRowModel = (row) => row?.modelName || row?.model || row?.defaultModel || 'Qwen3-235B'
+const getRowModel = (row) => {
+  if (!row?.modelName) {
+    return row?.modelConfigName
+      ? `${row.modelConfigName}（不可用）`
+      : '未绑定可用模型'
+  }
+  const label = [
+    row.modelConfigName,
+    row.providerName,
+    row.protocol,
+    row.modelName
+  ].filter(Boolean).join(' · ')
+  return Number(row.modelStatus) === 1 && Number(row.modelDeleted || 0) === 0
+    ? label
+    : `${label}（不可用）`
+}
 
 const getRowDescription = (row) => row?.agentDescription || row?.description || '暂无描述'
 
@@ -571,7 +593,9 @@ const loadModelAndPrompts = async () => {
     ])
     modelRows.value = Array.isArray(models) ? models : []
     promptRows.value = Array.isArray(prompts) ? prompts : []
-    if ((!configForm.modelId || !modelRows.value.some((item) => normalizeId(item.id) === normalizeId(configForm.modelId))) && modelRows.value[0]?.id) {
+    if (!isEditingAgent.value
+      && (!configForm.modelId || !modelRows.value.some((item) => normalizeId(item.id) === normalizeId(configForm.modelId)))
+      && modelRows.value[0]?.id) {
       configForm.modelId = modelRows.value[0].id
       configForm.modelName = modelRows.value[0].modelName || ''
     }
@@ -654,7 +678,8 @@ const handleAdd = async () => {
 }
 
 const handleEdit = async (row) => {
-  if (String(row.id).startsWith('demo-')) {
+  const agentId = row.id || row.agentId
+  if (String(agentId).startsWith('demo-')) {
     ElMessage.info('示例智能体仅用于展示，请先创建真实智能体')
     return
   }
@@ -662,28 +687,35 @@ const handleEdit = async (row) => {
   dialogTitle.value = '编辑智能体'
   wizardStep.value = 1
   resetForm()
-  const data = await getAgent(row.id)
+  const data = await getAgent(agentId)
   Object.assign(form, {
-    id: data?.id,
+    id: data?.id || agentId,
     agentKey: data?.agentKey || data?.agentCode || '',
     agentName: data?.agentName || '',
     description: data?.description || '',
     agentType: data?.agentType || 'HARNESS',
     status: Number(data?.status ?? 1)
   })
+  configForm.modelId = row.modelId || null
+  configForm.modelName = row.modelName || ''
   dialogVisible.value = true
+  await loadModelAndPrompts()
   await nextTick()
   formRef.value?.clearValidate()
 }
 
 const buildAgentPayload = () => ({
   id: normalizeId(form.id),
+  agentId: normalizeId(form.id),
   agentKey: form.agentKey,
   agentCode: form.agentKey,
   agentName: form.agentName,
+  agentDescription: form.description,
   description: form.description,
   agentType: form.agentType === 'TEMPLATE' ? 'HARNESS' : form.agentType,
-  status: form.status
+  agentStatus: form.status,
+  status: form.status,
+  modelId: normalizeId(configForm.modelId)
 })
 
 const buildVisualSchema = () => {
@@ -772,8 +804,10 @@ const prevStep = async () => {
 
 const submitForm = async () => {
   await formRef.value.validate()
-  if (!isEditingAgent.value && !configForm.modelId) {
-    ElMessage.warning('请选择默认模型')
+  if (!configForm.modelId || !selectedModel.value) {
+    ElMessage.warning(isEditingAgent.value
+      ? '当前模型已停用或删除，请重新选择一个已启用的模型'
+      : '请选择一个已启用的默认模型')
     return
   }
 
@@ -1033,12 +1067,38 @@ onMounted(async () => {
                       placeholder="简要描述智能体的职责、核心能力和适用场景..."
                     />
                   </el-form-item>
+                  <el-form-item v-if="isEditingAgent" class="full" label="模型配置">
+                    <el-alert
+                      v-if="editingModelUnavailable"
+                      class="model-unavailable-alert"
+                      type="warning"
+                      :closable="false"
+                      show-icon
+                      title="原模型配置已停用或删除，保存前必须重新选择"
+                    />
+                    <el-select
+                      v-model="configForm.modelId"
+                      filterable
+                      placeholder="请选择已启用的模型配置"
+                      @change="configForm.modelName = selectedModel?.modelName || ''"
+                    >
+                      <el-option
+                        v-for="model in modelRows"
+                        :key="model.id"
+                        :value="model.id"
+                        :label="`${model.configName} · ${model.providerName} · ${model.protocol} · ${model.modelName}`"
+                      >
+                        <span>{{ model.configName }} · {{ model.providerName }}</span>
+                        <small style="float: right; color: #8a95a8">{{ model.protocol }} · {{ model.modelName }}</small>
+                      </el-option>
+                    </el-select>
+                  </el-form-item>
                 </div>
               </article>
 
               <div class="basic-info-tip">
                 <el-icon><InfoFilled /></el-icon>
-                <span v-if="isEditingAgent">当前编辑接口仅保存基础信息；模型、能力与知识库绑定保持不变。</span>
+                <span v-if="isEditingAgent">编辑时只允许选择已启用模型；模型停用或删除后必须重新绑定才能保存。</span>
                 <span v-else>所有字段均可暂时留空，点击下一步继续配置模型与提示词。</span>
               </div>
             </section>
@@ -1066,11 +1126,11 @@ onMounted(async () => {
                       <el-icon><Check /></el-icon>
                     </i>
                     <span>
-                      <strong>{{ model.modelName || `模型 #${model.id}` }}</strong>
-                      <small>{{ model.description || model.modelType || 'chat' }}</small>
+                      <strong>{{ model.configName || model.modelName || `模型 #${model.id}` }}</strong>
+                      <small>{{ model.providerName }} · {{ model.protocol }} · {{ model.modelName }}</small>
                       <em>{{ formatModelContext(model) }}</em>
                     </span>
-                    <b>{{ formatProvider(model.provider) }}</b>
+                    <b>{{ formatProvider(model.providerName) }}</b>
                   </button>
                   <el-empty v-if="!modelRows.length" description="暂无可选模型" :image-size="72" />
                 </div>

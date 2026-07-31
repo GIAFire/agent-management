@@ -1,61 +1,127 @@
 package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zw.agent.entity.AiAgentModelEntity;
-import com.zw.agent.service.AiAgentModelService;
+import com.zw.agent.entity.DTO.ModelAnalyticsResponse;
+import com.zw.agent.entity.DTO.ModelCallLogResponse;
+import com.zw.agent.entity.DTO.ModelCandidateResponse;
+import com.zw.agent.entity.DTO.ModelDetailResponse;
+import com.zw.agent.entity.DTO.ModelListItemResponse;
+import com.zw.agent.entity.DTO.ModelMetricsResponse;
+import com.zw.agent.entity.DTO.ModelSaveRequest;
+import com.zw.agent.entity.DTO.ModelTestResponse;
+import com.zw.agent.service.ModelManagementService;
 import com.zw.common.entity.Result;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
-import com.zw.common.support.EntityDefaults;
-import lombok.AllArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-/**
- * <p>
- * 模型配置表：把凭证、模型名、生成参数组合成可被 Agent 选择的模型 前端控制器
- * </p>
- *
- * @author 
- * @since 2026-06-20
- */
 @RestController
 @RequestMapping("/modelConfig")
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class AiAgentModelController {
-    private final AiAgentModelService aiAgentModelService;
 
-    @GetMapping("/list")
-    public Result<List<AiAgentModelEntity>> list() {
+    private final ModelManagementService managementService;
 
-        return Result.ok(aiAgentModelService.list());
+    @GetMapping("/metrics")
+    public Result<ModelMetricsResponse> metrics() {
+        return handle(managementService::metrics);
+    }
+
+    @GetMapping("/analytics")
+    public Result<ModelAnalyticsResponse> analytics(
+            @RequestParam(defaultValue = "7") int days
+    ) {
+        return handle(() -> managementService.analytics(days));
     }
 
     @GetMapping("/page")
-    public Result<IPage<AiAgentModelEntity>> page(
+    public Result<IPage<ModelListItemResponse>> page(
             @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "10") long size
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String provider,
+            @RequestParam(required = false) String protocol,
+            @RequestParam(required = false) Integer status
     ) {
-        return Result.ok(aiAgentModelService.page(new Page<>(current, size)));
+        return handle(() -> managementService.page(
+                current,
+                size,
+                keyword,
+                provider,
+                protocol,
+                status
+        ));
+    }
+
+    @GetMapping("/list")
+    public Result<List<ModelCandidateResponse>> list() {
+        return handle(managementService::listCandidates);
     }
 
     @GetMapping("/{id}")
-    public Result<AiAgentModelEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiAgentModelService.getById(id));
+    public Result<ModelDetailResponse> detail(
+            @PathVariable Long id,
+            HttpServletResponse response
+    ) {
+        response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+        response.setHeader("Pragma", "no-cache");
+        return handle(() -> managementService.detail(id));
     }
 
     @PostMapping("/create")
-    public Result<Boolean> create(@RequestBody AiAgentModelEntity entity) {
-        return Result.ok(aiAgentModelService.save(entity));
+    public Result<ModelListItemResponse> create(
+            @RequestBody ModelSaveRequest request
+    ) {
+        return handle(() -> managementService.create(request));
     }
 
     @PostMapping("/update")
-    public Result<Boolean> update(@RequestBody AiAgentModelEntity entity) {
-        return Result.ok(aiAgentModelService.updateById(EntityDefaults.update(entity)));
+    public Result<ModelListItemResponse> update(
+            @RequestBody ModelSaveRequest request
+    ) {
+        return handle(() -> managementService.update(request));
     }
 
-    @GetMapping("/delete/{id}")
+    @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
-        return Result.ok(aiAgentModelService.removeById(id));
+        return handle(() -> managementService.delete(id));
     }
 
+    @PostMapping("/test")
+    public Result<ModelTestResponse> test(@RequestBody ModelSaveRequest request) {
+        return handle(() -> managementService.test(request));
+    }
+
+    @GetMapping("/logs/page")
+    public Result<IPage<ModelCallLogResponse>> logs(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long modelConfigId,
+            @RequestParam(required = false) String callSource,
+            @RequestParam(required = false) String status
+    ) {
+        return handle(() -> managementService.pageLogs(
+                current,
+                size,
+                modelConfigId,
+                callSource,
+                status
+        ));
+    }
+
+    private <T> Result<T> handle(java.util.function.Supplier<T> supplier) {
+        try {
+            return Result.ok(supplier.get());
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return Result.fail(exception.getMessage());
+        }
+    }
 }

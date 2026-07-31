@@ -3,6 +3,8 @@ package com.zw.agent.runtime;
 public final class AgentRuntimeKeys {
 
     public static final String AGENT_PREFIX = "agent:";
+    public static final String MODEL_AUDIT_RUN_ID = "modelAuditRunId";
+    public static final String MODEL_AUDIT_SESSION_ID = "modelAuditSessionId";
 
 
     private AgentRuntimeKeys() {

@@ -2,6 +2,7 @@ package com.zw.agent.mapper;
 
 import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.zw.agent.entity.AiHttpHeaderEntity;
+import com.zw.agent.constant.enumeration.HeaderSourceType;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Delete;
@@ -21,8 +22,15 @@ import java.util.List;
 public interface AiHttpHeaderMapper extends BaseMapper<AiHttpHeaderEntity> {
 
     @InterceptorIgnore(tenantLine = "true")
-    List<AiHttpHeaderEntity> getHeaderlist(Long sourceId, Long tenantId);
+    List<AiHttpHeaderEntity> getHeaderList(
+            @Param("sourceId") Long sourceId,
+            @Param("tenantId") Long tenantId,
+            @Param("source") HeaderSourceType source
+    );
 
     @Delete("DELETE FROM ai_http_header WHERE source_id = #{sourceId} AND source = 'remoteSubAgent' AND tenant_id = #{tenantId}")
     int hardDeleteRemoteSubagentHeaders(@Param("sourceId") Long sourceId, @Param("tenantId") Long tenantId);
+
+    @Delete("DELETE FROM ai_http_header WHERE source_id = #{sourceId} AND source = 'model' AND tenant_id = #{tenantId}")
+    int hardDeleteModelHeaders(@Param("sourceId") Long sourceId, @Param("tenantId") Long tenantId);
 }

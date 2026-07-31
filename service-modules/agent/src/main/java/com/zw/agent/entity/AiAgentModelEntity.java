@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.zw.agent.constant.enumeration.ModelType;
+import com.zw.agent.constant.enumeration.ModelProtocol;
 import com.zw.common.entity.BaseEntity;
 
 import java.math.BigDecimal;
@@ -34,10 +34,22 @@ public class AiAgentModelEntity extends BaseEntity {
     private Long id;
 
     /**
-     * 模型供应商
+     * 租户内唯一的模型配置名称
      */
-    @TableField("provider")
-    private ModelType provider;
+    @TableField("config_name")
+    private String configName;
+
+    /**
+     * 模型供应商显示名称
+     */
+    @TableField("provider_name")
+    private String providerName;
+
+    /**
+     * 模型接口协议
+     */
+    @TableField("protocol")
+    private ModelProtocol protocol;
 
     /**
      * apiUrl
@@ -46,7 +58,7 @@ public class AiAgentModelEntity extends BaseEntity {
     private String baseURL;
 
     /**
-     * apiKey密文
+     * API Key；当前阶段明文存储
      */
     @TableField("api_key")
     private String apiKey;
@@ -64,12 +76,6 @@ public class AiAgentModelEntity extends BaseEntity {
     @TableField("model_name")
     private String modelName;
 
-
-    /**
-     * 模型类型: CHAT、IMAGE、VIDEO、AUDIO
-     */
-    @TableField("model_type")
-    private String modelType;
 
     /**
      * 是否支持流式输出:1是,0否
@@ -102,13 +108,19 @@ public class AiAgentModelEntity extends BaseEntity {
     private Integer maxTokens;
 
     /**
+     * 单次逻辑模型调用超时时间，单位毫秒
+     */
+    @TableField("timeout_ms")
+    private Long timeoutMs;
+
+    /**
      * 思考token预算
      */
     @TableField("thinking_budget")
     private Integer thinkingBudget;
 
     /**
-     * 模型调用最大重试次数
+     * 最大尝试次数，包含首次请求
      */
     @TableField("max_attempts")
     private Integer maxAttempts;

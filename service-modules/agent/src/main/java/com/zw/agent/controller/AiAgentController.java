@@ -4,6 +4,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
+import com.zw.agent.exception.AgentConfigException;
+import com.zw.agent.factory.agentFactory.AgentRuntimeFactory;
 import com.zw.agent.service.AiAgentService;
 import com.zw.common.entity.Result;
 
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.*;
 @AllArgsConstructor
 public class AiAgentController {
     private final AiAgentService aiAgentService;
+    private final AgentRuntimeFactory agentRuntimeFactory;
 
     @GetMapping("/getAgentInfoList")
     public Result<List<AgentConfigDTO>> getAgentInfoList() {
@@ -34,7 +37,22 @@ public class AiAgentController {
 
     @PostMapping("/createAgent")
     public Result<Boolean> createAgent(@RequestBody AgentConfigDTO agentVO) {
-        return Result.ok(aiAgentService.createAgent(agentVO));
+        try {
+            return Result.ok(aiAgentService.createAgent(agentVO));
+        } catch (IllegalArgumentException | IllegalStateException | AgentConfigException exception) {
+            return Result.fail(exception.getMessage());
+        }
+    }
+
+    @PutMapping
+    public Result<Boolean> updateAgent(@RequestBody AgentConfigDTO agentVO) {
+        try {
+            Boolean updated = aiAgentService.updateAgent(agentVO);
+            agentRuntimeFactory.invalidateAllAgents();
+            return Result.ok(updated);
+        } catch (IllegalArgumentException | IllegalStateException | AgentConfigException exception) {
+            return Result.fail(exception.getMessage());
+        }
     }
 
     @GetMapping("/list")

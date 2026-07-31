@@ -3,6 +3,9 @@ package com.zw.agent.mapper;
 import com.zw.agent.entity.AiAgentModelEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Delete;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 /**
  * <p>
@@ -15,4 +18,20 @@ import org.apache.ibatis.annotations.Mapper;
 @Mapper
 public interface AiAgentModelMapper extends BaseMapper<AiAgentModelEntity> {
 
+    @Select("""
+            SELECT COUNT(*)
+            FROM ai_agent_config
+            WHERE tenant_id = #{tenantId}
+              AND (model_id = #{modelId} OR compaction_model_config_id = #{modelId})
+            """)
+    long countAgentConfigReferences(
+            @Param("modelId") Long modelId,
+            @Param("tenantId") Long tenantId
+    );
+
+    @Delete("DELETE FROM ai_agent_model WHERE id = #{modelId} AND tenant_id = #{tenantId}")
+    int hardDeleteById(
+            @Param("modelId") Long modelId,
+            @Param("tenantId") Long tenantId
+    );
 }
