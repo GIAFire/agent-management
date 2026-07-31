@@ -15,7 +15,7 @@ public class CompactionFactory {
 
     public CompactionConfig buildCompaction(AgentConfigDTO config){
 
-        if (config.getCompactionEnabled() != 1){
+        if (!Integer.valueOf(1).equals(config.getCompactionEnabled())){
             return CompactionConfig.builder().build();
         }
 

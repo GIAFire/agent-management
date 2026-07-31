@@ -15,7 +15,6 @@ public class AgentConfigDTO {
     private String agentDescription;
     private String agentAvatarUrl;
     private String agentType;
-    private Integer agentStatus;
 
     private Long tenantId;
     private String tenantName;
@@ -24,41 +23,22 @@ public class AgentConfigDTO {
     private String tenantRemark;
 
     private Long agentConfigId;
-    private String versionNo;
     private Long sysPromptId;
     private String permissionMode;
     private Integer maxIters;
-    private String workspacePath;
-    private String visualSchemaJson;
-    private Long agentPermissionPolicyId;
-    private Integer publishStatus;
-    private String publishedAt;
     private Integer compactionEnabled;
-    private String triggerMode;
-    private Integer flushBeforeCompact;
-    private Integer offloadBeforeCompact;
-    private Long compactionModelConfigId;
     private Integer memoryEnable;
     private Integer planModeEnabled;
     private String planFileDirectory;
     private Integer taskListEnabled;
     private Integer allowShellInPlanMode;
-    private Integer planExitApprovalRequired;
-    private Integer planMaxSteps;
-    private Integer planAutoEnterEnabled;
-    private String planPrompt;
     private StateStoreType stateStoreType;
 
     private Integer triggerMessages;
     private Integer keepMessages;
     private Integer triggerTokens;
     private Integer keepTokens;
-    private Boolean truncateArgsEnabled;
-    private Integer truncateArgsMaxChars;
     private Boolean toolResultEvictionEnabled;
-    private Integer toolResultMaxChars;
-    private Integer sandboxEnabled;
-    private Long sandboxConfigId;
 
     private Long modelId;
     private String modelConfigName;

@@ -36,6 +36,7 @@ public class AiSubagentController {
     public Result<List<AiSubagentEntity>> list() {
         return Result.ok(aiSubagentService.list(new LambdaQueryWrapper<AiSubagentEntity>()
                 .eq(AiSubagentEntity::getTenantId, UserContext.get().getTenantId())
+                .eq(AiSubagentEntity::getDeleted, 0)
                 .orderByDesc(AiSubagentEntity::getUpdatedAt)));
     }
 
@@ -80,7 +81,8 @@ public class AiSubagentController {
     public Result<AiSubagentEntity> getById(@PathVariable Long id) {
         return Result.ok(aiSubagentService.getOne(new LambdaQueryWrapper<AiSubagentEntity>()
                 .eq(AiSubagentEntity::getTenantId, UserContext.get().getTenantId())
-                .eq(AiSubagentEntity::getId, id)));
+                .eq(AiSubagentEntity::getId, id)
+                .eq(AiSubagentEntity::getDeleted, 0)));
     }
 
     @PostMapping("/create")

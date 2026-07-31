@@ -1,52 +1,23 @@
 package com.zw.agent.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.zw.agent.constant.AgentConstant;
-import com.zw.agent.entity.*;
+import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.exception.AgentConfigException;
-import com.zw.agent.constant.enumeration.StateStoreType;
-import com.zw.agent.mapper.*;
+import com.zw.agent.mapper.AiAgentMapper;
 import com.zw.agent.service.AiAgentService;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zw.common.context.UserInfo;
-import com.zw.common.context.UserContext;
-import com.zw.common.support.EntityDefaults;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
-import java.util.List;
-
-import static com.zw.common.utils.DefaultValue.*;
-
-/**
- * <p>
- * Agent 定义表：保存一个可视化 Agent 的基础身份信息 服务实现类
- * </p>
- *
- * @author 
- * @since 2026-06-20
- */
-@RequiredArgsConstructor
 @Service
-public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity> implements AiAgentService {
+@RequiredArgsConstructor
+public class AiAgentServiceImpl
+        extends ServiceImpl<AiAgentMapper, AiAgentEntity>
+        implements AiAgentService {
 
-
-    private final AiAgentMapper aiAgentMapper;
-    private final AiAgentConfigMapper agentConfigMapper;
-    private final AiAgentModelMapper agentModelMapper;
-    private final AiKnowledgeAgentBindingMapper knowledgeAgentBindingMapper;
-    private final AiKnowledgeBaseMapper knowledgeBaseMapper;
-    private final AiSubagentAgentBindingMapper subagentAgentBindingMapper;
-    private final AiSubagentMapper subagentMapper;
-    private final AiAgentToolMapper agentToolMapper;
-    private final AiToolInfoConfigMapper toolInfoConfigMapper;
-    private final AiSkillAgentBindingMapper skillAgentBindingMapper;
-    private final AiSkillInfoMapper skillInfoMapper;
+    private final AiAgentMapper agentMapper;
 
     @Override
     public AgentConfigDTO getAgentConfigById(Long agentId, UserInfo userInfo) {
@@ -65,315 +36,22 @@ public class AiAgentServiceImpl extends ServiceImpl<AiAgentMapper, AiAgentEntity
         if (userInfo == null || userInfo.getTenantId() == null) {
             throw new AgentConfigException("租户信息不能为空");
         }
-        AgentConfigDTO agentConfig = aiAgentMapper.getAgentConfigById(
-                agentId,
-                userInfo.getTenantId(),
-                agentConfigId
-        );
-        if (agentConfig == null) {
-            throw new AgentConfigException("未找到当前会话绑定的智能体配置");
-        }
-        if (agentConfig.getProtocol() == null
-                || !Integer.valueOf(1).equals(agentConfig.getModelStatus())
-                || !Integer.valueOf(0).equals(agentConfig.getModelDeleted())) {
-            throw new AgentConfigException("当前智能体绑定的模型配置已停用、删除或不可用");
-        }
-
-        return agentConfig;
-    }
-
-    @Override
-    public List<AgentConfigDTO> getAgentInfoList() {
-        return aiAgentMapper.getAgentInfoList();
-    }
-
-    @Transactional(rollbackFor = Exception.class)
-    @Override
-    public Boolean createAgent(AgentConfigDTO agentVO) {
-        if (agentVO == null) {
-            throw new IllegalArgumentException("agent config must not be null");
-        }
-        if (!hasText(agentVO.getAgentCode())) {
-            throw new IllegalArgumentException("agentCode must not be blank");
-        }
-        if (!hasText(agentVO.getAgentName())) {
-            throw new IllegalArgumentException("agentName must not be blank");
-        }
-        if (agentVO.getModelId() == null) {
-            throw new IllegalArgumentException("modelId must not be null");
-        }
-
-        AiAgentEntity agent = new AiAgentEntity()
-                .setAgentCode(agentVO.getAgentCode())
-                .setAgentName(agentVO.getAgentName())
-                .setDescription(firstText(agentVO.getAgentDescription(), agentVO.getAgentName()))
-                .setAgentType(firstText(agentVO.getAgentType(), "HARNESS"))
-                .setStatus(defaultInt(agentVO.getAgentStatus(), 1));
-        UserInfo currentUser = UserContext.get();
-        if (currentUser == null || currentUser.getTenantId() == null) {
-            throw new AgentConfigException("Authenticated tenant context is required");
-        }
-        requireEnabledModel(agentVO.getModelId(), currentUser.getTenantId());
-        agent.setTenantId(currentUser.getTenantId());
-        aiAgentMapper.insert(EntityDefaults.create(agent));
-
-        AiAgentConfigEntity config = new AiAgentConfigEntity()
-                .setAgentId(agent.getId())
-                .setVersionNo(firstText(agentVO.getVersionNo(), "v1"))
-                .setSysPromptId(agentVO.getSysPromptId())
-                .setModelId(agentVO.getModelId())
-                .setMaxIters(defaultInt(agentVO.getMaxIters(), 10))
-                .setWorkspacePath(firstText(agentVO.getWorkspacePath(), AgentConstant.WORK_PACE_PATH))
-                .setPermissionMode(firstText(agentVO.getPermissionMode(), "ASK"))
-                .setCompactionEnabled(defaultInt(agentVO.getCompactionEnabled(), 1))
-                .setTriggerMessages(defaultInt(agentVO.getTriggerMessages(), 30))
-                .setKeepMessages(defaultInt(agentVO.getKeepMessages(), 10))
-                .setTriggerTokens(defaultInt(agentVO.getTriggerTokens(), 6000))
-                .setKeepTokens(defaultInt(agentVO.getKeepTokens(), 1000))
-                .setFlushBeforeCompact(defaultInt(agentVO.getFlushBeforeCompact(), 1))
-                .setOffloadBeforeCompact(defaultInt(agentVO.getOffloadBeforeCompact(), 1))
-                .setCompactionModelConfigId(agentVO.getCompactionModelConfigId())
-                .setTruncateArgsEnabled(boolToInt(agentVO.getTruncateArgsEnabled(), 0))
-                .setTruncateArgsMaxChars(agentVO.getTruncateArgsMaxChars())
-                .setToolResultEvictionEnabled(boolToInt(agentVO.getToolResultEvictionEnabled(), 1))
-                .setToolResultMaxChars(agentVO.getToolResultMaxChars())
-                .setMemoryEnable(defaultInt(agentVO.getMemoryEnable(), 1))
-                .setPlanModeEnabled(defaultInt(agentVO.getPlanModeEnabled(), 1))
-                .setPlanFileDirectory(firstText(agentVO.getPlanFileDirectory(), "plans"))
-                .setTaskListEnabled(defaultInt(agentVO.getTaskListEnabled(), 1))
-                .setAllowShellInPlanMode(defaultInt(agentVO.getAllowShellInPlanMode(), 0))
-                .setPlanExitApprovalRequired(defaultInt(agentVO.getPlanExitApprovalRequired(), 1))
-                .setPlanMaxSteps(defaultInt(agentVO.getPlanMaxSteps(), 20))
-                .setPlanAutoEnterEnabled(defaultInt(agentVO.getPlanAutoEnterEnabled(), 1))
-                .setPlanPrompt(agentVO.getPlanPrompt())
-                .setSandboxEnabled(defaultInt(agentVO.getSandboxEnabled(), 0))
-                .setSandboxConfigId(agentVO.getSandboxConfigId())
-                .setStateStoreType(
-                        agentVO.getStateStoreType() == null
-                                ? StateStoreType.LOCAL_FILE
-                                : agentVO.getStateStoreType()
-                );
-        config.setTenantId(agent.getTenantId());
-        agentConfigMapper.insert(EntityDefaults.create(config));
-
-        createKnowledgeBindings(agentVO.getSelectedKnowledgeBaseIds(), agent.getId(), config.getId());
-        createSubagentBindings(agentVO.getSelectedSubagentIds(), agent.getId(), config.getId());
-        createToolBindings(agentVO.getSelectedToolIds(), agent.getId(), config.getId());
-        createSkillBindings(
-                agentVO.getSelectedSkillIds(),
-                agent.getId(),
-                config.getId(),
-                agent.getTenantId()
-        );
-        return true;
-    }
-
-    @Transactional(rollbackFor = Exception.class)
-    @Override
-    public Boolean updateAgent(AgentConfigDTO agentVO) {
-        if (agentVO == null || agentVO.getAgentId() == null) {
-            throw new IllegalArgumentException("agentId must not be null");
-        }
-        UserInfo currentUser = UserContext.get();
-        if (currentUser == null || currentUser.getTenantId() == null) {
-            throw new AgentConfigException("Authenticated tenant context is required");
-        }
-        requireEnabledModel(agentVO.getModelId(), currentUser.getTenantId());
-        AiAgentEntity stored = aiAgentMapper.selectOne(
-                new LambdaQueryWrapper<AiAgentEntity>()
-                        .eq(AiAgentEntity::getTenantId, currentUser.getTenantId())
-                        .eq(AiAgentEntity::getId, agentVO.getAgentId())
-        );
-        if (stored == null) {
-            throw new AgentConfigException("Agent does not exist in the current tenant");
-        }
-        if (hasText(agentVO.getAgentCode())) {
-            stored.setAgentCode(agentVO.getAgentCode());
-        }
-        if (hasText(agentVO.getAgentName())) {
-            stored.setAgentName(agentVO.getAgentName());
-        }
-        if (agentVO.getAgentDescription() != null) {
-            stored.setDescription(agentVO.getAgentDescription());
-        }
-        if (hasText(agentVO.getAgentType())) {
-            stored.setAgentType(agentVO.getAgentType());
-        }
-        if (agentVO.getAgentStatus() != null) {
-            stored.setStatus(agentVO.getAgentStatus());
-        }
-        aiAgentMapper.updateById(EntityDefaults.update(stored));
-
-        AiAgentConfigEntity config = agentConfigMapper.selectOne(
-                new LambdaQueryWrapper<AiAgentConfigEntity>()
-                        .eq(AiAgentConfigEntity::getTenantId, currentUser.getTenantId())
-                        .eq(AiAgentConfigEntity::getAgentId, stored.getId())
-                        .orderByDesc(AiAgentConfigEntity::getCreatedAt)
-                        .orderByDesc(AiAgentConfigEntity::getId)
-                        .last("LIMIT 1")
-        );
+        AgentConfigDTO config = agentMapper.getAgentConfigById(
+                agentId, userInfo.getTenantId(), agentConfigId);
         if (config == null) {
-            throw new AgentConfigException("Agent configuration does not exist");
+            throw new AgentConfigException("智能体不存在、已删除或配置不可用");
         }
-        config.setModelId(agentVO.getModelId());
-        agentConfigMapper.updateById(EntityDefaults.update(config));
-        return true;
+        if (config.getModelId() == null
+                || config.getProtocol() == null
+                || !Integer.valueOf(1).equals(config.getModelStatus())
+                || !Integer.valueOf(0).equals(config.getModelDeleted())) {
+            throw new AgentConfigException("智能体未绑定可用模型，请先完成模型配置");
+        }
+        return config;
     }
 
     @Override
     public List<AiAgentEntity> subAgentList(Long agentId, Long tenantId) {
-        return aiAgentMapper.subAgentList(agentId, tenantId);
+        return agentMapper.subAgentList(agentId, tenantId);
     }
-
-    private void createKnowledgeBindings(List<Long> knowledgeBaseIds, Long agentId, Long agentConfigId) {
-        if (knowledgeBaseIds == null || knowledgeBaseIds.isEmpty()) {
-            return;
-        }
-        if (knowledgeBaseIds.stream().anyMatch(java.util.Objects::isNull)) {
-            throw new AgentConfigException("知识库ID不能为空");
-        }
-        List<Long> requestedIds =
-                new ArrayList<>(new LinkedHashSet<>(knowledgeBaseIds));
-        requestedIds.sort(Long::compareTo);
-        List<AiKnowledgeBaseEntity> knowledgeBaseEntities =
-                new ArrayList<>(requestedIds.size());
-        for (Long knowledgeBaseId : requestedIds) {
-            AiKnowledgeBaseEntity knowledgeBase =
-                    knowledgeBaseMapper.selectByIdForUpdate(knowledgeBaseId);
-            if (knowledgeBase == null
-                    || knowledgeBase.getStatus() == null
-                    || knowledgeBase.getStatus() != (byte) 1) {
-                throw new AgentConfigException(
-                        "所选知识库不存在、已停用或正在删除"
-                );
-            }
-            knowledgeBaseEntities.add(knowledgeBase);
-        }
-        List<AiKnowledgeAgentBindingEntity> knowledgeAgentBinding = new ArrayList<>();
-        for (AiKnowledgeBaseEntity knowledgeBase : knowledgeBaseEntities) {
-            if (knowledgeBase == null) {
-                continue;
-            }
-            AiKnowledgeAgentBindingEntity binding = new AiKnowledgeAgentBindingEntity()
-                    .setAgentId(agentId)
-                    .setAgentConfigId(agentConfigId)
-                    .setKnowledgeBaseId(knowledgeBase.getId())
-                    .setStatus((byte) 1);
-            knowledgeAgentBinding.add(EntityDefaults.create(binding));
-        }
-        knowledgeAgentBindingMapper.insert(knowledgeAgentBinding);
-    }
-
-    private void createSubagentBindings(List<Long> subagentIds, Long agentId, Long agentConfigId) {
-        if (subagentIds == null || subagentIds.isEmpty()) {
-            return;
-        }
-        List<AiSubagentEntity> aiSubagentEntities = subagentMapper
-                .selectList(new LambdaQueryWrapper<AiSubagentEntity>()
-                .in(AiSubagentEntity::getId, subagentIds));
-        List<AiSubagentAgentBindingEntity> subagentAgentBinding = new ArrayList<>();
-        for (AiSubagentEntity subagent : aiSubagentEntities) {
-            if (subagent == null) {
-                continue;
-            }
-            AiSubagentAgentBindingEntity binding = new AiSubagentAgentBindingEntity()
-                    .setAgentId(agentId)
-                    .setAgentConfigId(agentConfigId)
-                    .setSubagentId(subagent.getId())
-                    .setEnabled((byte) 1)
-                    .setVisibleToParent((byte) 1)
-                    .setExposeToUser((byte) 0)
-                    .setDefaultTimeoutSeconds(0)
-                    .setMaxTimeoutSeconds(300)
-                    .setMaxParallelTasks(3)
-                    .setInheritParentPermissions((byte) 1)
-                    .setInheritParentMemory((byte) 1)
-                    .setInheritParentKnowledge((byte) 1);
-            subagentAgentBinding.add(EntityDefaults.create(binding));
-        }
-        subagentAgentBindingMapper.insert(subagentAgentBinding);
-    }
-
-    private void createToolBindings(List<Long> toolIds, Long agentId, Long agentConfigId) {
-        if (toolIds == null || toolIds.isEmpty()) {
-            return;
-        }
-        List<AiToolInfoConfigEntity> toolList = toolInfoConfigMapper.selectList(new QueryWrapper<AiToolInfoConfigEntity>()
-                .in("id", toolIds));
-        List<AiAgentToolEntity> AgentToolBinding = new ArrayList<>();
-        for (AiToolInfoConfigEntity toolInfo : toolList) {
-            if (toolInfo == null) {
-                continue;
-            }
-            AiAgentToolEntity binding = new AiAgentToolEntity()
-                    .setAgentId(agentId)
-                    .setAgentConfigId(agentConfigId)
-                    .setToolInfoConfigId(toolInfo.getId())
-                    .setToolName(toolInfo.getToolName())
-                    .setToolAlias(toolInfo.getToolNameExplain())
-                    .setToolDescription(toolInfo.getDescription())
-                    .setToolGroup(toolInfo.getGroupId())
-                    .setStatus((byte) 1);
-            AgentToolBinding.add(EntityDefaults.create(binding));
-        }
-        agentToolMapper.insert(AgentToolBinding);
-    }
-
-    private AiAgentModelEntity requireEnabledModel(Long modelId, Long tenantId) {
-        if (modelId == null) {
-            throw new AgentConfigException("Please select an enabled model configuration");
-        }
-        AiAgentModelEntity model = agentModelMapper.selectOne(
-                new LambdaQueryWrapper<AiAgentModelEntity>()
-                        .eq(AiAgentModelEntity::getTenantId, tenantId)
-                        .eq(AiAgentModelEntity::getId, modelId)
-                        .eq(AiAgentModelEntity::getStatus, 1)
-        );
-        if (model == null) {
-            throw new AgentConfigException(
-                    "The selected model configuration is unavailable; select an enabled model"
-            );
-        }
-        return model;
-    }
-
-    private void createSkillBindings(
-            List<Long> skillIds,
-            Long agentId,
-            Long agentConfigId,
-            Long tenantId
-    ) {
-        if (skillIds == null || skillIds.isEmpty()) {
-            return;
-        }
-        if (skillIds.stream().anyMatch(java.util.Objects::isNull)) {
-            throw new AgentConfigException("Skill id must not be null");
-        }
-        List<Long> requestedIds = new ArrayList<>(new LinkedHashSet<>(skillIds));
-        requestedIds.sort(Long::compareTo);
-        List<AiSkillInfoEntity> skills = skillInfoMapper.selectList(
-                new LambdaQueryWrapper<AiSkillInfoEntity>()
-                        .eq(AiSkillInfoEntity::getTenantId, tenantId)
-                        .eq(AiSkillInfoEntity::getStatus, (byte) 1)
-                        .in(AiSkillInfoEntity::getId, requestedIds)
-        );
-        if (skills.size() != requestedIds.size()) {
-            throw new AgentConfigException(
-                    "One or more selected skills do not exist or are disabled in the current tenant"
-            );
-        }
-        List<AiSkillAgentBindingEntity> bindings = skills.stream().map(skill -> {
-            AiSkillAgentBindingEntity binding = new AiSkillAgentBindingEntity()
-                    .setAgentId(agentId)
-                    .setAgentConfigId(agentConfigId)
-                    .setSkillId(skill.getId())
-                    .setLoadMode("DYNAMIC")
-                    .setOverridePolicy("DENY_OVERRIDE");
-            binding.setTenantId(tenantId);
-            return EntityDefaults.create(binding);
-        }).toList();
-        skillAgentBindingMapper.insert(bindings);
-    }
-
-
 }

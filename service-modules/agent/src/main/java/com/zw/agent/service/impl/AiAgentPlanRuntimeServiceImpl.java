@@ -1,12 +1,12 @@
 package com.zw.agent.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.AiAgentPlanEntity;
 import com.zw.agent.entity.AiAgentPlanOpLogEntity;
 import com.zw.agent.entity.AiAgentPlanTaskEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
+import com.zw.agent.runtime.AgentWorkspaceResolver;
 import com.zw.agent.service.AiAgentPlanOpLogService;
 import com.zw.agent.service.AiAgentPlanRuntimeService;
 import com.zw.agent.service.AiAgentPlanService;
@@ -435,7 +435,8 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
             plan.setGoal(truncate(userGoal, 500));
         }
         plan.setStatus("DRAFT");
-        plan.setPlanFilePath(resolvePlanRelativePath(config, agentState));
+        plan.setPlanFilePath(resolvePlanRelativePath(
+                config, agentState, userInfo.getUserId()));
         plan.setRunId(runId);
         touchUpdate(plan, userInfo);
         planService.updateById(plan);
@@ -479,9 +480,10 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
                 false
         );
         String beforeStatus = plan.getStatus();
-        String relativePath = resolvePlanRelativePath(config, agentState);
+        String relativePath = resolvePlanRelativePath(
+                config, agentState, userInfo.getUserId());
         // 不在业务层生成 PLAN.md：框架已完成写入，这里只读取文件内容做数据库快照。
-        String content = readPlanContent(config, relativePath);
+        String content = readPlanContent(config, userInfo.getUserId(), relativePath);
         if (!StringUtils.hasText(content)) {
             content = extractPlanContent(rawInput);
         }
@@ -746,7 +748,8 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
         if (latest != null && (!forceDraftReusable || REUSABLE_PLAN_STATUSES.contains(nullToEmpty(latest.getStatus())))) {
             latest.setRunId(runId);
             if (!StringUtils.hasText(latest.getPlanFilePath())) {
-                latest.setPlanFilePath(resolvePlanRelativePath(config, agentState));
+                latest.setPlanFilePath(resolvePlanRelativePath(
+                        config, agentState, userInfo.getUserId()));
             }
             touchUpdate(latest, userInfo);
             return latest;
@@ -764,7 +767,8 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
         plan.setTitle(buildTitleFromText(userGoal, config.getAgentName()));
         plan.setGoal(StringUtils.hasText(userGoal) ? truncate(userGoal, 500) : config.getAgentName());
         plan.setStatus("DRAFT");
-        plan.setPlanFilePath(resolvePlanRelativePath(config, agentState));
+        plan.setPlanFilePath(resolvePlanRelativePath(
+                config, agentState, userInfo.getUserId()));
         plan.setRiskLevel("MEDIUM");
         plan.setCreatedBy(userInfo.getUserId());
         plan.setCreatedAt(LocalDateTime.now());
@@ -952,7 +956,11 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
     /**
      * 解析当前计划文件相对路径，并确保路径始终限制在 workspace 内。
      */
-    private String resolvePlanRelativePath(AgentConfigDTO config, AgentState agentState) {
+    private String resolvePlanRelativePath(
+            AgentConfigDTO config,
+            AgentState agentState,
+            Long userId
+    ) {
         String currentPlanFile = agentState != null && agentState.getPlanModeContext() != null
                 ? agentState.getPlanModeContext().getCurrentPlanFile()
                 : null;
@@ -962,8 +970,11 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
                 .filter(StringUtils::hasText)
                 .orElse(DEFAULT_PLAN_DIR) + "/" + DEFAULT_PLAN_FILE;
 
-        Path workspaceRoot = Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath())
-                .toAbsolutePath().normalize();
+        Path workspaceRoot = AgentWorkspaceResolver.resolve(
+                config.getTenantId(),
+                userId,
+                config.getAgentId()
+        );
         Path candidatePath = Paths.get(candidate);
         Path absolutePath = candidatePath.isAbsolute()
                 ? candidatePath.normalize()
@@ -980,12 +991,19 @@ public class AiAgentPlanRuntimeServiceImpl implements AiAgentPlanRuntimeService 
     /**
      * 从 workspace 中读取 AgentScope 已经生成的 PLAN.md 内容；路径不存在时返回空字符串。
      */
-    private String readPlanContent(AgentConfigDTO config, String relativePath) throws IOException {
-        if (!StringUtils.hasText(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath())
-                || !StringUtils.hasText(relativePath)) {
+    private String readPlanContent(
+            AgentConfigDTO config,
+            Long userId,
+            String relativePath
+    ) throws IOException {
+        if (!StringUtils.hasText(relativePath)) {
             return "";
         }
-        Path workspaceRoot = Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH + config.getTenantId() : config.getWorkspacePath()).toAbsolutePath().normalize();
+        Path workspaceRoot = AgentWorkspaceResolver.resolve(
+                config.getTenantId(),
+                userId,
+                config.getAgentId()
+        );
         Path targetPath = workspaceRoot.resolve(relativePath).normalize();
         if (!targetPath.startsWith(workspaceRoot) || !Files.isRegularFile(targetPath)) {
             return "";

@@ -2,7 +2,7 @@
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiAgentToolMapper">
 
-    <select id="agentBindTools" resultType="com.zw.agent.entity.DTO.AgentBindToolDTO" parameterType="Long">
+    <select id="agentBindTools" resultType="com.zw.agent.entity.DTO.AgentBindToolDTO">
         SELECT
             tic.*
         FROM
@@ -10,6 +10,12 @@
                 LEFT JOIN ai_tool_info_config tic ON atl.tool_info_config_id = tic.id
         WHERE
             atl.agent_id = #{agentId}
+        AND atl.agent_config_id = #{agentConfigId}
         AND atl.tenant_id = #{tenantId}
+        AND atl.status = 1
+        AND atl.deleted = 0
+        AND tic.tenant_id = #{tenantId}
+        AND tic.enabled = 1
+        AND tic.deleted = 0
     </select>
 </mapper>

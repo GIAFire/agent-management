@@ -1,81 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiAgentMapper">
-    <!-- 定义结果映射 -->
-    <resultMap id="AgentFullResultMap" type="com.zw.agent.entity.DTO.AgentConfigDTO">
-        <!-- Agent 字段映射 -->
-        <result property="agentId" column="agent_id"/>
-        <result property="agentCode" column="agent_code"/>
-        <result property="agentName" column="agent_name"/>
-        <result property="agentDescription" column="agent_description"/>
-        <result property="agentAvatarUrl" column="agent_avatar_url"/>
-        <result property="agentType" column="agent_type"/>
-        <result property="agentStatus" column="agent_status"/>
-
-        <!-- Tenant 字段映射 -->
-        <result property="tenantId" column="tenant_id"/>
-        <result property="tenantName" column="tenant_name"/>
-        <result property="tenantStatus" column="tenant_status"/>
-        <result property="tenantNacosNamespaceId" column="tenant_nacos_namespace_id"/>
-        <result property="tenantRemark" column="tenant_remark"/>
-
-        <!-- AgentConfig 字段映射 -->
-        <result property="agentConfigId" column="agent_config_id"/>
-        <result property="versionNo" column="version_no"/>
-        <result property="sysPromptId" column="sys_prompt_id"/>
-        <result property="sysPrompt" column="sys_prompt"/>
-        <result property="modelId" column="model_id"/>
-        <result property="maxIters" column="max_iters"/>
-        <result property="workspacePath" column="workspace_path"/>
-        <result property="permissionMode" column="permission_mode"/>
-        <result property="compactionEnabled" column="compaction_enabled"/>
-        <result property="triggerMessages" column="trigger_messages"/>
-        <result property="keepMessages" column="keep_messages"/>
-        <result property="triggerTokens" column="trigger_tokens"/>
-        <result property="keepTokens" column="keep_tokens"/>
-        <result property="flushBeforeCompact" column="flush_before_compact"/>
-        <result property="offloadBeforeCompact" column="offload_before_compact"/>
-        <result property="compactionModelConfigId" column="compaction_model_config_id"/>
-        <result property="truncateArgsEnabled" column="truncate_args_enabled"/>
-        <result property="truncateArgsMaxChars" column="truncate_args_max_chars"/>
-        <result property="toolResultEvictionEnabled" column="tool_result_eviction_enabled"/>
-        <result property="toolResultMaxChars" column="tool_result_max_chars"/>
-        <result property="memoryEnable" column="memory_enable"/>
-        <result property="planModeEnabled" column="plan_mode_enabled"/>
-        <result property="planFileDirectory" column="plan_file_directory"/>
-        <result property="taskListEnabled" column="task_list_enabled"/>
-        <result property="allowShellInPlanMode" column="allow_shell_in_plan_mode"/>
-        <result property="planExitApprovalRequired" column="plan_exit_approval_required"/>
-        <result property="planMaxSteps" column="plan_max_steps"/>
-        <result property="planAutoEnterEnabled" column="plan_auto_enter_enabled"/>
-        <result property="planPrompt" column="plan_prompt"/>
-        <result property="sandboxEnabled" column="sandbox_enabled"/>
-        <result property="sandboxConfigId" column="sandbox_config_id"/>
-        <result property="stateStoreType" column="state_store_type"/>
-
-        <!-- ModelConfig 字段映射 -->
-        <result property="modelId" column="model_id"/>
-        <result property="modelConfigName" column="model_config_name"/>
-        <result property="providerName" column="provider_name"/>
-        <result property="protocol" column="protocol"/>
-        <result property="baseUrl" column="base_url"/>
-        <result property="apiKey" column="api_key"/>
-        <result property="modelName" column="model_name"/>
-        <result property="streaming" column="streaming"/>
-        <result property="thinking" column="thinking"/>
-        <result property="thinkingBudget" column="thinking_budget"/>
-        <result property="temperature" column="temperature"/>
-        <result property="topP" column="top_p"/>
-        <result property="maxTokens" column="max_tokens"/>
-        <result property="timeoutMs" column="timeout_ms"/>
-        <result property="maxAttempts" column="max_attempts"/>
-        <result property="fallbackModelConfigId" column="fallback_model_config_id"/>
-        <result property="modelStatus" column="model_status"/>
-        <result property="modelDeleted" column="model_deleted"/>
-
-        <result property="promptName" column="prompt_name"/>
-        <result property="sysPrompt" column="sys_prompt"/>
-    </resultMap>
 
     <select id="getAgentConfigById" resultType="com.zw.agent.entity.DTO.AgentConfigDTO">
         SELECT
@@ -84,47 +9,32 @@
             agent.agent_name AS agentName,
             agent.description AS agentDescription,
             agent.agent_type AS agentType,
-            agent.STATUS AS agentStatus,
             tenant.id AS tenantId,
             tenant.tenant_name AS tenantName,
-            tenant.STATUS AS tenantStatus,
+            tenant.status AS tenantStatus,
             tenant.nacos_namespace_id AS tenantNacosNamespaceId,
             tenant.remark AS tenantRemark,
             ac.id AS agentConfigId,
-            ac.version_no AS versionNo,
             ac.sys_prompt_id AS sysPromptId,
             ac.model_id AS modelId,
             ac.max_iters AS maxIters,
-            ac.workspace_path AS workspacePath,
             ac.permission_mode AS permissionMode,
             ac.compaction_enabled AS compactionEnabled,
             ac.trigger_messages AS triggerMessages,
             ac.keep_messages AS keepMessages,
             ac.trigger_tokens AS triggerTokens,
             ac.keep_tokens AS keepTokens,
-            ac.flush_before_compact AS flushBeforeCompact,
-            ac.offload_before_compact AS offloadBeforeCompact,
-            ac.compaction_model_config_id AS compactionModelConfigId,
-            ac.truncate_args_enabled AS truncateArgsEnabled,
-            ac.truncate_args_max_chars AS truncateArgsMaxChars,
             ac.tool_result_eviction_enabled AS toolResultEvictionEnabled,
-            ac.tool_result_max_chars AS toolResultMaxChars,
             ac.memory_enable AS memoryEnable,
             ac.plan_mode_enabled AS planModeEnabled,
             ac.plan_file_directory AS planFileDirectory,
             ac.task_list_enabled AS taskListEnabled,
             ac.allow_shell_in_plan_mode AS allowShellInPlanMode,
-            ac.plan_exit_approval_required AS planExitApprovalRequired,
-            ac.plan_max_steps AS planMaxSteps,
-            ac.plan_auto_enter_enabled AS planAutoEnterEnabled,
-            ac.plan_prompt AS planPrompt,
-            ac.sandbox_enabled AS sandboxEnabled,
-            ac.sandbox_config_id AS sandboxConfigId,
             ac.state_store_type AS stateStoreType,
             model.config_name AS modelConfigName,
             model.provider_name AS providerName,
             model.protocol AS protocol,
-            model.base_URL AS baseUrl,
+            model.base_url AS baseUrl,
             model.api_key AS apiKey,
             model.model_name AS modelName,
             model.streaming AS streaming,
@@ -136,116 +46,50 @@
             model.timeout_ms AS timeoutMs,
             model.max_attempts AS maxAttempts,
             model.fallback_model_config_id AS fallbackModelConfigId,
-            model.STATUS AS modelStatus,
+            model.status AS modelStatus,
             model.deleted AS modelDeleted,
-            sp.prompt_name promptName,
-            sp.sys_prompt sysPrompt
-        FROM
-            ai_agent agent
-                LEFT JOIN sys_tenant tenant ON agent.tenant_id = tenant.id
-                LEFT JOIN ai_agent_config ac ON ac.agent_id = agent.id
-                LEFT JOIN ai_agent_model model ON model.id = ac.model_id
-                LEFT JOIN ai_agent_sys_prompt sp ON sp.id = ac.sys_prompt_id
-        WHERE
-          agent.id = #{agentId}
+            prompt.prompt_name AS promptName,
+            prompt.sys_prompt AS sysPrompt
+        FROM ai_agent agent
+        INNER JOIN ai_agent_config ac
+            ON ac.agent_id = agent.id
+            AND ac.tenant_id = #{tenantId}
+            AND ac.deleted = 0
+        LEFT JOIN sys_tenant tenant
+            ON tenant.id = agent.tenant_id
+        LEFT JOIN ai_agent_model model
+            ON model.id = ac.model_id
+            AND model.tenant_id = #{tenantId}
+        LEFT JOIN ai_agent_sys_prompt prompt
+            ON prompt.id = ac.sys_prompt_id
+            AND prompt.tenant_id = #{tenantId}
+            AND prompt.status = 1
+            AND prompt.deleted = 0
+        WHERE agent.id = #{agentId}
           AND agent.tenant_id = #{tenantId}
+          AND agent.deleted = 0
           <if test="agentConfigId != null">
               AND ac.id = #{agentConfigId}
           </if>
-        ORDER BY ac.created_at DESC, ac.id DESC
         LIMIT 1
     </select>
 
-    <select id="getAgentInfoList" resultType="com.zw.agent.entity.DTO.AgentConfigDTO">
-        SELECT
-            agent.id AS agentId,
-            agent.agent_code AS agentCode,
-            agent.agent_name AS agentName,
-            agent.description AS agentDescription,
-            agent.agent_type AS agentType,
-            agent.STATUS AS agentStatus,
-            tenant.id AS tenantId,
-            tenant.tenant_name AS tenantName,
-            tenant.STATUS AS tenantStatus,
-            tenant.nacos_namespace_id AS tenantNacosNamespaceId,
-            tenant.remark AS tenantRemark,
-            ac.id AS agentConfigId,
-            ac.version_no AS versionNo,
-            ac.sys_prompt_id AS sysPromptId,
-            ac.model_id AS modelId,
-            ac.max_iters AS maxIters,
-            ac.workspace_path AS workspacePath,
-            ac.permission_mode AS permissionMode,
-            ac.compaction_enabled AS compactionEnabled,
-            ac.trigger_messages AS triggerMessages,
-            ac.keep_messages AS keepMessages,
-            ac.trigger_tokens AS triggerTokens,
-            ac.keep_tokens AS keepTokens,
-            ac.flush_before_compact AS flushBeforeCompact,
-            ac.offload_before_compact AS offloadBeforeCompact,
-            ac.compaction_model_config_id AS compactionModelConfigId,
-            ac.truncate_args_enabled AS truncateArgsEnabled,
-            ac.truncate_args_max_chars AS truncateArgsMaxChars,
-            ac.tool_result_eviction_enabled AS toolResultEvictionEnabled,
-            ac.tool_result_max_chars AS toolResultMaxChars,
-            ac.memory_enable AS memoryEnable,
-            ac.plan_mode_enabled AS planModeEnabled,
-            ac.plan_file_directory AS planFileDirectory,
-            ac.task_list_enabled AS taskListEnabled,
-            ac.allow_shell_in_plan_mode AS allowShellInPlanMode,
-            ac.plan_exit_approval_required AS planExitApprovalRequired,
-            ac.plan_max_steps AS planMaxSteps,
-            ac.plan_auto_enter_enabled AS planAutoEnterEnabled,
-            ac.plan_prompt AS planPrompt,
-            ac.sandbox_enabled AS sandboxEnabled,
-            ac.sandbox_config_id AS sandboxConfigId,
-            ac.state_store_type AS stateStoreType,
-            model.config_name AS modelConfigName,
-            model.provider_name AS providerName,
-            model.protocol AS protocol,
-            model.base_URL AS baseUrl,
-            model.model_name AS modelName,
-            model.streaming AS streaming,
-            model.thinking AS thinking,
-            model.thinking_budget AS thinkingBudget,
-            model.temperature AS temperature,
-            model.top_p AS topP,
-            model.max_tokens AS maxTokens,
-            model.timeout_ms AS timeoutMs,
-            model.max_attempts AS maxAttempts,
-            model.fallback_model_config_id AS fallbackModelConfigId,
-            model.STATUS AS modelStatus,
-            model.deleted AS modelDeleted,
-            sp.prompt_name promptName,
-            sp.sys_prompt sysPrompt
-        FROM
-            ai_agent agent
-                LEFT JOIN sys_tenant tenant ON agent.tenant_id = tenant.id
-                LEFT JOIN ai_agent_config ac ON ac.agent_id = agent.id
-                LEFT JOIN ai_agent_model model ON model.id = ac.model_id
-                LEFT JOIN ai_agent_sys_prompt sp ON sp.id = ac.sys_prompt_id
-        ORDER BY
-            agent.created_at ASC
-    </select>
-
     <select id="subAgentList" resultType="com.zw.agent.entity.AiAgentEntity">
-        SELECT
-            sub.*
-        FROM
-            ai_subagent_agent_binding sab
-                INNER JOIN ai_subagent definition ON definition.id = sab.subagent_id
-                INNER JOIN ai_agent sub ON sub.id = definition.local_agent_id
-        WHERE
-            sab.agent_id = #{agentId}
-            AND sab.tenant_id = #{tenantId}
-            AND sab.enabled = 1
-            AND sab.deleted = 0
-            AND definition.tenant_id = #{tenantId}
-            AND definition.source_type = 1
-            AND definition.enabled = 1
-            AND definition.deleted = 0
-            AND sub.tenant_id = #{tenantId}
-            AND sub.status = 1
-            AND sub.deleted = 0
+        SELECT child.*
+        FROM ai_subagent_agent_binding binding
+        INNER JOIN ai_subagent definition
+            ON definition.id = binding.subagent_id
+        INNER JOIN ai_agent child
+            ON child.id = definition.local_agent_id
+        WHERE binding.agent_id = #{agentId}
+          AND binding.tenant_id = #{tenantId}
+          AND binding.enabled = 1
+          AND binding.deleted = 0
+          AND definition.tenant_id = #{tenantId}
+          AND definition.source_type = 1
+          AND definition.enabled = 1
+          AND definition.deleted = 0
+          AND child.tenant_id = #{tenantId}
+          AND child.deleted = 0
     </select>
 </mapper>

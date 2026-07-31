@@ -35,7 +35,11 @@ public class TenantToolkitFactory {
     public Toolkit buildToolkit(Long agentId, Long agentConfigId, UserInfo userInfo) {
         Toolkit toolkit = new Toolkit();
 
-        List<AgentBindToolDTO> toolList = agentToolService.agentBindTools(agentId,userInfo.getTenantId());
+        List<AgentBindToolDTO> toolList = agentToolService.agentBindTools(
+                agentId,
+                agentConfigId,
+                userInfo.getTenantId()
+        );
         toolkit.registerTool(
                 new AgentKnowledgeSearchTool(
                         agentId,

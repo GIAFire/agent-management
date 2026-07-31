@@ -22,9 +22,23 @@ public interface AiAgentModelMapper extends BaseMapper<AiAgentModelEntity> {
             SELECT COUNT(*)
             FROM ai_agent_config
             WHERE tenant_id = #{tenantId}
-              AND (model_id = #{modelId} OR compaction_model_config_id = #{modelId})
+              AND model_id = #{modelId}
             """)
     long countAgentConfigReferences(
+            @Param("modelId") Long modelId,
+            @Param("tenantId") Long tenantId
+    );
+
+    @org.apache.ibatis.annotations.Update("""
+            UPDATE ai_agent_config
+            SET model_id = NULL,
+                updated_at = CURRENT_TIMESTAMP,
+                version = version + 1
+            WHERE tenant_id = #{tenantId}
+              AND deleted = 0
+              AND model_id = #{modelId}
+            """)
+    int clearAgentConfigReferences(
             @Param("modelId") Long modelId,
             @Param("tenantId") Long tenantId
     );

@@ -306,6 +306,10 @@ public class ModelManagementService {
         model.setId(stored.getId());
         model.setTenantId(tenantId());
         modelService.updateById(EntityDefaults.update(model));
+        if (Integer.valueOf(ENABLED).equals(stored.getStatus())
+                && !Integer.valueOf(ENABLED).equals(model.getStatus())) {
+            modelMapper.clearAgentConfigReferences(model.getId(), tenantId());
+        }
         syncHeaders(model.getId(), request.getHeaders(), false);
         invalidateAgentsAfterCommit();
         return toListItem(model, countTodayCalls(model.getId()), recentTest(model.getId()));
@@ -316,6 +320,9 @@ public class ModelManagementService {
         AiAgentModelEntity model = requireModel(id);
         Long tenantId = tenantId();
         long references = modelMapper.countAgentConfigReferences(model.getId(), tenantId);
+        if (references > 0) {
+            modelMapper.clearAgentConfigReferences(model.getId(), tenantId);
+        }
         long logs = callLogService.count(new LambdaQueryWrapper<AiModelCallLogEntity>()
                 .eq(AiModelCallLogEntity::getTenantId, tenantId)
                 .eq(AiModelCallLogEntity::getModelConfigId, model.getId()));
@@ -325,11 +332,18 @@ public class ModelManagementService {
                 throw new IllegalStateException("模型配置删除失败");
             }
         } else {
-            modelService.removeById(model.getId());
-            headerService.remove(new LambdaQueryWrapper<AiHttpHeaderEntity>()
+            model.setDeleted(1);
+            modelService.updateById(EntityDefaults.update(model));
+            List<AiHttpHeaderEntity> headers = headerService.list(
+                    new LambdaQueryWrapper<AiHttpHeaderEntity>()
                     .eq(AiHttpHeaderEntity::getTenantId, tenantId)
                     .eq(AiHttpHeaderEntity::getSourceId, model.getId())
-                    .eq(AiHttpHeaderEntity::getSource, HeaderSourceType.MODEL));
+                    .eq(AiHttpHeaderEntity::getSource, HeaderSourceType.MODEL)
+                    .eq(AiHttpHeaderEntity::getDeleted, 0));
+            for (AiHttpHeaderEntity header : headers) {
+                header.setDeleted(1);
+                headerService.updateById(EntityDefaults.update(header));
+            }
         }
         invalidateAgentsAfterCommit();
         return true;
@@ -425,10 +439,10 @@ public class ModelManagementService {
                                 modelConfigId)
                         .eq(StringUtils.hasText(callSource),
                                 AiModelCallLogEntity::getCallSource,
-                                trim(callSource).toUpperCase(Locale.ROOT))
+                                StringUtils.hasText(callSource) ? trim(callSource).toUpperCase(Locale.ROOT) : null)
                         .eq(StringUtils.hasText(status),
                                 AiModelCallLogEntity::getStatus,
-                                trim(status).toUpperCase(Locale.ROOT))
+                                StringUtils.hasText(callSource) ? trim(callSource).toUpperCase(Locale.ROOT) : null)
                         .orderByDesc(AiModelCallLogEntity::getStartedAt)
                         .orderByDesc(AiModelCallLogEntity::getId)
         );
@@ -765,6 +779,7 @@ public class ModelManagementService {
                 new LambdaQueryWrapper<AiAgentModelEntity>()
                         .eq(AiAgentModelEntity::getTenantId, tenantId())
                         .eq(AiAgentModelEntity::getId, id)
+                        .eq(AiAgentModelEntity::getDeleted, 0)
         );
         if (model == null) {
             throw new IllegalArgumentException("模型配置不存在或已删除");

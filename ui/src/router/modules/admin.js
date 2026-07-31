@@ -73,12 +73,6 @@ export const adminRoutes = [
             meta: { title: '技能包管理', icon: 'Box', section: 'TOOLS & SKILLS' }
           },
           {
-            path: 'mcp',
-            name: 'McpManage',
-            component: () => import('@/views/mcp/index.vue'),
-            meta: { title: '沙箱', icon: 'Share', section: 'SANDBOX' }
-          },
-          {
             path: 'hook',
             name: 'HookManage',
             component: () => import('@/views/hook/index.vue'),

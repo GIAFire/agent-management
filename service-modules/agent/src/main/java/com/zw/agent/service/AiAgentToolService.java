@@ -16,5 +16,9 @@ import java.util.List;
  */
 public interface AiAgentToolService extends IService<AiAgentToolEntity> {
 
-    List<AgentBindToolDTO> agentBindTools(Long agentId, Long tenantId);
+    List<AgentBindToolDTO> agentBindTools(
+            Long agentId,
+            Long agentConfigId,
+            Long tenantId
+    );
 }

@@ -1,35 +1,23 @@
 import { del, get, post, put, stringifyId } from '@/axios/request'
 
-const baseUrl = '/agent'
+const baseUrl = '/agent/agent'
 
-export const getAgentInfoList = () => {
-    return get(`${baseUrl}/agent/getAgentInfoList`)
-}
+export const getAgentMetrics = () => get(`${baseUrl}/metrics`)
 
-export const listAgent = () => {
-  return get(`${baseUrl}/agent/list`)
-}
+export const pageAgents = (params) => get(`${baseUrl}/page`, params)
 
-export const pageAgent = (params) => {
-  return get(`${baseUrl}/agent/page`, params)
-}
+export const getAgent = (id) => get(`${baseUrl}/${stringifyId(id)}`)
 
-export const getAgent = (id) => {
-  return get(`${baseUrl}/agent/${stringifyId(id)}`)
-}
+export const createAgent = (data) => post(baseUrl, data)
 
-export const addAgent = (data) => {
-  return post(`${baseUrl}/agent/create`, data)
-}
+export const updateAgent = (id, data) => put(
+  `${baseUrl}/${stringifyId(id)}`,
+  data
+)
 
-export const createAgentFull = (data) => {
-  return post(`${baseUrl}/agent/createAgent`, data)
-}
+export const deleteAgent = (id) => del(`${baseUrl}/${stringifyId(id)}`)
 
-export const updateAgent = (data) => {
-  return put(baseUrl, data)
-}
-
-export const deleteAgent = (id) => {
-  return del(`${baseUrl}/agent/${stringifyId(id)}`)
-}
+export const pageAgentRuns = (id, params) => get(
+  `${baseUrl}/${stringifyId(id)}/runs`,
+  params
+)

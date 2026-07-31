@@ -1,7 +1,6 @@
 package com.zw.agent.factory.agentFactory;
 
 import com.github.benmanes.caffeine.cache.Cache;
-import com.zw.agent.constant.AgentConstant;
 import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.DTO.AgentConfigDTO;
 import com.zw.agent.event.AgentRuntimeEvent;
@@ -15,6 +14,7 @@ import com.zw.agent.factory.stateStoreFactory.StateStoreFactory;
 import com.zw.agent.factory.subAgentFactory.SubAgentFactory;
 import com.zw.agent.factory.toolResultFactory.ToolResultEvictionFactory;
 import com.zw.agent.runtime.AgentRuntimeKeys;
+import com.zw.agent.runtime.AgentWorkspaceResolver;
 import com.zw.agent.runtime.skill.SkillUsageLogMiddlewareFactory;
 import com.zw.agent.factory.toolkitFactory.TenantToolkitFactory;
 import com.zw.agent.service.AiAgentService;
@@ -51,7 +51,6 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 
@@ -101,12 +100,11 @@ public class AgentRuntimeFactory {
             List<AiAgentEntity> subAgentIdList = subAgentFactory.buildSubAgentFactory(config);
             AgentSkillRepository mysqlSkillRepository = mysqlSkillFactory.mysqlSkillFactory(config,userInfo);
             AgentStateStore stateStore = stateStoreFactory.buildStateStore(config);
-            Path baseWorkspace = Paths.get(config.getWorkspacePath() == null ? AgentConstant.WORK_PACE_PATH : config.getWorkspacePath());
-
-            Path workspacePath = baseWorkspace
-                    .resolve("tenants").resolve(String.valueOf(config.getTenantId()))
-                    .resolve("users").resolve(String.valueOf(userInfo.getUserId()))
-                    .resolve("agents").resolve(String.valueOf(config.getAgentId()));
+            Path workspacePath = AgentWorkspaceResolver.resolve(
+                    config.getTenantId(),
+                    userInfo.getUserId(),
+                    config.getAgentId()
+            );
 
             HarnessAgent.Builder agentBuilder = HarnessAgent.builder()
                     .agentId(String.valueOf(config.getAgentId()))

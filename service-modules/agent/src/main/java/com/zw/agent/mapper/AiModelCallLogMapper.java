@@ -79,4 +79,20 @@ public interface AiModelCallLogMapper extends BaseMapper<AiModelCallLogEntity> {
             @Param("tenantId") Long tenantId,
             @Param("modelIds") List<Long> modelIds
     );
+
+    @Select("""
+            SELECT COALESCE(SUM(total_tokens), 0)
+            FROM ai_model_call_log
+            WHERE tenant_id = #{tenantId}
+              AND deleted = 0
+              AND call_source = 'AGENT_RUN'
+              AND started_at >= #{start}
+              AND started_at < #{end}
+            """)
+    @InterceptorIgnore(tenantLine = "true")
+    Long sumAgentRunTokens(
+            @Param("tenantId") Long tenantId,
+            @Param("start") LocalDateTime start,
+            @Param("end") LocalDateTime end
+    );
 }

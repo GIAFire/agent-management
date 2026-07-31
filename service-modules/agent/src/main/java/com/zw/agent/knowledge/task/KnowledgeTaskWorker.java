@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -43,7 +43,7 @@ public class KnowledgeTaskWorker {
         );
     }
 
-    @Scheduled(fixedDelayString = "${knowledge.tasks.poll-interval:2s}")
+//    @Scheduled(fixedDelayString = "${knowledge.tasks.poll-interval:2s}")
     public void poll() {
         cleanExpiredTasks();
         int availableSlots = executionPermits.availablePermits();

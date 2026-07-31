@@ -15,7 +15,7 @@ import java.util.Map;
 
 @Component
 @permission("order:list")
-@Tenant("1")
+@Tenant("2076319328517918111")
 public class QueryRefundTool extends ToolBase {
 
     public QueryRefundTool() {

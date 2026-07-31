@@ -95,5 +95,6 @@ mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
   # MyBatis配置
   configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     # 使用字符串方式处理枚举
     default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler

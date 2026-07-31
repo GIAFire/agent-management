@@ -14,7 +14,7 @@ import {
   TrendCharts,
   VideoPlay
 } from '@element-plus/icons-vue'
-import { listAgent } from '@/axios/agent'
+import { pageAgents } from '@/axios/agent'
 
 const router = useRouter()
 const agentRows = ref([])
@@ -70,8 +70,8 @@ const quickAgents = [
 
 const loadAgents = async () => {
   try {
-    const data = await listAgent()
-    agentRows.value = Array.isArray(data) ? data : []
+    const data = await pageAgents({ current: 1, size: 100 })
+    agentRows.value = data?.records || []
   } catch {
     agentRows.value = []
   }

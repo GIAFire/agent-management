@@ -20,5 +20,9 @@ import java.util.List;
 public interface AiAgentToolMapper extends BaseMapper<AiAgentToolEntity> {
 
     @InterceptorIgnore(tenantLine = "true")
-    List<AgentBindToolDTO> agentBindTools(Long agentId,Long tenantId);
+    List<AgentBindToolDTO> agentBindTools(
+            Long agentId,
+            Long agentConfigId,
+            Long tenantId
+    );
 }

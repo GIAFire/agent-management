@@ -53,9 +53,4 @@ public class AiAgentEntity extends BaseEntity {
     @TableField("agent_type")
     private String agentType;
 
-    /**
-     * 状态：1启用，0停用，2草稿
-     */
-    @TableField("status")
-    private Integer status;
 }

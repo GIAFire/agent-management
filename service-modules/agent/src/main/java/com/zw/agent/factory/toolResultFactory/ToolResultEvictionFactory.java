@@ -15,7 +15,7 @@ public class ToolResultEvictionFactory {
     public ToolResultEvictionConfig buildToolResultEviction(
             AgentConfigDTO config
     ){
-        if (config.getToolResultEvictionEnabled())
+        if (Boolean.TRUE.equals(config.getToolResultEvictionEnabled()))
             return ToolResultEvictionConfig.defaults();
         else
             return null;

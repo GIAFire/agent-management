@@ -23,7 +23,6 @@ const navItems = [
   { title: '工具', path: '/agent/tool', icon: Tools },
   { title: '技能', path: '/agent/skill', icon: MagicStick, match: ['/agent/skill', '/agent/skill-package'] },
   { title: '模型', path: '/agent/model', icon: Box },
-  { title: '沙箱', path: '/agent/mcp', icon: Operation, match: ['/agent/mcp', '/agent/hook', '/agent/sensitive-word'] },
   {
     title: '系统管理',
     path: '/user/manage',

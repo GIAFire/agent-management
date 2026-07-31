@@ -8,7 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestTemplate;
 
-@Tenant("1")
+@Tenant("2076319328517918111")
 abstract class AbstractHttpTool extends ToolBase {
 
     protected final Logger log = LoggerFactory.getLogger(getClass());

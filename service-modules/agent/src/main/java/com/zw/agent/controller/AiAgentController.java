@@ -1,91 +1,91 @@
 package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zw.agent.entity.AiAgentEntity;
-import com.zw.agent.entity.DTO.AgentConfigDTO;
-import com.zw.agent.exception.AgentConfigException;
-import com.zw.agent.factory.agentFactory.AgentRuntimeFactory;
-import com.zw.agent.service.AiAgentService;
+import com.zw.agent.entity.DTO.AgentDetailResponse;
+import com.zw.agent.entity.DTO.AgentListItemResponse;
+import com.zw.agent.entity.DTO.AgentMetricsResponse;
+import com.zw.agent.entity.DTO.AgentRunLogResponse;
+import com.zw.agent.entity.DTO.AgentSaveRequest;
+import com.zw.agent.service.AgentManagementService;
 import com.zw.common.entity.Result;
+import java.time.LocalDateTime;
+import java.util.function.Supplier;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
-import com.zw.common.support.EntityDefaults;
-import lombok.AllArgsConstructor;
-import org.springframework.web.bind.annotation.*;
-
-/**
- * <p>
- * Agent 定义表：保存一个可视化 Agent 的基础身份信息 前端控制器
- * </p>
- *
- * @author
- * @since 2026-06-20
- */
 @RestController
 @RequestMapping("/agent")
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class AiAgentController {
-    private final AiAgentService aiAgentService;
-    private final AgentRuntimeFactory agentRuntimeFactory;
 
-    @GetMapping("/getAgentInfoList")
-    public Result<List<AgentConfigDTO>> getAgentInfoList() {
-        return Result.ok(aiAgentService.getAgentInfoList());
-    }
+    private final AgentManagementService managementService;
 
-    @PostMapping("/createAgent")
-    public Result<Boolean> createAgent(@RequestBody AgentConfigDTO agentVO) {
-        try {
-            return Result.ok(aiAgentService.createAgent(agentVO));
-        } catch (IllegalArgumentException | IllegalStateException | AgentConfigException exception) {
-            return Result.fail(exception.getMessage());
-        }
-    }
-
-    @PutMapping
-    public Result<Boolean> updateAgent(@RequestBody AgentConfigDTO agentVO) {
-        try {
-            Boolean updated = aiAgentService.updateAgent(agentVO);
-            agentRuntimeFactory.invalidateAllAgents();
-            return Result.ok(updated);
-        } catch (IllegalArgumentException | IllegalStateException | AgentConfigException exception) {
-            return Result.fail(exception.getMessage());
-        }
-    }
-
-    @GetMapping("/list")
-    public Result<List<AiAgentEntity>> list() {
-        return Result.ok(aiAgentService.list());
+    @GetMapping("/metrics")
+    public Result<AgentMetricsResponse> metrics() {
+        return handle(managementService::metrics);
     }
 
     @GetMapping("/page")
-    public Result<IPage<AiAgentEntity>> page(
+    public Result<IPage<AgentListItemResponse>> page(
             @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "10") long size
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String keyword
     ) {
-        return Result.ok(aiAgentService.page(new Page<>(current, size)));
+        return handle(() -> managementService.page(current, size, keyword));
     }
 
     @GetMapping("/{id}")
-    public Result<AiAgentEntity> getById(@PathVariable Long id) {
-        return Result.ok(aiAgentService.getById(id));
+    public Result<AgentDetailResponse> detail(@PathVariable Long id) {
+        return handle(() -> managementService.detail(id));
     }
 
-    @PostMapping("/create")
-    public Result<Boolean> create(@RequestBody AiAgentEntity entity) {
-        return Result.ok(aiAgentService.save(EntityDefaults.create(entity)));
+    @PostMapping
+    public Result<AgentDetailResponse> create(@RequestBody AgentSaveRequest request) {
+        return handle(() -> managementService.create(request));
     }
 
-    @PostMapping("/update")
-    public Result<Boolean> update(@RequestBody AiAgentEntity entity) {
-        return Result.ok(aiAgentService.updateById(EntityDefaults.update(entity)));
+    @PutMapping("/{id}")
+    public Result<AgentDetailResponse> update(
+            @PathVariable Long id,
+            @RequestBody AgentSaveRequest request
+    ) {
+        return handle(() -> managementService.update(id, request));
     }
 
-    @GetMapping("/delete/{id}")
+    @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
-        return Result.ok(aiAgentService.removeById(id));
+        return handle(() -> managementService.delete(id));
     }
 
+    @GetMapping("/{id}/runs")
+    public Result<IPage<AgentRunLogResponse>> runs(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end
+    ) {
+        return handle(() -> managementService.runs(
+                id, current, size, status, start, end));
+    }
+
+    private <T> Result<T> handle(Supplier<T> supplier) {
+        try {
+            return Result.ok(supplier.get());
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return Result.fail(exception.getMessage());
+        }
+    }
 }

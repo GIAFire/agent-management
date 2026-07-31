@@ -38,12 +38,6 @@ public class AiAgentConfigEntity extends BaseEntity {
     private Long agentId;
 
     /**
-     * 版本号，例如 v1、v2、2026.06.20-1
-     */
-    @TableField("version_no")
-    private String versionNo;
-
-    /**
      * 系统提示词，关联 ai_agent_sys_prompt.id
      */
     @TableField("sys_prompt_id")
@@ -60,12 +54,6 @@ public class AiAgentConfigEntity extends BaseEntity {
      */
     @TableField("max_iters")
     private Integer maxIters;
-
-    /**
-     * 工作区目录，例如/local
-     */
-    @TableField("workspace_path")
-    private String workspacePath;
 
     /**
      * 全局默认权限模式：ALLOW(全部放行)/ASK(询问用户)/DENY(全部拒绝)
@@ -88,26 +76,8 @@ public class AiAgentConfigEntity extends BaseEntity {
     @TableField("keep_tokens")
     private Integer keepTokens;
 
-    @TableField("flush_before_compact")
-    private Integer flushBeforeCompact;
-
-    @TableField("offload_before_compact")
-    private Integer offloadBeforeCompact;
-
-    @TableField("compaction_model_config_id")
-    private Long compactionModelConfigId;
-
-    @TableField("truncate_args_enabled")
-    private Integer truncateArgsEnabled;
-
-    @TableField("truncate_args_max_chars")
-    private Integer truncateArgsMaxChars;
-
     @TableField("tool_result_eviction_enabled")
     private Integer toolResultEvictionEnabled;
-
-    @TableField("tool_result_max_chars")
-    private Integer toolResultMaxChars;
 
     /**
      * 是否启用记忆：1启用,0禁用
@@ -138,43 +108,6 @@ public class AiAgentConfigEntity extends BaseEntity {
      */
     @TableField("allow_shell_in_plan_mode")
     private Integer allowShellInPlanMode;
-
-    /**
-     * Plan制定完毕后是否需要人工确认：1需要，0不需要
-     */
-    @TableField("plan_exit_approval_required")
-    private Integer planExitApprovalRequired;
-
-    /**
-     * 单个计划最多允许的步骤数量
-     */
-    @TableField("plan_max_steps")
-    private Integer planMaxSteps;
-
-    /**
-     * 是否允许模型自主进入Plan Mode：1允许，0关闭
-     */
-    @TableField("plan_auto_enter_enabled")
-    private Integer planAutoEnterEnabled;
-
-    /**
-     * Plan Mode额外提示词，用于约束计划格式、风险说明和验收标准
-     */
-    @TableField("plan_prompt")
-    private String planPrompt;
-
-
-    /**
-     * 是否启用沙箱：1启用，0关闭
-     */
-    @TableField("sandbox_enabled")
-    private Integer sandboxEnabled;
-
-    /**
-     * 沙箱配置ID，关联ai_agent_sandbox_config.id
-     */
-    @TableField("sandbox_config_id")
-    private Long sandboxConfigId;
 
     /**
      * stateStore类型

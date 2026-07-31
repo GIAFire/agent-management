@@ -121,11 +121,12 @@ public class SubagentManagementService {
         Long tenantId = currentTenantId();
         List<AiAgentEntity> activeAgents = agentService.list(new LambdaQueryWrapper<AiAgentEntity>()
                 .eq(AiAgentEntity::getTenantId, tenantId)
-                .eq(AiAgentEntity::getStatus, 1));
+                .eq(AiAgentEntity::getDeleted, 0));
         Set<Long> activeAgentIds = activeAgents.stream().map(AiAgentEntity::getId).collect(Collectors.toSet());
 
         LambdaQueryWrapper<AiSubagentEntity> query = new LambdaQueryWrapper<AiSubagentEntity>()
-                .eq(AiSubagentEntity::getTenantId, tenantId);
+                .eq(AiSubagentEntity::getTenantId, tenantId)
+                .eq(AiSubagentEntity::getDeleted, 0);
         if (StringUtils.hasText(keyword)) {
             String value = keyword.trim();
             query.and(wrapper -> wrapper
@@ -161,6 +162,7 @@ public class SubagentManagementService {
         Long tenantId = currentTenantId();
         Set<Long> registeredIds = subagentService.list(new LambdaQueryWrapper<AiSubagentEntity>()
                         .eq(AiSubagentEntity::getTenantId, tenantId)
+                        .eq(AiSubagentEntity::getDeleted, 0)
                         .eq(AiSubagentEntity::getSourceType, LOCAL)
                         .isNotNull(AiSubagentEntity::getLocalAgentId))
                 .stream()
@@ -168,7 +170,7 @@ public class SubagentManagementService {
                 .collect(Collectors.toSet());
         LambdaQueryWrapper<AiAgentEntity> query = new LambdaQueryWrapper<AiAgentEntity>()
                 .eq(AiAgentEntity::getTenantId, tenantId)
-                .eq(AiAgentEntity::getStatus, 1);
+                .eq(AiAgentEntity::getDeleted, 0);
         if (!registeredIds.isEmpty()) {
             query.notIn(AiAgentEntity::getId, registeredIds);
         }
@@ -264,12 +266,13 @@ public class SubagentManagementService {
                 .eq(AiSubagentInstanceEntity::getSubagentId, id));
         if (bindingCount > 0 || taskCount > 0 || instanceCount > 0) {
             existing.setEnabled((byte) 0);
+            existing.setDeleted(1);
             subagentService.updateById(EntityDefaults.update(existing));
             bindingService.update(new LambdaUpdateWrapper<AiSubagentAgentBindingEntity>()
                     .eq(AiSubagentAgentBindingEntity::getTenantId, tenantId)
                     .eq(AiSubagentAgentBindingEntity::getSubagentId, id)
                     .set(AiSubagentAgentBindingEntity::getEnabled, (byte) 0));
-            return subagentService.removeById(id);
+            return true;
         }
         headerMapper.hardDeleteRemoteSubagentHeaders(id, tenantId);
         return subagentMapper.hardDeleteById(id, tenantId) > 0;
@@ -316,7 +319,8 @@ public class SubagentManagementService {
         AiSubagentEntity entity = subagentService.getOne(
                 new LambdaQueryWrapper<AiSubagentEntity>()
                         .eq(AiSubagentEntity::getTenantId, tenantId)
-                        .eq(AiSubagentEntity::getId, id),
+                        .eq(AiSubagentEntity::getId, id)
+                        .eq(AiSubagentEntity::getDeleted, 0),
                 false
         );
         if (entity == null) {
@@ -332,7 +336,7 @@ public class SubagentManagementService {
         AiAgentEntity agent = agentService.getOne(new LambdaQueryWrapper<AiAgentEntity>()
                 .eq(AiAgentEntity::getTenantId, tenantId)
                 .eq(AiAgentEntity::getId, id)
-                .eq(AiAgentEntity::getStatus, 1), false);
+                .eq(AiAgentEntity::getDeleted, 0), false);
         if (agent == null) {
             throw new IllegalArgumentException("The selected local agent is not available");
         }
@@ -594,7 +598,7 @@ public class SubagentManagementService {
     private List<AiAgentEntity> availableAgents(Long tenantId) {
         return agentService.list(new LambdaQueryWrapper<AiAgentEntity>()
                 .eq(AiAgentEntity::getTenantId, tenantId)
-                .eq(AiAgentEntity::getStatus, 1));
+                .eq(AiAgentEntity::getDeleted, 0));
     }
 
     private String normalizeStatus(String status) {

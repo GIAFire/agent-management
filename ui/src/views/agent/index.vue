@@ -3,34 +3,31 @@ import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  ArrowDown,
-  ArrowRight,
-  ArrowUp,
-  Briefcase,
-  Check,
-  Close,
-  Collection,
+  ChatDotRound,
   Connection,
-  Coin,
   Delete,
+  Edit,
   Files,
-  FolderOpened,
-  Grid,
-  InfoFilled,
-  Lightning,
-  Lock,
   MagicStick,
   Menu,
   Monitor,
   MoreFilled,
-  Notebook,
   Plus,
+  Refresh,
   Search,
-  SetUp,
+  Setting,
   TrendCharts,
-  Tools
+  Warning
 } from '@element-plus/icons-vue'
-import { createAgentFull, deleteAgent, getAgent, getAgentInfoList, updateAgent } from '@/axios/agent'
+import {
+  createAgent,
+  deleteAgent,
+  getAgent,
+  getAgentMetrics,
+  pageAgentRuns,
+  pageAgents,
+  updateAgent
+} from '@/axios/agent'
 import { listSkills } from '@/axios/skill'
 import {
   listWizardKnowledgeBases,
@@ -44,1589 +41,1453 @@ const router = useRouter()
 const route = useRoute()
 const loading = ref(false)
 const submitting = ref(false)
-const wizardLoading = ref(false)
 const dialogVisible = ref(false)
-const dialogTitle = ref('创建智能体')
-const wizardStep = ref(1)
+const optionsLoading = ref(false)
 const formRef = ref()
-const agentRows = ref([])
-const searchKeyword = ref('')
-const typeFilter = ref('')
-const statusFilter = ref('')
+const activeStep = ref(0)
 const viewMode = ref('grid')
-const currentPage = ref(1)
-const pageSize = ref(6)
-const modelConfigExpanded = ref(true)
-const promptTemplateExpanded = ref(true)
-const promptPreviewExpanded = ref(false)
-const toolsCapabilityExpanded = ref(true)
-const skillsCapabilityExpanded = ref(true)
-const subagentsCapabilityExpanded = ref(true)
-const knowledgeBaseExpanded = ref(true)
-const mcpServiceExpanded = ref(true)
-const modelRows = ref([])
-const promptRows = ref([])
-const toolRows = ref([])
-const knowledgeRows = ref([])
-const subagentRows = ref([])
+const rows = ref([])
+const total = ref(0)
+const metrics = ref({})
 
-const skillRows = ref([])
+const query = reactive({
+  current: 1,
+  size: 6,
+  keyword: ''
+})
 
-const mcpRows = ref([
-  {
-    id: 'business-database-mcp',
-    name: '业务数据库 MCP',
-    protocol: 'SSE',
-    endpoint: 'mcp-db.internal',
-    description: '订单、客户与销售数据查询',
-    toolCount: 8,
-    connected: true,
-    enabled: true
-  },
-  {
-    id: 'github-mcp',
-    name: 'GitHub MCP',
-    protocol: 'Streamable HTTP',
-    endpoint: '',
-    description: '仓库、Issue、Pull Request 操作',
-    toolCount: 12,
-    connected: true,
-    enabled: true
-  },
-  {
-    id: 'filesystem-mcp',
-    name: '文件系统 MCP',
-    protocol: 'STDIO',
-    endpoint: '本地服务',
-    description: '受控目录的文件读写与检索',
-    toolCount: 6,
-    connected: true,
-    enabled: true
-  },
-  {
-    id: 'browser-mcp',
-    name: '浏览器 MCP',
-    protocol: 'SSE',
-    endpoint: 'browser-service',
-    description: '网页访问、内容提取与页面操作',
-    toolCount: 9,
-    connected: false,
-    enabled: false
-  }
-])
+const optionRows = reactive({
+  models: [],
+  prompts: [],
+  tools: [],
+  skills: [],
+  knowledgeBases: [],
+  subagents: []
+})
 
-const sampleRows = []
-
-const form = reactive({
+const createForm = () => ({
   id: null,
-  agentKey: '',
+  agentCode: '',
   agentName: '',
   description: '',
-  agentType: 'HARNESS',
-  status: 1
-})
-const isEditingAgent = computed(() => Boolean(form.id))
-
-const configForm = reactive({
-  versionNo: 'v1',
+  agentVersion: null,
+  configVersion: null,
+  modelId: null,
   sysPromptId: null,
-  modelId: 1,
-  modelName: '',
-  promptTemplate: '',
-  sysPrompt: '',
   maxIters: 10,
-  workspacePath: '',
-  permissionMode: 'ACCEPT_EDITS',
-  visualSchemaJson: '',
-  agentPermissionPolicyId: null,
-  publishStatus: 1,
+  permissionMode: 'DEFAULT',
   compactionEnabled: 1,
   triggerMessages: 30,
   keepMessages: 10,
   triggerTokens: 6000,
-  keepTokens: 0,
-  flushBeforeCompact: 1,
-  offloadBeforeCompact: 1,
-  compactionModelConfigId: null,
-  truncateArgsEnabled: 1,
-  truncateArgsMaxChars: 2000,
+  keepTokens: 1000,
   toolResultEvictionEnabled: 1,
-  toolResultMaxChars: 20000,
   memoryEnable: 1,
   planModeEnabled: 1,
   planFileDirectory: 'plans',
   taskListEnabled: 1,
   allowShellInPlanMode: 0,
-  planExitApprovalRequired: 1,
-  planMaxSteps: 20,
-  planAutoEnterEnabled: 1,
-  planPrompt: '',
-  sandboxEnabled: 0,
-  sandboxConfigId: null
+  stateStoreType: 'local_file',
+  selectedToolIds: [],
+  selectedSkillIds: [],
+  selectedKnowledgeBaseIds: [],
+  selectedSubagentIds: []
 })
 
-const selections = reactive({
-  toolIds: [],
-  skillIds: [],
-  knowledgeBaseIds: [],
-  subagentIds: [],
-  tools: [],
-  skills: [],
-  knowledge: [],
-  mcp: [],
-  subAgents: []
+const form = reactive(createForm())
+const originalStateStoreType = ref('local_file')
+const invalidPromptName = ref('')
+const invalidBindings = ref([])
+
+const runDialog = reactive({
+  visible: false,
+  loading: false,
+  agent: null,
+  rows: [],
+  total: 0,
+  current: 1,
+  size: 10,
+  status: '',
+  range: []
 })
+
+const steps = [
+  { title: '基础信息', description: '编码、名称与职责' },
+  { title: '模型与提示词', description: '选择运行模型和模板' },
+  { title: '能力配置', description: '工具、技能与子智能体' },
+  { title: '知识库', description: '绑定可检索知识' },
+  { title: '高级配置', description: '上下文、计划与状态存储' }
+]
+
+const permissionOptions = [
+  { value: 'DEFAULT', label: '默认：按规则询问或拒绝' },
+  { value: 'ACCEPT_EDITS', label: '自动允许工作区内文件编辑' },
+  { value: 'EXPLORE', label: '只读探索' },
+  { value: 'BYPASS', label: '放行全部操作' },
+  { value: 'DONT_ASK', label: '将询问转为拒绝' }
+]
 
 const rules = {
-  agentKey: [{ required: true, message: '请输入智能体英文名称', trigger: 'blur' }],
-  agentName: [{ required: true, message: '请输入智能体名称', trigger: 'blur' }],
-  agentType: [{ required: true, message: '请选择智能体类型', trigger: 'change' }],
-  status: [{ required: true, message: '请选择状态', trigger: 'change' }]
+  agentCode: [
+    { required: true, message: '请输入智能体编码', trigger: 'blur' },
+    {
+      pattern: /^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])$/,
+      message: '请输入 2–64 位小写字母、数字或连字符，首尾不能是连字符',
+      trigger: 'blur'
+    }
+  ],
+  agentName: [
+    { required: true, message: '请输入智能体名称', trigger: 'blur' },
+    { max: 100, message: '智能体名称不能超过 100 个字符', trigger: 'blur' }
+  ],
+  description: [
+    { max: 500, message: '智能体描述不能超过 500 个字符', trigger: 'blur' }
+  ]
 }
 
-const wizardSteps = [
-  { title: '基本信息', desc: '类型、名称与描述' },
-  { title: '模型与提示词', desc: '选择模型和系统提示词' },
-  { title: '工具、技能、子智能体', desc: '配置能力与协作成员' },
-  { title: '知识库与 MCP', desc: '绑定知识库与外部服务' },
-  { title: '高级配置', desc: '上下文、记忆与工作区' }
-]
-
-const agentTypes = [
-  {
-    value: 'HARNESS',
-    title: 'Harness Agent',
-    desc: '面向复杂任务，支持 Plan、Workspace、Sandbox 与多 Agent 协作',
-    icon: Briefcase,
-    tag: '推荐'
-  },
-  {
-    value: 'REACT',
-    title: 'ReAct Agent',
-    desc: '通过“思考-行动-观察”循环处理轻量工具调用任务',
-    icon: MagicStick
-  }
-]
-
-const promptOptions = computed(() => promptRows.value.map((item) => ({
-  label: item.promptName || `提示词 #${item.id}`,
-  value: item.id,
-  sysPrompt: item.sysPrompt || ''
-})))
-
-const selectedModel = computed(() => {
-  return modelRows.value.find((item) => normalizeId(item.id) === normalizeId(configForm.modelId))
-})
-
-const editingModelUnavailable = computed(() => (
-  isEditingAgent.value
-  && Boolean(configForm.modelId)
-  && modelRows.value.length > 0
-  && !selectedModel.value
+const isEditing = computed(() => Boolean(form.id))
+const dialogTitle = computed(() => isEditing.value ? '编辑智能体' : '新建智能体')
+const selectedModel = computed(() => optionRows.models.find(
+  item => String(item.id) === String(form.modelId)
+))
+const selectedPrompt = computed(() => optionRows.prompts.find(
+  item => String(item.id) === String(form.sysPromptId)
 ))
 
-const selectedPrompt = computed(() => {
-  return promptRows.value.find((item) => normalizeId(item.id) === normalizeId(configForm.sysPromptId))
-})
-
-const promptPreviewText = computed(() => {
-  return configForm.sysPrompt || '选择系统提示词模板后，将在这里预览完整提示词内容。'
-})
-
-const formatProvider = (provider) => {
-  if (!provider) {
-    return '模型供应商'
+const metricCards = computed(() => [
+  {
+    label: '智能体总数',
+    value: formatNumber(metrics.value.totalAgents),
+    note: `今日新增 ${formatNumber(metrics.value.newToday)}`,
+    icon: Monitor,
+    tone: 'blue'
+  },
+  {
+    label: '今日消耗 Token',
+    value: formatCompact(metrics.value.todayTokens),
+    note: changeText(metrics.value.tokenChangePercent),
+    icon: Files,
+    tone: 'green'
+  },
+  {
+    label: '今日运行',
+    value: formatNumber(metrics.value.todayRuns),
+    note: changeText(metrics.value.runChangePercent),
+    icon: TrendCharts,
+    tone: 'violet'
+  },
+  {
+    label: '今日成功率',
+    value: metrics.value.successRate == null ? '--' : `${metrics.value.successRate}%`,
+    note: [
+      changeText(metrics.value.successRateChange),
+      metrics.value.averageDurationMs == null
+        ? '暂无已结束运行'
+        : `平均耗时 ${formatDuration(metrics.value.averageDurationMs)}`
+    ].join(' · '),
+    icon: Connection,
+    tone: 'amber'
   }
-  return String(provider)
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (char) => char.toUpperCase())
+])
+
+const formatNumber = value => Number(value || 0).toLocaleString('zh-CN')
+
+const formatCompact = value => {
+  const number = Number(value || 0)
+  if (number >= 1000000) return `${(number / 1000000).toFixed(2)}M`
+  if (number >= 1000) return `${(number / 1000).toFixed(1)}K`
+  return formatNumber(number)
 }
 
-const formatModelContext = (model) => {
-  const value = model?.maxTokens
-  if (!value) {
-    return '最大输出 Token：默认'
-  }
-  const numberValue = Number(value)
-  if (!Number.isFinite(numberValue)) {
-    return `最大输出 Token：${value}`
-  }
-  if (numberValue >= 1000000) {
-    return `最大输出 Token：${Math.round(numberValue / 1000000)}M`
-  }
-  if (numberValue >= 1000) {
-    return `最大输出 Token：${Math.round(numberValue / 1000)}K`
-  }
-  return `最大输出 Token：${numberValue}`
+const formatDuration = value => {
+  const milliseconds = Number(value || 0)
+  return milliseconds >= 1000
+    ? `${(milliseconds / 1000).toFixed(2)}s`
+    : `${Math.round(milliseconds)}ms`
 }
 
-const selectModel = (model) => {
-  configForm.modelId = model.id
-  configForm.modelName = model.modelName || `模型 #${model.id}`
+const changeText = value => {
+  if (value == null) return '暂无昨日同期数据'
+  const number = Number(value)
+  const sign = number > 0 ? '+' : ''
+  return `较昨日同期 ${sign}${number.toFixed(1)}%`
 }
 
-const selectPrompt = (prompt) => {
-  configForm.sysPromptId = prompt.id
-  configForm.promptTemplate = prompt.promptName || `提示词 #${prompt.id}`
-  configForm.sysPrompt = prompt.sysPrompt || ''
-}
-// const permissionOptions = ['DEFAULT', 'ACCEPT_EDITS', 'EXPLORE', 'BYPASS','DONT_ASK']
-const permissionOptions = [
-  { label: '所有操作都需要显式规则或用户确认', value: 'DEFAULT' },
-  { label: '自动放行工作目录内的文件操作', value: 'ACCEPT_EDITS' },
-  { label: '只读：拒绝所有写与命令', value: 'EXPLORE' },
-  { label: '放行一切', value: 'BYPASS' },
-  { label: '把所有 询问 转为 拒绝', value: 'DONT_ASK' }
-]
-const publishOptions = [
-  { label: '草稿', value: 0 },
-  { label: '已发布', value: 1 },
-  { label: '已废弃', value: 2 }
-]
+const formatDateTime = value => value ? String(value).replace('T', ' ') : '--'
 
-const sourceRows = computed(() => agentRows.value.length ? agentRows.value : sampleRows)
-
-const getRowStatus = (row) => Number(row?.agentStatus ?? row?.status ?? 0)
-
-const getRowType = (row) => row?.agentType || row?.type || 'HARNESS'
-
-const getRowModel = (row) => {
-  if (!row?.modelName) {
-    return row?.modelConfigName
-      ? `${row.modelConfigName}（不可用）`
-      : '未绑定可用模型'
-  }
-  const label = [
+const modelLabel = row => {
+  if (!row?.modelId) return '未绑定模型'
+  return [
     row.modelConfigName,
     row.providerName,
     row.protocol,
     row.modelName
   ].filter(Boolean).join(' · ')
-  return Number(row.modelStatus) === 1 && Number(row.modelDeleted || 0) === 0
-    ? label
-    : `${label}（不可用）`
 }
 
-const getRowDescription = (row) => row?.agentDescription || row?.description || '暂无描述'
+const successText = row => (
+  row.todaySuccessRate == null ? '暂无已结束运行' : `成功率 ${row.todaySuccessRate}%`
+)
 
-const getSubagentCount = (row) => {
-  if (Array.isArray(row?.subagents)) {
-    return row.subagents.length
-  }
-  return Number(row?.subagentCount ?? row?.subAgentCount ?? row?.childAgentCount ?? 0)
+const loadMetrics = async () => {
+  metrics.value = await getAgentMetrics() || {}
 }
 
-const filteredRows = computed(() => {
-  const keyword = searchKeyword.value.trim().toLowerCase()
-  return sourceRows.value.filter((row) => {
-    const text = [
-      row.agentName,
-      row.agentKey,
-      row.agentCode,
-      getRowDescription(row),
-      getRowModel(row)
-    ].filter(Boolean).join(' ').toLowerCase()
-    const matchesKeyword = !keyword || text.includes(keyword)
-    const matchesType = !typeFilter.value || getRowType(row) === typeFilter.value
-    const matchesStatus = statusFilter.value === '' || getRowStatus(row) === Number(statusFilter.value)
-    return matchesKeyword && matchesType && matchesStatus
-  })
-})
-
-const pagedRows = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  return filteredRows.value.slice(start, start + pageSize.value)
-})
-
-const stats = computed(() => {
-  const total = sourceRows.value.length
-  const running = sourceRows.value.filter((row) => getRowStatus(row) === 1).length
-  const successRate = total ? Math.min(99.8, 96 + (running / total) * 3).toFixed(1) : '98.2'
-  return [
-    { label: '智能体总数', value: total || 0, note: `较昨日 +${Math.max(1, running || 1)}`, icon: Monitor, tone: 'blue' },
-    { label: '今日消耗 Token', value: '8.42M', note: '较昨日 +14.6% ↑', icon: Coin, tone: 'green' },
-    { label: '今日运行', value: '1,286', note: '较昨日 +12.6%', icon: TrendCharts, tone: 'purple' },
-    { label: '平均成功率', value: `${successRate}%`, note: '平均响应 2.4s', icon: Lock, tone: 'orange' }
-  ]
-})
-
-const typeOptions = computed(() => {
-  const options = Array.from(new Set(sourceRows.value.map((row) => getRowType(row)).filter(Boolean)))
-  return options.length ? options : ['HARNESS', 'REACT']
-})
-
-const emptyText = computed(() => loading.value ? '正在加载智能体' : '暂无智能体')
-
-const configProgress = computed(() => {
-  let score = 20
-  if (form.agentName && form.agentKey) score += 15
-  if (configForm.modelId && configForm.sysPrompt) score += 15
-  if (selections.toolIds.length || selections.skillIds.length) score += 15
-  if (selections.knowledgeBaseIds.length || selections.subagentIds.length || selections.mcp.length) score += 10
-  if (configForm.compactionEnabled) score += 10
-  if (configForm.memoryEnable) score += 7
-  if (configForm.sandboxEnabled) score += 8
-  return Math.min(score, 100)
-})
-
-const capabilityTotal = computed(() => {
-  return selections.toolIds.length + selections.skillIds.length + selections.subagentIds.length
-})
-
-const capabilitySummaryText = computed(() => {
-  return `已选择 ${selections.toolIds.length} 个工具 · ${selections.skillIds.length} 个技能 · ${selections.subagentIds.length} 个子智能体`
-})
-
-const selectedMcpToolCount = computed(() => {
-  return mcpRows.value.reduce((total, item) => {
-    if (!isSelected(selections.mcp, item.id)) {
-      return total
-    }
-    return total + Number(item.toolCount || 0)
-  }, 0)
-})
-
-const knowledgeMcpTotal = computed(() => selections.knowledgeBaseIds.length + selections.mcp.length)
-
-const knowledgeMcpSummaryText = computed(() => {
-  return `已选择 ${selections.knowledgeBaseIds.length} 个知识库 · ${selections.mcp.length} 个 MCP 服务`
-})
-
-const getToolTitle = (tool) => tool?.toolNameExplain || tool?.toolName || tool?.toolKey || `工具 #${tool?.id}`
-
-const getToolKey = (tool) => tool?.toolName || tool?.toolKey || tool?.permissionCode || tool?.methodName || '-'
-
-const getToolDesc = (tool) => tool?.description || tool?.toolType || tool?.permissionCode || '暂无工具说明'
-
-const isToolEnabled = (tool) => tool?.enabled !== false && Number(tool?.status ?? 1) !== 0
-
-const getSkillTitle = (skill) => skill?.skillName || skill?.name || `技能 #${skill?.id}`
-
-const getSkillKey = (skill) => skill?.skillKey || skill?.route || skill?.version || '-'
-
-const getSkillDesc = (skill) => skill?.description || skill?.scene || '暂无技能说明'
-
-const isSkillEnabled = (skill) => skill?.enabled !== false && Number(skill?.status ?? 1) === 1
-
-const getSubagentTitle = (subagent) => subagent?.subagentName || subagent?.subagentKey || `子智能体 #${subagent?.id}`
-
-const getSubagentType = (subagent) => subagent?.description || subagent?.workspaceMode || subagent?.subagentKey || '专业子智能体'
-
-const getSubagentDesc = (subagent) => subagent?.systemPrompt || subagent?.workspacePath || subagent?.modelConfigId || '可按任务需要派发执行'
-
-const isSubagentEnabled = (subagent) => Number(subagent?.status ?? 1) !== 0
-
-const clearCapabilitySelections = () => {
-  selections.toolIds.splice(0)
-  selections.skillIds.splice(0)
-  selections.subagentIds.splice(0)
-}
-
-const getKnowledgeTitle = (item) => item?.knowledgeName || item?.name || item?.collectionName || `知识库 #${item?.id}`
-
-const getKnowledgeDesc = (item) => item?.description || item?.chunkStrategy || item?.embeddingModel || '可用于检索增强与来源引用'
-
-const getKnowledgeMeta = (item) => {
-  const documentCount = Number(item?.documentCount ?? item?.docCount ?? item?.documents ?? 0)
-  const chunkCount = Number(item?.chunkCount ?? item?.sliceCount ?? item?.chunks ?? 0)
-  if (documentCount || chunkCount) {
-    return `${documentCount} 个文档 · ${chunkCount} 个切片`
-  }
-  return item?.collectionName || item?.knowledgeKey || '已建立向量索引'
-}
-
-const getKnowledgeStatus = (item) => {
-  const raw = String(item?.statusText || item?.syncStatus || item?.state || item?.status || '').toLowerCase()
-  if (raw.includes('updat') || raw.includes('sync') || raw.includes('更新') || raw === '2') {
-    return { text: '更新中', tone: 'warning' }
-  }
-  if (raw === '0' || raw.includes('disable') || raw.includes('停')) {
-    return { text: '未启用', tone: 'muted' }
-  }
-  return { text: '已就绪', tone: 'ready' }
-}
-
-const isKnowledgeEnabled = (item) => getKnowledgeStatus(item).tone !== 'muted'
-
-const getMcpEndpoint = (item) => [item.protocol, item.endpoint].filter(Boolean).join(' · ')
-
-const isMcpEnabled = (item) => item?.enabled !== false && item?.connected !== false
-
-const clearKnowledgeMcpSelections = () => {
-  selections.knowledgeBaseIds.splice(0)
-  selections.mcp.splice(0)
-}
-
-const statusMeta = (status) => {
-  const value = Number(status)
-  if (value === 1) {
-    return { text: '已发布', className: 'published', detail: '成功率 98.7%' }
-  }
-  if (value === 2) {
-    return { text: '草稿', className: 'draft', detail: '尚未发布' }
-  }
-  return { text: '已停用', className: 'muted', detail: '已停用' }
-}
-
-const resetPage = () => {
-  currentPage.value = 1
-}
-
-const resetConfigForm = () => {
-  Object.assign(configForm, {
-    versionNo: 'v1',
-    sysPromptId: null,
-    modelId: null,
-    modelName: '',
-    promptTemplate: '',
-    sysPrompt: '',
-    maxIters: 10,
-    workspacePath: '',
-    permissionMode: 'ACCEPT_EDITS',
-    visualSchemaJson: '',
-    agentPermissionPolicyId: null,
-    publishStatus: 1,
-    compactionEnabled: 1,
-    triggerMessages: 30,
-    keepMessages: 10,
-    triggerTokens: 6000,
-    keepTokens: 800,
-    flushBeforeCompact: 1,
-    offloadBeforeCompact: 1,
-    compactionModelConfigId: null,
-    truncateArgsEnabled: 1,
-    truncateArgsMaxChars: 2000,
-    toolResultEvictionEnabled: 1,
-    toolResultMaxChars: 20000,
-    memoryEnable: 1,
-    planModeEnabled: 1,
-    planFileDirectory: 'plans',
-    taskListEnabled: 1,
-    allowShellInPlanMode: 0,
-    planExitApprovalRequired: 1,
-    planMaxSteps: 20,
-    planAutoEnterEnabled: 1,
-    planPrompt: '',
-    sandboxEnabled: 0,
-    sandboxConfigId: null
-  })
-}
-
-const resetForm = () => {
-  Object.assign(form, {
-    id: null,
-    agentKey: '',
-    agentName: '',
-    description: '',
-    agentType: 'HARNESS',
-    status: 1
-  })
-  resetConfigForm()
-  selections.toolIds.splice(0)
-  selections.skillIds.splice(0)
-  selections.knowledgeBaseIds.splice(0)
-  selections.subagentIds.splice(0)
-  selections.tools.splice(0)
-  selections.skills.splice(0)
-  selections.knowledge.splice(0)
-  selections.mcp.splice(0)
-  selections.subAgents.splice(0)
-  modelConfigExpanded.value = true
-  promptTemplateExpanded.value = true
-  promptPreviewExpanded.value = false
-  toolsCapabilityExpanded.value = true
-  skillsCapabilityExpanded.value = true
-  subagentsCapabilityExpanded.value = true
-  knowledgeBaseExpanded.value = true
-  mcpServiceExpanded.value = true
-}
-
-const normalizeId = (value) => {
-  return value === '' || value === undefined || value === null ? null : String(value).trim()
-}
-
-const normalizeNumber = (value) => {
-  return value === '' || value === undefined || value === null ? null : Number(value)
-}
-
-const toSwitchValue = (value) => Number(value) === 1 ? 1 : 0
-
-const toggleId = (list, id) => {
-  const normalized = normalizeId(id)
-  if (!normalized) {
-    return
-  }
-  const index = list.findIndex((item) => normalizeId(item) === normalized)
-  if (index >= 0) {
-    list.splice(index, 1)
-    return
-  }
-  list.push(id)
-}
-
-const isSelected = (list, id) => {
-  const normalized = normalizeId(id)
-  return list.some((item) => normalizeId(item) === normalized)
-}
-
-const loadAgentList = async () => {
+const loadRows = async () => {
   loading.value = true
   try {
-    const data = await getAgentInfoList()
-    agentRows.value = Array.isArray(data) ? data : []
-  } catch {
-    agentRows.value = []
+    const data = await pageAgents(query)
+    rows.value = data?.records || []
+    total.value = Number(data?.total || 0)
   } finally {
     loading.value = false
   }
 }
 
-const loadModelAndPrompts = async () => {
-  if (modelRows.value.length && promptRows.value.length) {
-    return
-  }
-  wizardLoading.value = true
+const loadPage = async () => {
+  await Promise.all([loadMetrics(), loadRows()])
+}
+
+const search = () => {
+  query.current = 1
+  loadRows()
+}
+
+const loadOptions = async () => {
+  optionsLoading.value = true
   try {
-    const [models, prompts] = await Promise.all([
+    const [models, prompts, tools, skills, knowledgeBases, subagents] = await Promise.all([
       listWizardModels(),
-      listWizardPrompts()
+      listWizardPrompts(),
+      listWizardTools(),
+      listSkills(),
+      listWizardKnowledgeBases(),
+      listWizardSubagents()
     ])
-    modelRows.value = Array.isArray(models) ? models : []
-    promptRows.value = Array.isArray(prompts) ? prompts : []
-    if (!isEditingAgent.value
-      && (!configForm.modelId || !modelRows.value.some((item) => normalizeId(item.id) === normalizeId(configForm.modelId)))
-      && modelRows.value[0]?.id) {
-      configForm.modelId = modelRows.value[0].id
-      configForm.modelName = modelRows.value[0].modelName || ''
-    }
-    if (!configForm.sysPromptId && promptRows.value[0]?.id) {
-      configForm.sysPromptId = promptRows.value[0].id
-      configForm.promptTemplate = promptRows.value[0].promptName || ''
-      configForm.sysPrompt = promptRows.value[0].sysPrompt || configForm.sysPrompt
-    }
+    optionRows.models = (models || []).filter(item => Number(item.status ?? 1) === 1)
+    optionRows.prompts = (prompts || []).filter(
+      item => Number(item.status ?? 1) === 1 && Number(item.deleted ?? 0) === 0
+    )
+    optionRows.tools = (tools || []).filter(
+      item => item.enabled !== false && Number(item.deleted ?? 0) === 0
+    )
+    optionRows.skills = (skills || []).filter(
+      item => Number(item.status ?? 1) === 1 && Number(item.deleted ?? 0) === 0
+    )
+    optionRows.knowledgeBases = (knowledgeBases || []).filter(
+      item => Number(item.status ?? 1) === 1 && Number(item.deleted ?? 0) === 0
+    )
+    optionRows.subagents = (subagents || []).filter(
+      item => Number(item.enabled ?? 1) === 1 && Number(item.deleted ?? 0) === 0
+    )
   } finally {
-    wizardLoading.value = false
+    optionsLoading.value = false
   }
 }
 
-const loadTools = async () => {
-  if (toolRows.value.length) {
-    return
-  }
-  wizardLoading.value = true
-  try {
-    const data = await listWizardTools()
-    toolRows.value = Array.isArray(data) ? data : []
-  } finally {
-    wizardLoading.value = false
-  }
-}
-
-const loadSubagents = async () => {
-  if (subagentRows.value.length) {
-    return
-  }
-  wizardLoading.value = true
-  try {
-    const subagents = await listWizardSubagents()
-    subagentRows.value = Array.isArray(subagents) ? subagents : []
-  } finally {
-    wizardLoading.value = false
-  }
-}
-
-const loadSkills = async () => {
-  wizardLoading.value = true
-  try {
-    const skills = await listSkills()
-    skillRows.value = Array.isArray(skills) ? skills : []
-  } finally {
-    wizardLoading.value = false
-  }
-}
-
-const loadKnowledgeBases = async () => {
-  wizardLoading.value = true
-  try {
-    const knowledgeBases = await listWizardKnowledgeBases()
-    knowledgeRows.value = Array.isArray(knowledgeBases) ? knowledgeBases : []
-  } finally {
-    wizardLoading.value = false
-  }
-}
-
-const ensureStepData = async (step) => {
-  if (step === 2) {
-    await loadModelAndPrompts()
-  }
-  if (step === 3) {
-    await Promise.all([loadTools(), loadSkills(), loadSubagents()])
-  }
-  if (step === 4) {
-    await loadKnowledgeBases()
-  }
-}
-
-const handleAdd = async () => {
-  dialogTitle.value = '创建智能体'
-  wizardStep.value = 1
-  resetForm()
-  dialogVisible.value = true
-  await nextTick()
-  formRef.value?.clearValidate()
-  await ensureStepData(2)
-}
-
-const handleEdit = async (row) => {
-  const agentId = row.id || row.agentId
-  if (String(agentId).startsWith('demo-')) {
-    ElMessage.info('示例智能体仅用于展示，请先创建真实智能体')
-    return
-  }
-
-  dialogTitle.value = '编辑智能体'
-  wizardStep.value = 1
-  resetForm()
-  const data = await getAgent(agentId)
-  Object.assign(form, {
-    id: data?.id || agentId,
-    agentKey: data?.agentKey || data?.agentCode || '',
-    agentName: data?.agentName || '',
-    description: data?.description || '',
-    agentType: data?.agentType || 'HARNESS',
-    status: Number(data?.status ?? 1)
-  })
-  configForm.modelId = row.modelId || null
-  configForm.modelName = row.modelName || ''
-  dialogVisible.value = true
-  await loadModelAndPrompts()
-  await nextTick()
+const resetForm = () => {
+  Object.assign(form, createForm())
+  activeStep.value = 0
+  originalStateStoreType.value = 'local_file'
+  invalidPromptName.value = ''
+  invalidBindings.value = []
   formRef.value?.clearValidate()
 }
 
-const buildAgentPayload = () => ({
-  id: normalizeId(form.id),
-  agentId: normalizeId(form.id),
-  agentKey: form.agentKey,
-  agentCode: form.agentKey,
-  agentName: form.agentName,
-  agentDescription: form.description,
-  description: form.description,
-  agentType: form.agentType === 'TEMPLATE' ? 'HARNESS' : form.agentType,
-  agentStatus: form.status,
-  status: form.status,
-  modelId: normalizeId(configForm.modelId)
-})
-
-const buildVisualSchema = () => {
-  if (configForm.visualSchemaJson?.trim()) {
-    return configForm.visualSchemaJson
-  }
-
-  return JSON.stringify({
-    nodes: [
-      { id: 'model', type: 'model', label: configForm.modelName },
-      { id: 'tools', type: 'tools', label: `${selections.toolIds.length} tools`, toolIds: selections.toolIds },
-      { id: 'knowledge', type: 'knowledge', label: `${selections.knowledgeBaseIds.length} knowledge bases`, knowledgeBaseIds: selections.knowledgeBaseIds },
-      { id: 'subagents', type: 'subagents', label: `${selections.subagentIds.length} subagents`, subagentIds: selections.subagentIds }
-    ],
-    edges: [
-      { source: 'model', target: 'tools' },
-      { source: 'model', target: 'knowledge' }
-    ]
-  })
+const handleCreate = async () => {
+  resetForm()
+  dialogVisible.value = true
+  await loadOptions()
 }
 
-const buildCreateAgentPayload = () => ({
-  ...buildAgentPayload(),
-  agentDescription: form.description,
-  agentStatus: form.status,
-  versionNo: configForm.versionNo,
-  sysPromptId: normalizeId(configForm.sysPromptId),
-  sysPrompt: configForm.sysPrompt,
-  promptName: promptOptions.value.find((item) => normalizeId(item.value) === normalizeId(configForm.sysPromptId))?.label || configForm.promptTemplate,
-  modelId: normalizeId(configForm.modelId),
-  modelName: configForm.modelName,
-  maxIters: normalizeNumber(configForm.maxIters),
-  workspacePath: configForm.workspacePath,
-  permissionMode: configForm.permissionMode,
-  visualSchemaJson: buildVisualSchema(),
-  agentPermissionPolicyId: normalizeId(configForm.agentPermissionPolicyId),
-  publishStatus: configForm.publishStatus,
-  compactionEnabled: toSwitchValue(configForm.compactionEnabled),
-  triggerMessages: normalizeNumber(configForm.triggerMessages),
-  keepMessages: normalizeNumber(configForm.keepMessages),
-  triggerTokens: normalizeNumber(configForm.triggerTokens),
-  keepTokens: normalizeNumber(configForm.keepTokens),
-  flushBeforeCompact: toSwitchValue(configForm.flushBeforeCompact),
-  offloadBeforeCompact: toSwitchValue(configForm.offloadBeforeCompact),
-  compactionModelConfigId: normalizeId(configForm.compactionModelConfigId),
-  truncateArgsEnabled: toSwitchValue(configForm.truncateArgsEnabled) === 1,
-  truncateArgsMaxChars: normalizeNumber(configForm.truncateArgsMaxChars),
-  toolResultEvictionEnabled: toSwitchValue(configForm.toolResultEvictionEnabled) === 1,
-  toolResultMaxChars: normalizeNumber(configForm.toolResultMaxChars),
-  memoryEnable: toSwitchValue(configForm.memoryEnable),
-  planModeEnabled: toSwitchValue(configForm.planModeEnabled),
-  planFileDirectory: configForm.planFileDirectory,
-  taskListEnabled: toSwitchValue(configForm.taskListEnabled),
-  allowShellInPlanMode: toSwitchValue(configForm.allowShellInPlanMode),
-  planExitApprovalRequired: toSwitchValue(configForm.planExitApprovalRequired),
-  planMaxSteps: normalizeNumber(configForm.planMaxSteps),
-  planAutoEnterEnabled: toSwitchValue(configForm.planAutoEnterEnabled),
-  planPrompt: configForm.planPrompt,
-  sandboxEnabled: toSwitchValue(configForm.sandboxEnabled),
-  sandboxConfigId: normalizeId(configForm.sandboxConfigId),
-  selectedToolIds: selections.toolIds.map(normalizeId).filter(Boolean),
-  selectedSkillIds: selections.skillIds.map(normalizeId).filter(Boolean),
-  selectedKnowledgeBaseIds: selections.knowledgeBaseIds.map(normalizeId).filter(Boolean),
-  selectedSubagentIds: selections.subagentIds.map(normalizeId).filter(Boolean)
-})
+const activeBindingIds = bindings => (
+  (bindings || []).filter(item => item.available).map(item => item.id)
+)
+
+const collectInvalidBindings = data => {
+  const groups = [
+    ['工具', data.tools],
+    ['技能', data.skills],
+    ['知识库', data.knowledgeBases],
+    ['子智能体', data.subagents]
+  ]
+  return groups.flatMap(([type, items]) => (
+    (items || [])
+      .filter(item => !item.available)
+      .map(item => ({ type, ...item }))
+  ))
+}
+
+const handleEdit = async row => {
+  resetForm()
+  dialogVisible.value = true
+  optionsLoading.value = true
+  try {
+    const [data] = await Promise.all([getAgent(row.id), loadOptions()])
+    Object.assign(form, {
+      id: data.id,
+      agentCode: data.agentCode || '',
+      agentName: data.agentName || '',
+      description: data.description || '',
+      agentVersion: data.agentVersion,
+      configVersion: data.configVersion,
+      modelId: data.modelId || null,
+      sysPromptId: data.systemPromptAvailable ? data.sysPromptId : null,
+      maxIters: data.maxIters ?? 10,
+      permissionMode: data.permissionMode || 'DEFAULT',
+      compactionEnabled: data.compactionEnabled ?? 1,
+      triggerMessages: data.triggerMessages ?? 30,
+      keepMessages: data.keepMessages ?? 10,
+      triggerTokens: data.triggerTokens ?? 6000,
+      keepTokens: data.keepTokens ?? 1000,
+      toolResultEvictionEnabled: data.toolResultEvictionEnabled ?? 1,
+      memoryEnable: data.memoryEnable ?? 1,
+      planModeEnabled: data.planModeEnabled ?? 1,
+      planFileDirectory: data.planFileDirectory || 'plans',
+      taskListEnabled: data.taskListEnabled ?? 1,
+      allowShellInPlanMode: data.allowShellInPlanMode ?? 0,
+      stateStoreType: data.stateStoreType || 'local_file',
+      selectedToolIds: activeBindingIds(data.tools),
+      selectedSkillIds: activeBindingIds(data.skills),
+      selectedKnowledgeBaseIds: activeBindingIds(data.knowledgeBases),
+      selectedSubagentIds: activeBindingIds(data.subagents)
+    })
+    originalStateStoreType.value = form.stateStoreType
+    invalidPromptName.value = data.sysPromptId && !data.systemPromptAvailable
+      ? (data.sysPromptName || `提示词 #${data.sysPromptId}`)
+      : ''
+    invalidBindings.value = collectInvalidBindings(data)
+  } catch (error) {
+    dialogVisible.value = false
+    throw error
+  } finally {
+    optionsLoading.value = false
+  }
+}
 
 const validateCurrentStep = async () => {
-  if (wizardStep.value === 2 && !configForm.modelId) {
-    ElMessage.warning('请选择默认模型')
-    throw new Error('model required')
+  if (activeStep.value === 0) {
+    await formRef.value?.validateField(['agentCode', 'agentName', 'description'])
+  }
+  if (activeStep.value === 4 && Number(form.compactionEnabled) === 1) {
+    if (Number(form.keepMessages) > Number(form.triggerMessages)) {
+      throw new Error('保留消息数不能大于触发消息数')
+    }
+    if (Number(form.keepTokens) > Number(form.triggerTokens)) {
+      throw new Error('保留 Token 不能大于触发 Token')
+    }
   }
 }
 
 const nextStep = async () => {
-  await validateCurrentStep()
-  const next = Math.min(wizardStep.value + 1, wizardSteps.length)
-  await ensureStepData(next)
-  wizardStep.value = next
-}
-
-const prevStep = async () => {
-  const previous = Math.max(wizardStep.value - 1, 1)
-  await ensureStepData(previous)
-  wizardStep.value = previous
-}
-
-const submitForm = async () => {
-  await formRef.value.validate()
-  if (!configForm.modelId || !selectedModel.value) {
-    ElMessage.warning(isEditingAgent.value
-      ? '当前模型已停用或删除，请重新选择一个已启用的模型'
-      : '请选择一个已启用的默认模型')
-    return
+  try {
+    await validateCurrentStep()
+    activeStep.value = Math.min(activeStep.value + 1, steps.length - 1)
+  } catch (error) {
+    ElMessage.warning(error.message || '请检查当前步骤配置')
   }
+}
 
+const previousStep = () => {
+  activeStep.value = Math.max(0, activeStep.value - 1)
+}
+
+const buildPayload = () => ({
+  agentCode: form.agentCode,
+  agentName: form.agentName,
+  description: form.description,
+  agentVersion: form.agentVersion,
+  configVersion: form.configVersion,
+  modelId: form.modelId || null,
+  sysPromptId: form.sysPromptId || null,
+  maxIters: Number(form.maxIters),
+  permissionMode: form.permissionMode,
+  compactionEnabled: Number(form.compactionEnabled),
+  triggerMessages: Number(form.triggerMessages),
+  keepMessages: Number(form.keepMessages),
+  triggerTokens: Number(form.triggerTokens),
+  keepTokens: Number(form.keepTokens),
+  toolResultEvictionEnabled: Number(form.toolResultEvictionEnabled),
+  memoryEnable: Number(form.memoryEnable),
+  planModeEnabled: Number(form.planModeEnabled),
+  planFileDirectory: form.planFileDirectory,
+  taskListEnabled: Number(form.taskListEnabled),
+  allowShellInPlanMode: Number(form.allowShellInPlanMode),
+  stateStoreType: form.stateStoreType,
+  selectedToolIds: form.selectedToolIds,
+  selectedSkillIds: form.selectedSkillIds,
+  selectedKnowledgeBaseIds: form.selectedKnowledgeBaseIds,
+  selectedSubagentIds: form.selectedSubagentIds
+})
+
+const submit = async () => {
+  await formRef.value?.validate()
+  if (!form.modelId) {
+    await ElMessageBox.confirm(
+      '当前未绑定模型。智能体可以保存，但在绑定可用模型前不能对话或运行。',
+      '确认保存未完成配置',
+      { type: 'warning', confirmButtonText: '继续保存' }
+    )
+  }
+  if (isEditing.value && form.stateStoreType !== originalStateStoreType.value) {
+    await ElMessageBox.confirm(
+      '切换会话状态存储不会迁移既有会话状态，原会话可能无法恢复之前的上下文。',
+      '确认切换状态存储',
+      { type: 'warning', confirmButtonText: '确认切换' }
+    )
+  }
   submitting.value = true
   try {
-    if (form.id) {
-      await updateAgent(buildAgentPayload())
-      ElMessage.success('智能体更新成功')
+    const payload = buildPayload()
+    if (isEditing.value) {
+      await updateAgent(form.id, payload)
+      ElMessage.success('智能体配置已更新')
     } else {
-      await createAgentFull(buildCreateAgentPayload())
-      ElMessage.success('智能体与完整配置创建成功')
+      await createAgent(payload)
+      ElMessage.success('智能体已创建')
     }
     dialogVisible.value = false
-    await loadAgentList()
+    await loadPage()
   } finally {
     submitting.value = false
   }
 }
 
-const handleDelete = async (row) => {
-  if (String(row.id).startsWith('demo-')) {
-    ElMessage.info('示例智能体仅用于展示')
-    return
-  }
-
-  try {
-    await ElMessageBox.confirm(`确认删除智能体「${row.agentName}」吗？`, '删除确认', {
-      type: 'warning',
-      confirmButtonText: '删除',
-      cancelButtonText: '取消'
-    })
-  } catch {
-    return
-  }
-
+const handleDelete = async row => {
+  await ElMessageBox.confirm(
+    `确定删除智能体“${row.agentName}”吗？配置将被逻辑删除，历史运行仍会保留。`,
+    '删除智能体',
+    { type: 'warning', confirmButtonText: '删除' }
+  )
   await deleteAgent(row.id)
-  ElMessage.success('智能体删除成功')
-  await loadAgentList()
+  ElMessage.success('智能体已删除')
+  if (rows.value.length === 1 && query.current > 1) query.current -= 1
+  await loadPage()
 }
 
-const handleChat = (row) => {
+const handleChat = row => {
+  if (!row.modelId) {
+    ElMessage.warning('该智能体未绑定可用模型，请先编辑配置')
+    return
+  }
   router.push({
     name: 'AgentChat',
-    params: { agentId: row.agentId || row.id },
-    query: {
-      agentName: row.agentName || undefined,
-      agentKey: row.agentKey || row.agentCode || undefined
-    }
+    params: { agentId: row.id },
+    query: { agentName: row.agentName, agentKey: row.agentCode }
   })
 }
 
+const openRuns = async row => {
+  Object.assign(runDialog, {
+    visible: true,
+    agent: row,
+    current: 1,
+    status: '',
+    range: []
+  })
+  await loadRuns()
+}
+
+const loadRuns = async () => {
+  if (!runDialog.agent?.id) return
+  runDialog.loading = true
+  try {
+    const params = {
+      current: runDialog.current,
+      size: runDialog.size,
+      status: runDialog.status || undefined,
+      start: runDialog.range?.[0] || undefined,
+      end: runDialog.range?.[1] || undefined
+    }
+    const data = await pageAgentRuns(runDialog.agent.id, params)
+    runDialog.rows = data?.records || []
+    runDialog.total = Number(data?.total || 0)
+  } finally {
+    runDialog.loading = false
+  }
+}
+
+const promptName = item => item.promptName || `提示词 #${item.id}`
+const toolName = item => item.toolNameExplain || item.toolName || `工具 #${item.id}`
+const skillName = item => item.name || item.skillName || item.source || `技能 #${item.id}`
+const knowledgeName = item => item.knowledgeName || item.name || `知识库 #${item.id}`
+const subagentName = item => item.subagentName || item.name || `子智能体 #${item.id}`
+
 onMounted(async () => {
-  await loadAgentList()
+  await loadPage()
   if (route.query.create === '1') {
-    await handleAdd()
+    await handleCreate()
   }
 })
 </script>
 
 <template>
-  <section class="agent-center-page">
-    <div class="page-hero agent-hero">
+  <section class="agent-page">
+    <header class="page-hero">
       <div>
-        <h2>智能体中心</h2>
-        <p>创建、配置和运行智能体，统一管理智能体能力与状态</p>
+        <span class="eyebrow">AGENT MANAGEMENT</span>
+        <h2>智能体</h2>
+        <p>统一配置模型、提示词和可调用能力，查看真实运行表现。</p>
       </div>
       <div class="hero-actions">
-        <el-button type="primary" :icon="Plus" @click="handleAdd">新建智能体</el-button>
+        <el-button :icon="Refresh" circle @click="loadPage" />
+        <el-button type="primary" :icon="Plus" @click="handleCreate">新建智能体</el-button>
       </div>
-    </div>
+    </header>
 
-    <div class="agent-stats">
-      <article v-for="item in stats" :key="item.label" class="agent-stat-card">
+    <div class="metric-grid">
+      <article v-for="item in metricCards" :key="item.label" class="metric-card">
         <span class="metric-icon" :class="item.tone">
           <el-icon><component :is="item.icon" /></el-icon>
         </span>
         <div>
-          <span>{{ item.label }}</span>
+          <small>{{ item.label }}</small>
           <strong>{{ item.value }}</strong>
-          <small><i />{{ item.note }}</small>
+          <p>{{ item.note }}</p>
         </div>
       </article>
     </div>
 
-    <article class="agent-list-panel">
-      <div class="agent-list-header">
-        <h3>智能体列表</h3>
-        <div class="agent-list-tools">
+    <article class="list-panel">
+      <header class="list-toolbar">
+        <div>
+          <h3>智能体列表</h3>
+          <p>共 {{ formatNumber(total) }} 个智能体</p>
+        </div>
+        <div class="toolbar-actions">
           <el-input
-            v-model="searchKeyword"
-            class="agent-search"
-            :prefix-icon="Search"
+            v-model="query.keyword"
             clearable
-            placeholder="搜索智能体名称或描述"
-            @input="resetPage"
+            :prefix-icon="Search"
+            placeholder="搜索编码、名称或描述"
+            @keyup.enter="search"
+            @clear="search"
           />
-          <el-select v-model="typeFilter" class="agent-filter" placeholder="全部类型" clearable @change="resetPage">
-            <el-option label="全部类型" value="" />
-            <el-option v-for="type in typeOptions" :key="type" :label="type" :value="type" />
-          </el-select>
-          <el-select v-model="statusFilter" class="agent-filter" placeholder="全部状态" clearable @change="resetPage">
-            <el-option label="全部状态" value="" />
-            <el-option label="已发布" :value="1" />
-            <el-option label="草稿" :value="2" />
-            <el-option label="已停用" :value="0" />
-          </el-select>
+          <el-button @click="search">查询</el-button>
           <div class="view-switch">
-            <button type="button" :class="{ active: viewMode === 'grid' }" @click="viewMode = 'grid'">
-              <el-icon><Grid /></el-icon>
+            <button :class="{ active: viewMode === 'grid' }" @click="viewMode = 'grid'">
+              <el-icon><MagicStick /></el-icon>
             </button>
-            <button type="button" :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">
+            <button :class="{ active: viewMode === 'list' }" @click="viewMode = 'list'">
               <el-icon><Menu /></el-icon>
             </button>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div v-loading="loading" class="agent-card-grid" :class="{ 'is-list': viewMode === 'list' }">
-        <article v-for="row in pagedRows" :key="row.id || row.agentId || row.agentKey" class="agent-card">
+      <div v-loading="loading" class="agent-grid" :class="{ list: viewMode === 'list' }">
+        <article v-for="row in rows" :key="row.id" class="agent-card">
           <header>
+            <span class="agent-avatar">{{ (row.agentName || '智').slice(0, 1) }}</span>
             <div>
-              <h4>{{ row.agentName || row.agentKey || '未命名智能体' }}</h4>
+              <h4>{{ row.agentName }}</h4>
+              <code>{{ row.agentCode }}</code>
             </div>
-            <span class="status-badge" :class="statusMeta(getRowStatus(row)).className">
-              {{ statusMeta(getRowStatus(row)).text }}
-            </span>
+            <el-dropdown trigger="click">
+              <el-button text :icon="MoreFilled" />
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item :icon="Edit" @click="handleEdit(row)">编辑</el-dropdown-item>
+                  <el-dropdown-item :icon="TrendCharts" @click="openRuns(row)">运行记录</el-dropdown-item>
+                  <el-dropdown-item :icon="Delete" divided @click="handleDelete(row)">删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </header>
-          <p>{{ getRowDescription(row) }}</p>
-          <div class="agent-card-meta">
-            <span>模型：{{ getRowModel(row) }}</span>
-            <span>
-              <el-icon><Connection /></el-icon>
-              {{ getSubagentCount(row) }} 个子智能体
-            </span>
+          <p class="description">{{ row.description || '暂无描述' }}</p>
+          <div class="model-line" :class="{ missing: !row.modelId }">
+            <el-icon><Setting /></el-icon>
+            <span>{{ modelLabel(row) }}</span>
+          </div>
+          <div class="card-data">
+            <span><b>{{ row.subagentCount || 0 }}</b> 子智能体</span>
+            <span><b>{{ row.todayRuns || 0 }}</b> 今日运行</span>
+            <span><b>{{ successText(row) }}</b></span>
           </div>
           <footer>
-            <div class="agent-card-run">
-              <span>今日运行 {{ row.todayRuns ?? row.runCount ?? 0 }}</span>
-              <i />
-              <span>{{ statusMeta(getRowStatus(row)).detail }}</span>
-            </div>
-            <nav>
-              <el-button link type="primary" @click="handleChat(row)">对话</el-button>
-              <b>/</b>
-              <el-button link type="primary" @click="handleEdit(row)">编辑</el-button>
-              <b>/</b>
-              <el-dropdown trigger="click">
-                <el-button link type="primary">
-                  更多 <el-icon><MoreFilled /></el-icon>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item @click="handleDelete(row)">删除</el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
-            </nav>
+            <span>更新于 {{ formatDateTime(row.updatedAt) }}</span>
+            <el-button type="primary" :icon="ChatDotRound" @click="handleChat(row)">
+              对话
+            </el-button>
           </footer>
         </article>
-
-        <el-empty v-if="!pagedRows.length" class="agent-empty" :description="emptyText" :image-size="96" />
+        <el-empty v-if="!loading && !rows.length" description="暂无智能体" />
       </div>
 
-      <div class="agent-list-footer">
-        <span>共 {{ filteredRows.length }} 个</span>
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          background
-          layout="prev, pager, next, sizes"
-          :total="filteredRows.length"
-          :page-sizes="[6, 12, 24]"
-        />
-      </div>
+      <el-pagination
+        v-model:current-page="query.current"
+        v-model:page-size="query.size"
+        background
+        layout="total, prev, pager, next"
+        :total="total"
+        @current-change="loadRows"
+      />
     </article>
 
     <el-dialog
       v-model="dialogVisible"
-      class="agent-dialog agent-dialog-large"
-      width="1180px"
+      class="agent-dialog"
+      :title="dialogTitle"
+      width="1040px"
       destroy-on-close
-      :show-close="false"
+      :close-on-click-modal="false"
+      @closed="resetForm"
     >
-      <template #header>
-        <div class="dialog-title">
-          <div>
-            <span>{{ isEditingAgent ? 'EDIT AGENT' : 'NEW AGENT' }}</span>
-            <h3>{{ dialogTitle }}</h3>
-          </div>
-          <button type="button" class="dialog-close" @click="dialogVisible = false">
-            <el-icon><Close /></el-icon>
-          </button>
-        </div>
-      </template>
-
-      <div v-if="!isEditingAgent" class="wizard-steps wizard-steps-five">
-        <div
-          v-for="(step, index) in wizardSteps"
+      <el-steps :active="activeStep" align-center class="agent-steps">
+        <el-step
+          v-for="step in steps"
           :key="step.title"
-          :class="{ active: wizardStep >= index + 1, current: wizardStep === index + 1 }"
-        >
-          <span>
-            <el-icon v-if="wizardStep > index + 1"><Check /></el-icon>
-            <template v-else>{{ index + 1 }}</template>
-          </span>
-          <strong>{{ step.title }}</strong>
-          <small>{{ step.desc }}</small>
-        </div>
-      </div>
+          :title="step.title"
+          :description="step.description"
+        />
+      </el-steps>
 
-      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
-        <div v-loading="wizardLoading" class="agent-wizard-body" :class="{ 'with-summary': wizardStep === 5 }">
-          <div class="agent-wizard-main">
-            <section v-if="wizardStep === 1" class="wizard-section basic-info-step">
-              <h4>基本信息</h4>
-              <p>选择智能体运行类型，并填写用于识别智能体的基础信息。</p>
-
-              <h5>选择智能体类型</h5>
-              <div class="agent-type-options">
-                <button
-                  v-for="type in agentTypes"
-                  :key="type.value"
-                  type="button"
-                  class="agent-type-card"
-                  :class="{ selected: form.agentType === type.value }"
-                  @click="form.agentType = type.value"
-                >
-                  <span>
-                    <strong>{{ type.title }}</strong>
-                    <em v-if="type.tag">{{ type.tag }}</em>
-                    <small>{{ type.desc }}</small>
-                  </span>
-                  <i class="type-check">
-                    <el-icon><Check /></el-icon>
-                  </i>
-                </button>
-              </div>
-
-              <article class="agent-basic-panel">
-                <h5>填写基本信息</h5>
-                <div class="agent-form-grid">
-                  <el-form-item label="智能体英文名称" prop="agentKey">
-                    <el-input v-model="form.agentKey" placeholder="例如：data-analyst" />
-                    <small class="field-tip">用于 API、日志和运行实例标识，建议使用小写字母与连字符</small>
-                  </el-form-item>
-                  <el-form-item label="智能体中文名称" prop="agentName">
-                    <el-input v-model="form.agentName" placeholder="例如：数据分析师" />
-                    <small class="field-tip">用于页面展示和用户识别</small>
-                  </el-form-item>
-                  <el-form-item class="full" label="智能体描述">
-                    <el-input
-                      v-model="form.description"
-                      type="textarea"
-                      :rows="3"
-                      maxlength="200"
-                      show-word-limit
-                      placeholder="简要描述智能体的职责、核心能力和适用场景..."
-                    />
-                  </el-form-item>
-                  <el-form-item v-if="isEditingAgent" class="full" label="模型配置">
-                    <el-alert
-                      v-if="editingModelUnavailable"
-                      class="model-unavailable-alert"
-                      type="warning"
-                      :closable="false"
-                      show-icon
-                      title="原模型配置已停用或删除，保存前必须重新选择"
-                    />
-                    <el-select
-                      v-model="configForm.modelId"
-                      filterable
-                      placeholder="请选择已启用的模型配置"
-                      @change="configForm.modelName = selectedModel?.modelName || ''"
-                    >
-                      <el-option
-                        v-for="model in modelRows"
-                        :key="model.id"
-                        :value="model.id"
-                        :label="`${model.configName} · ${model.providerName} · ${model.protocol} · ${model.modelName}`"
-                      >
-                        <span>{{ model.configName }} · {{ model.providerName }}</span>
-                        <small style="float: right; color: #8a95a8">{{ model.protocol }} · {{ model.modelName }}</small>
-                      </el-option>
-                    </el-select>
-                  </el-form-item>
-                </div>
-              </article>
-
-              <div class="basic-info-tip">
-                <el-icon><InfoFilled /></el-icon>
-                <span v-if="isEditingAgent">编辑时只允许选择已启用模型；模型停用或删除后必须重新绑定才能保存。</span>
-                <span v-else>所有字段均可暂时留空，点击下一步继续配置模型与提示词。</span>
-              </div>
-            </section>
-
-            <section v-else-if="wizardStep === 2" class="wizard-section">
-              <article class="model-prompt-panel">
-                <button type="button" class="config-section-head" @click="modelConfigExpanded = !modelConfigExpanded">
-                  <span>
-                    <h4>模型配置</h4>
-                    <small>{{ selectedModel?.modelName || '选择默认模型' }}</small>
-                  </span>
-                  <el-icon><component :is="modelConfigExpanded ? ArrowUp : ArrowDown" /></el-icon>
-                </button>
-
-                <div v-show="modelConfigExpanded" class="model-card-grid">
-                  <button
-                    v-for="model in modelRows"
-                    :key="model.id"
-                    type="button"
-                    class="model-option-card"
-                    :class="{ selected: normalizeId(configForm.modelId) === normalizeId(model.id) }"
-                    @click="selectModel(model)"
-                  >
-                    <i class="option-radio">
-                      <el-icon><Check /></el-icon>
-                    </i>
-                    <span>
-                      <strong>{{ model.configName || model.modelName || `模型 #${model.id}` }}</strong>
-                      <small>{{ model.providerName }} · {{ model.protocol }} · {{ model.modelName }}</small>
-                      <em>{{ formatModelContext(model) }}</em>
-                    </span>
-                    <b>{{ formatProvider(model.providerName) }}</b>
-                  </button>
-                  <el-empty v-if="!modelRows.length" description="暂无可选模型" :image-size="72" />
-                </div>
-
-<!--                <div v-if="selectedModel" class="selected-model-strip">-->
-<!--                  <span>已选择：<strong>{{ selectedModel.modelName || configForm.modelName }}</strong></span>-->
-<!--                  <em v-if="selectedModel.streaming">支持流式输出</em>-->
-<!--                  <em v-if="selectedModel.thinking">支持思考</em>-->
-<!--                  <button type="button" @click="modelConfigExpanded = true">-->
-<!--                    查看模型详情 <el-icon><ArrowRight /></el-icon>-->
-<!--                  </button>-->
-<!--                </div>-->
-              </article>
-
-              <article class="model-prompt-panel">
-                <button type="button" class="config-section-head" @click="promptTemplateExpanded = !promptTemplateExpanded">
-                  <span>
-                    <h4>系统提示词模板</h4>
-                    <small>{{ selectedPrompt?.promptName || '选择模板后自动填充预览内容' }}</small>
-                  </span>
-                  <el-icon><component :is="promptTemplateExpanded ? ArrowUp : ArrowDown" /></el-icon>
-                </button>
-
-                <div v-show="promptTemplateExpanded" class="prompt-template-grid">
-                  <button
-                    v-for="prompt in promptRows"
-                    :key="prompt.id"
-                    type="button"
-                    class="prompt-option-card"
-                    :class="{ selected: normalizeId(configForm.sysPromptId) === normalizeId(prompt.id) }"
-                    @click="selectPrompt(prompt)"
-                  >
-                    <i class="option-radio">
-                      <el-icon><Check /></el-icon>
-                    </i>
-                    <span>
-                      <strong>{{ prompt.promptName || `提示词 #${prompt.id}` }}</strong>
-                      <small>{{ prompt.description || '选择后可在下方预览提示词内容' }}</small>
-                    </span>
-                  </button>
-                  <el-empty v-if="!promptRows.length" description="暂无提示词模板" :image-size="72" />
-                </div>
-              </article>
-
-              <article class="prompt-preview-panel" :class="{ expanded: promptPreviewExpanded }">
-                <button type="button" class="prompt-preview-head" @click="promptPreviewExpanded = !promptPreviewExpanded">
-                  <span>
-                    <strong>模板内容预览</strong>
-                    <small v-if="!promptPreviewExpanded">{{ promptPreviewText }}</small>
-                  </span>
-                  <em>{{ promptPreviewExpanded ? '收起预览' : '展开编辑' }} <el-icon><component :is="promptPreviewExpanded ? ArrowUp : ArrowDown" /></el-icon></em>
-                </button>
-                <el-input
-                  disabled
-                  v-show="promptPreviewExpanded"
-                  v-model="configForm.sysPrompt"
-                  class="prompt-preview-editor"
-                  type="textarea"
-                  :rows="7"
-                  placeholder="选择系统提示词模板后，可在这里预览并调整完整提示词内容"
-                />
-              </article>
-
-              <div class="basic-info-tip">
-                <el-icon><InfoFilled /></el-icon>
-                <span>模型和提示词模板均可暂时不选择，点击下一步继续配置工具、技能、子智能体。</span>
-              </div>
-            </section>
-
-            <section v-else-if="wizardStep === 3" class="wizard-section capability-step">
-              <header class="capability-step-head">
-                <div>
-                  <h4>工具、技能、子智能体</h4>
-                  <p>为智能体配置可调用的能力，并选择可委派任务的子智能体。</p>
-                </div>
-                <strong>{{ capabilitySummaryText }}</strong>
-              </header>
-
-              <article class="capability-section">
-                <button type="button" class="capability-section-title capability-section-toggle" @click="toolsCapabilityExpanded = !toolsCapabilityExpanded">
-                  <span class="capability-section-icon"><el-icon><Tools /></el-icon></span>
-                  <h5>工具</h5>
-                  <p>智能体在运行过程中按需调用，可单独设置使用模式</p>
-                  <el-icon class="capability-section-arrow"><component :is="toolsCapabilityExpanded ? ArrowUp : ArrowDown" /></el-icon>
-                </button>
-                <div v-show="toolsCapabilityExpanded" class="capability-select-grid tools">
-                  <button
-                    v-for="tool in toolRows"
-                    :key="tool.id"
-                    type="button"
-                    class="capability-select-card"
-                    :class="{ selected: isSelected(selections.toolIds, tool.id), disabled: !isToolEnabled(tool) }"
-                    :disabled="!isToolEnabled(tool)"
-                    @click="toggleId(selections.toolIds, tool.id)"
-                  >
-                    <el-checkbox
-                      :model-value="isSelected(selections.toolIds, tool.id)"
-                      :disabled="!isToolEnabled(tool)"
-                      @click.stop
-                      @change="() => toggleId(selections.toolIds, tool.id)"
-                    />
-                    <strong>{{ getToolTitle(tool) }}</strong>
-                    <small>{{ getToolKey(tool) }}</small>
-                    <p>{{ getToolDesc(tool) }}</p>
-                  </button>
-                  <el-empty v-if="!toolRows.length" description="暂无工具" :image-size="72" />
-                </div>
-              </article>
-
-              <article class="capability-section">
-                <button type="button" class="capability-section-title capability-section-toggle" @click="skillsCapabilityExpanded = !skillsCapabilityExpanded">
-                  <span class="capability-section-icon"><el-icon><MagicStick /></el-icon></span>
-                  <h5>技能</h5>
-                  <p>技能封装可复用的业务流程、知识与操作规范</p>
-                  <el-icon class="capability-section-arrow"><component :is="skillsCapabilityExpanded ? ArrowUp : ArrowDown" /></el-icon>
-                </button>
-                <div v-show="skillsCapabilityExpanded" class="capability-select-grid">
-                  <button
-                    v-for="skill in skillRows"
-                    :key="skill.id"
-                    type="button"
-                    class="capability-select-card"
-                    :class="{ selected: isSelected(selections.skillIds, skill.id), disabled: !isSkillEnabled(skill) }"
-                    :disabled="!isSkillEnabled(skill)"
-                    @click="toggleId(selections.skillIds, skill.id)"
-                  >
-                    <el-checkbox
-                      :model-value="isSelected(selections.skillIds, skill.id)"
-                      :disabled="!isSkillEnabled(skill)"
-                      @click.stop
-                      @change="() => toggleId(selections.skillIds, skill.id)"
-                    />
-                    <strong>{{ getSkillTitle(skill) }}</strong>
-                    <small>{{ getSkillKey(skill) }}</small>
-                    <p>{{ getSkillDesc(skill) }}</p>
-                  </button>
-                </div>
-              </article>
-
-              <article class="capability-section">
-                <button type="button" class="capability-section-title capability-section-toggle" @click="subagentsCapabilityExpanded = !subagentsCapabilityExpanded">
-                  <span class="capability-section-icon"><el-icon><Connection /></el-icon></span>
-                  <h5>子智能体</h5>
-                  <p>主智能体可根据任务需要将子任务委派给专业子智能体</p>
-                  <el-icon class="capability-section-arrow"><component :is="subagentsCapabilityExpanded ? ArrowUp : ArrowDown" /></el-icon>
-                </button>
-                <div v-show="subagentsCapabilityExpanded" class="capability-select-grid">
-                  <button
-                    v-for="subagent in subagentRows"
-                    :key="subagent.id"
-                    type="button"
-                    class="capability-select-card subagent"
-                    :class="{ selected: isSelected(selections.subagentIds, subagent.id), disabled: !isSubagentEnabled(subagent) }"
-                    :disabled="!isSubagentEnabled(subagent)"
-                    @click="toggleId(selections.subagentIds, subagent.id)"
-                  >
-                    <el-checkbox
-                      :model-value="isSelected(selections.subagentIds, subagent.id)"
-                      :disabled="!isSubagentEnabled(subagent)"
-                      @click.stop
-                      @change="() => toggleId(selections.subagentIds, subagent.id)"
-                    />
-                    <strong>{{ getSubagentTitle(subagent) }}</strong>
-                    <small>{{ getSubagentType(subagent) }}</small>
-                    <p>{{ getSubagentDesc(subagent) }}</p>
-                    <em :class="{ unavailable: !isSubagentEnabled(subagent) }">
-                      {{ isSubagentEnabled(subagent) ? '可用' : '未启用' }}
-                    </em>
-                  </button>
-                  <el-empty v-if="!subagentRows.length" description="暂无子智能体" :image-size="72" />
-                </div>
-              </article>
-
-              <div class="capability-summary-bar">
-                <span><el-icon><Tools /></el-icon> 工具 <strong>{{ selections.toolIds.length }}</strong></span>
-                <span><el-icon><MagicStick /></el-icon> 技能 <strong>{{ selections.skillIds.length }}</strong></span>
-                <span><el-icon><Connection /></el-icon> 子智能体 <strong>{{ selections.subagentIds.length }}</strong></span>
-                <button type="button" :disabled="!capabilityTotal" @click="clearCapabilitySelections">
-                  <el-icon><Delete /></el-icon> 清空选择
-                </button>
-              </div>
-
-              <div class="basic-info-tip">
-                <el-icon><InfoFilled /></el-icon>
-                <span>当前配置可暂时不选择任何能力，点击下一步继续绑定知识库。</span>
-              </div>
-            </section>
-
-            <section v-else-if="wizardStep === 4" class="wizard-section capability-step knowledge-mcp-step">
-              <header class="capability-step-head">
-                <div>
-                  <h4>知识库与 MCP</h4>
-                  <p>为智能体绑定可检索的知识库，并连接可调用的 MCP 服务。</p>
-                </div>
-                <strong>{{ knowledgeMcpSummaryText }}</strong>
-              </header>
-
-              <article class="capability-section">
-                <button type="button" class="capability-section-title capability-section-toggle" @click="knowledgeBaseExpanded = !knowledgeBaseExpanded">
-                  <span class="capability-section-icon"><el-icon><Collection /></el-icon></span>
-                  <h5>知识库</h5>
-                  <p>智能体可从已绑定的知识库中检索内容，并在回答中引用来源</p>
-                  <el-icon class="capability-section-arrow"><component :is="knowledgeBaseExpanded ? ArrowUp : ArrowDown" /></el-icon>
-                </button>
-                <div v-show="knowledgeBaseExpanded" class="capability-select-grid knowledge">
-                  <button
-                    v-for="item in knowledgeRows"
-                    :key="item.id"
-                    type="button"
-                    class="capability-select-card knowledge-source"
-                    :class="{ selected: isSelected(selections.knowledgeBaseIds, item.id), disabled: !isKnowledgeEnabled(item) }"
-                    :disabled="!isKnowledgeEnabled(item)"
-                    @click="toggleId(selections.knowledgeBaseIds, item.id)"
-                  >
-                    <el-checkbox
-                      :model-value="isSelected(selections.knowledgeBaseIds, item.id)"
-                      :disabled="!isKnowledgeEnabled(item)"
-                      @click.stop
-                      @change="() => toggleId(selections.knowledgeBaseIds, item.id)"
-                    />
-                    <strong>{{ getKnowledgeTitle(item) }}</strong>
-                    <p>{{ getKnowledgeDesc(item) }}</p>
-                    <small>{{ getKnowledgeMeta(item) }}</small>
-                    <em class="resource-status" :class="getKnowledgeStatus(item).tone">
-                      {{ getKnowledgeStatus(item).text }}
-                    </em>
-                  </button>
-                  <el-empty v-if="!knowledgeRows.length" description="暂无知识库" :image-size="72" />
-                </div>
-              </article>
-
-              <article class="capability-section">
-                <button type="button" class="capability-section-title capability-section-toggle" @click="mcpServiceExpanded = !mcpServiceExpanded">
-                  <span class="capability-section-icon"><el-icon><Connection /></el-icon></span>
-                  <h5>MCP 服务</h5>
-                  <p>连接遵循 Model Context Protocol 的外部服务，为智能体提供标准化工具能力</p>
-                  <el-icon class="capability-section-arrow"><component :is="mcpServiceExpanded ? ArrowUp : ArrowDown" /></el-icon>
-                </button>
-                <div v-show="mcpServiceExpanded" class="capability-select-grid mcp">
-                  <button
-                    v-for="item in mcpRows"
-                    :key="item.id"
-                    type="button"
-                    class="capability-select-card mcp-service"
-                    :class="{ selected: isSelected(selections.mcp, item.id), disabled: !isMcpEnabled(item) }"
-                    :disabled="!isMcpEnabled(item)"
-                    @click="toggleId(selections.mcp, item.id)"
-                  >
-                    <el-checkbox
-                      :model-value="isSelected(selections.mcp, item.id)"
-                      :disabled="!isMcpEnabled(item)"
-                      @click.stop
-                      @change="() => toggleId(selections.mcp, item.id)"
-                    />
-                    <strong>{{ item.name }}</strong>
-                    <small>{{ getMcpEndpoint(item) }}</small>
-                    <p>{{ item.description }}</p>
-                    <span class="mcp-card-footer">
-                      <b>{{ item.toolCount }} 个工具</b>
-                      <em class="resource-status" :class="item.connected ? 'ready' : 'muted'">
-                        {{ item.connected ? '已连接' : '未连接' }}
-                      </em>
-                    </span>
-                  </button>
-                </div>
-              </article>
-
-              <div class="mcp-warning-tip">
-                <el-icon><Lock /></el-icon>
-                <span>MCP 服务暴露的工具仍受智能体权限策略控制，敏感操作可在运行时请求确认。</span>
-              </div>
-
-              <div class="capability-summary-bar">
-                <span><el-icon><Collection /></el-icon> 知识库 <strong>{{ selections.knowledgeBaseIds.length }}</strong></span>
-                <span><el-icon><Connection /></el-icon> MCP 服务 <strong>{{ selections.mcp.length }}</strong></span>
-                <span><el-icon><Tools /></el-icon> 可用 MCP 工具 <strong>{{ selectedMcpToolCount }}</strong></span>
-                <button type="button" :disabled="!knowledgeMcpTotal" @click="clearKnowledgeMcpSelections">
-                  <el-icon><Delete /></el-icon> 清空选择
-                </button>
-              </div>
-
-              <div class="basic-info-tip">
-                <el-icon><InfoFilled /></el-icon>
-                <span>知识库和 MCP 服务均可暂时不选择，点击下一步继续高级配置。</span>
-              </div>
-            </section>
-
-            <section v-else class="wizard-section advanced-section">
-              <h4>高级配置</h4>
-              <p>配置版本运行参数、上下文治理、长期记忆、计划模式与沙箱执行环境。</p>
-
-              <article class="advanced-card">
-                <header>
-                  <span class="type-icon"><el-icon><SetUp /></el-icon></span>
-                  <div>
-                    <h5>运行配置</h5>
-                    <p>基础运行边界和默认权限</p>
-                  </div>
-                </header>
-                <div class="agent-form-grid">
-                  <label class="setting-toggle">
-                    <span>长期记忆</span>
-                    <el-switch v-model="configForm.memoryEnable" :active-value="1" :inactive-value="0" />
-                  </label>
-                  <el-form-item label="最大循环次数">
-                    <el-input-number v-model="configForm.maxIters" :min="1" :max="100" :controls="false" />
-                  </el-form-item>
-                  <el-form-item label="工作区目录">
-                    <el-input v-model="configForm.workspacePath" placeholder="可为空"/>
-                  </el-form-item>
-                  <el-form-item label="默认权限模式">
-                    <el-select v-model="configForm.permissionMode">
-                      <el-option v-for="item in permissionOptions" :key="item.value" :label="item.label" :value="item.value" />
-                    </el-select>
-                  </el-form-item>
-
-<!--                  <el-form-item label="发布状态">-->
-<!--                    <el-select v-model="configForm.publishStatus">-->
-<!--                      <el-option v-for="item in publishOptions" :key="item.value" :label="item.label" :value="item.value" />-->
-<!--                    </el-select>-->
-<!--                  </el-form-item>-->
-                </div>
-              </article>
-
-              <article class="advanced-card" :class="{ collapsed: !configForm.compactionEnabled }">
-                <header>
-                  <span class="type-icon"><el-icon><Notebook /></el-icon></span>
-                  <div class="advanced-card-copy">
-                    <div class="advanced-title-inline">
-                      <h5>上下文压缩</h5>
-                      <el-switch v-model="configForm.compactionEnabled" :active-value="1" :inactive-value="0" />
-                    </div>
-                    <p>控制长会话的压缩触发和保留范围</p>
-                  </div>
-                </header>
-                <div v-show="configForm.compactionEnabled" class="agent-form-grid four">
-                  <el-form-item label="触发消息数">
-                    <el-input-number v-model="configForm.triggerMessages" :min="1" :controls="false" />
-                  </el-form-item>
-                  <el-form-item label="保留消息数">
-                    <el-input-number v-model="configForm.keepMessages" :min="0" :controls="false" />
-                  </el-form-item>
-                  <el-form-item label="触发 Token">
-                    <el-input-number v-model="configForm.triggerTokens" :min="0" :controls="false" />
-                  </el-form-item>
-                  <el-form-item label="保留 Token">
-                    <el-input-number v-model="configForm.keepTokens" :min="0" :controls="false" />
-                  </el-form-item>
-                  <label class="setting-toggle">
-                    <span>压缩前刷新上下文</span>
-                    <el-switch v-model="configForm.flushBeforeCompact" :active-value="1" :inactive-value="0" />
-                  </label>
-                  <label class="setting-toggle">
-                    <span>压缩前卸载大结果</span>
-                    <el-switch v-model="configForm.offloadBeforeCompact" :active-value="1" :inactive-value="0" />
-                  </label>
-<!--                  <el-form-item class="full" label="摘要模型">-->
-<!--                    <el-select v-model="configForm.compactionModelConfigId" placeholder="为空时使用 Agent 主模型" clearable>-->
-<!--                      <el-option label="使用主模型" :value="null" />-->
-<!--                      <el-option label="轻量摘要模型 #2" :value="2" />-->
-<!--                    </el-select>-->
-<!--                  </el-form-item>-->
-                </div>
-              </article>
-
-              <article class="advanced-card">
-                <header>
-                  <span class="type-icon"><el-icon><Files /></el-icon></span>
-                  <div>
-                    <h5>工具结果治理</h5>
-                    <p>降低大模型上下文占用</p>
-                  </div>
-                </header>
-                <div class="agent-form-grid">
-                  <label class="setting-toggle">
-                    <span>工具参数预截断</span>
-                    <el-switch v-model="configForm.truncateArgsEnabled" :active-value="1" :inactive-value="0" />
-                  </label>
-                  <el-form-item label="参数最大字符数">
-                    <el-input-number
-                      v-model="configForm.truncateArgsMaxChars"
-                      :disabled="!configForm.truncateArgsEnabled"
-                      :min="0"
-                      :controls="false"
-                    />
-                  </el-form-item>
-                  <label class="setting-toggle">
-                    <span>大工具结果卸载</span>
-                    <el-switch
-                        v-model="configForm.toolResultEvictionEnabled"
-                        :active-value="1"
-                        :inactive-value="0" />
-                  </label>
-                  <el-form-item label="结果最大字符数">
-                    <el-input-number
-                        v-model="configForm.toolResultMaxChars"
-                        :disabled="!configForm.toolResultEvictionEnabled"
-                        :min="0" :controls="false" />
-                  </el-form-item>
-                </div>
-              </article>
-
-              <article class="advanced-card" :class="{ collapsed: !configForm.planModeEnabled }">
-                <header>
-                  <span class="type-icon"><el-icon><FolderOpened /></el-icon></span>
-                  <div class="advanced-card-copy">
-                    <div class="advanced-title-inline">
-                      <h5>计划模式</h5>
-                      <el-switch v-model="configForm.planModeEnabled" :active-value="1" :inactive-value="0" />
-                    </div>
-                    <p>管理结构化任务计划和执行约束</p>
-                  </div>
-                </header>
-                <div v-show="configForm.planModeEnabled" class="advanced-toggle-row">
-                  <label><span>开启任务列表</span><el-switch v-model="configForm.taskListEnabled" :active-value="1" :inactive-value="0" /></label>
-                  <label><span>复杂任务自主进入Plan</span><el-switch v-model="configForm.planAutoEnterEnabled" :active-value="1" :inactive-value="0" /></label>
-                  <label><span>Plan 阶段允许使用Shell命令</span><el-switch v-model="configForm.allowShellInPlanMode" :active-value="1" :inactive-value="0" /></label>
-                  <label><span>计划制定完毕后是否需要人工确认</span><el-switch v-model="configForm.planExitApprovalRequired" :active-value="1" :inactive-value="0" /></label>
-                </div>
-                <div v-show="configForm.planModeEnabled" class="agent-form-grid">
-                  <el-form-item label="计划文件目录">
-                    <el-input v-model="configForm.planFileDirectory" />
-                  </el-form-item>
-                  <el-form-item label="计划最大步骤">
-                    <el-input-number v-model="configForm.planMaxSteps" :min="1" :max="200" :controls="false" />
-                  </el-form-item>
-                  <el-form-item class="full" label="Plan Mode 额外提示词">
-                    <el-input
-                      v-model="configForm.planPrompt"
-                      type="textarea"
-                      :rows="4"
-                      placeholder="约束计划格式、风险说明和验收标准"
-                    />
-                  </el-form-item>
-                </div>
-              </article>
-
-              <article class="advanced-card" :class="{ collapsed: !configForm.sandboxEnabled }">
-                <header>
-                  <span class="type-icon"><el-icon><Monitor /></el-icon></span>
-                  <div class="advanced-card-copy">
-                    <div class="advanced-title-inline">
-                      <h5>沙箱与可视化</h5>
-                      <el-switch
-                          v-model="configForm.sandboxEnabled"
-                          :disabled="!configForm.sandboxEnabled"
-                          :active-value="1" :inactive-value="0" />
-                    </div>
-                    <p>执行隔离和 Studio 画布快照</p>
-                  </div>
-                </header>
-                <div v-show="configForm.sandboxEnabled" class="agent-form-grid">
-                  <el-form-item label="沙箱配置ID">
-                    <el-input v-model="configForm.sandboxConfigId" placeholder="可留空" />
-                  </el-form-item>
-                  <el-form-item class="full" label="可视化画布 JSON">
-                    <el-input
-                      v-model="configForm.visualSchemaJson"
-                      type="textarea"
-                      :rows="4"
-                      placeholder="为空时将根据当前选择自动生成基础节点和边"
-                    />
-                  </el-form-item>
-                </div>
-              </article>
-            </section>
+      <el-form
+        ref="formRef"
+        v-loading="optionsLoading"
+        :model="form"
+        :rules="rules"
+        label-position="top"
+        class="agent-form"
+      >
+        <section v-show="activeStep === 0" class="form-section">
+          <div class="section-heading">
+            <span><el-icon><Monitor /></el-icon></span>
+            <div><h4>基础信息</h4><p>创建后编码永久保留，名称与描述可以继续修改。</p></div>
           </div>
-        </div>
+          <div class="form-grid">
+            <el-form-item label="智能体编码" prop="agentCode">
+              <el-input
+                v-model="form.agentCode"
+                :disabled="isEditing"
+                maxlength="64"
+                placeholder="例如 customer-support"
+              />
+            </el-form-item>
+            <el-form-item label="智能体名称" prop="agentName">
+              <el-input v-model="form.agentName" maxlength="100" placeholder="请输入展示名称" />
+            </el-form-item>
+            <el-form-item class="full" label="职责描述" prop="description">
+              <el-input
+                v-model="form.description"
+                type="textarea"
+                :rows="5"
+                maxlength="500"
+                show-word-limit
+                placeholder="说明智能体的职责、能力边界和适用场景"
+              />
+            </el-form-item>
+          </div>
+        </section>
+
+        <section v-show="activeStep === 1" class="form-section">
+          <div class="section-heading">
+            <span><el-icon><Setting /></el-icon></span>
+            <div><h4>模型与系统提示词</h4><p>模型与提示词均可暂时留空。</p></div>
+          </div>
+          <div class="form-grid">
+            <el-form-item label="模型配置">
+              <el-select v-model="form.modelId" filterable clearable placeholder="选择已启用模型">
+                <el-option
+                  v-for="item in optionRows.models"
+                  :key="item.id"
+                  :value="item.id"
+                  :label="[item.configName, item.providerName, item.protocol, item.modelName].filter(Boolean).join(' · ')"
+                />
+              </el-select>
+              <small v-if="!form.modelId" class="field-warning">
+                未绑定模型时可以保存，但不能发起对话或运行。
+              </small>
+            </el-form-item>
+            <el-form-item label="系统提示词模板">
+              <el-select v-model="form.sysPromptId" filterable clearable placeholder="选择可用提示词">
+                <el-option
+                  v-for="item in optionRows.prompts"
+                  :key="item.id"
+                  :value="item.id"
+                  :label="promptName(item)"
+                />
+              </el-select>
+              <small v-if="invalidPromptName" class="field-warning">
+                原提示词“{{ invalidPromptName }}”已失效，保存后将清除引用。
+              </small>
+            </el-form-item>
+            <el-form-item class="full" label="提示词内容预览">
+              <el-input
+                :model-value="selectedPrompt?.sysPrompt || '未选择系统提示词模板'"
+                type="textarea"
+                :rows="9"
+                disabled
+              />
+            </el-form-item>
+          </div>
+        </section>
+
+        <section v-show="activeStep === 2" class="form-section">
+          <div class="section-heading">
+            <span><el-icon><MagicStick /></el-icon></span>
+            <div><h4>能力配置</h4><p>选择运行时可用的工具、技能和子智能体。</p></div>
+          </div>
+          <el-alert
+            v-if="invalidBindings.length"
+            type="warning"
+            :closable="false"
+            show-icon
+            title="存在已失效绑定"
+          >
+            <template #default>
+              {{ invalidBindings.map(item => `${item.type}“${item.name}”`).join('、') }}
+              将在本次保存时自动解除。
+            </template>
+          </el-alert>
+          <div class="capability-columns">
+            <article class="capability-box">
+              <header><h5>工具</h5><b>{{ form.selectedToolIds.length }}</b></header>
+              <el-checkbox-group v-model="form.selectedToolIds">
+                <el-checkbox v-for="item in optionRows.tools" :key="item.id" :value="item.id">
+                  <span><strong>{{ toolName(item) }}</strong><small>{{ item.description || item.toolName }}</small></span>
+                </el-checkbox>
+              </el-checkbox-group>
+              <el-empty v-if="!optionRows.tools.length" description="暂无可用工具" :image-size="60" />
+            </article>
+            <article class="capability-box">
+              <header><h5>技能</h5><b>{{ form.selectedSkillIds.length }}</b></header>
+              <el-checkbox-group v-model="form.selectedSkillIds">
+                <el-checkbox v-for="item in optionRows.skills" :key="item.id" :value="item.id">
+                  <span><strong>{{ skillName(item) }}</strong><small>{{ item.description || item.source }}</small></span>
+                </el-checkbox>
+              </el-checkbox-group>
+              <el-empty v-if="!optionRows.skills.length" description="暂无可用技能" :image-size="60" />
+            </article>
+            <article class="capability-box">
+              <header><h5>子智能体</h5><b>{{ form.selectedSubagentIds.length }}</b></header>
+              <el-checkbox-group v-model="form.selectedSubagentIds">
+                <el-checkbox v-for="item in optionRows.subagents" :key="item.id" :value="item.id">
+                  <span><strong>{{ subagentName(item) }}</strong><small>{{ item.description || item.subagentCode }}</small></span>
+                </el-checkbox>
+              </el-checkbox-group>
+              <el-empty v-if="!optionRows.subagents.length" description="暂无可用子智能体" :image-size="60" />
+            </article>
+          </div>
+        </section>
+
+        <section v-show="activeStep === 3" class="form-section">
+          <div class="section-heading">
+            <span><el-icon><Files /></el-icon></span>
+            <div><h4>知识库</h4><p>智能体可按需检索已绑定且当前可用的知识库。</p></div>
+          </div>
+          <el-checkbox-group v-model="form.selectedKnowledgeBaseIds" class="knowledge-grid">
+            <el-checkbox
+              v-for="item in optionRows.knowledgeBases"
+              :key="item.id"
+              :value="item.id"
+            >
+              <span>
+                <strong>{{ knowledgeName(item) }}</strong>
+                <small>{{ item.description || item.knowledgeCode || '暂无描述' }}</small>
+              </span>
+            </el-checkbox>
+          </el-checkbox-group>
+          <el-empty
+            v-if="!optionRows.knowledgeBases.length"
+            description="暂无可用知识库"
+            :image-size="72"
+          />
+        </section>
+
+        <section v-show="activeStep === 4" class="form-section">
+          <div class="section-heading">
+            <span><el-icon><Warning /></el-icon></span>
+            <div><h4>高级配置</h4><p>这里只展示已经落库并被运行时读取的配置。</p></div>
+          </div>
+
+          <div class="advanced-grid">
+            <article class="advanced-card">
+              <header><h5>运行与权限</h5></header>
+              <div class="form-grid compact">
+                <el-form-item label="最大循环次数">
+                  <el-input-number v-model="form.maxIters" :min="1" :max="100" />
+                </el-form-item>
+                <el-form-item label="权限模式">
+                  <el-select v-model="form.permissionMode">
+                    <el-option
+                      v-for="item in permissionOptions"
+                      :key="item.value"
+                      :value="item.value"
+                      :label="item.label"
+                    />
+                  </el-select>
+                </el-form-item>
+                <label class="switch-row">
+                  <span><b>长期记忆</b><small>启用记忆工具与钩子</small></span>
+                  <el-switch v-model="form.memoryEnable" :active-value="1" :inactive-value="0" />
+                </label>
+                <label class="switch-row">
+                  <span><b>大工具结果卸载</b><small>减少上下文占用</small></span>
+                  <el-switch
+                    v-model="form.toolResultEvictionEnabled"
+                    :active-value="1"
+                    :inactive-value="0"
+                  />
+                </label>
+              </div>
+            </article>
+
+            <article class="advanced-card">
+              <header>
+                <h5>上下文压缩</h5>
+                <el-switch v-model="form.compactionEnabled" :active-value="1" :inactive-value="0" />
+              </header>
+              <div class="form-grid compact" :class="{ disabled: !form.compactionEnabled }">
+                <el-form-item label="触发消息数">
+                  <el-input-number v-model="form.triggerMessages" :min="0" />
+                </el-form-item>
+                <el-form-item label="保留消息数">
+                  <el-input-number v-model="form.keepMessages" :min="0" />
+                </el-form-item>
+                <el-form-item label="触发 Token">
+                  <el-input-number v-model="form.triggerTokens" :min="0" />
+                </el-form-item>
+                <el-form-item label="保留 Token">
+                  <el-input-number v-model="form.keepTokens" :min="0" />
+                </el-form-item>
+              </div>
+            </article>
+
+            <article class="advanced-card">
+              <header>
+                <h5>计划模式</h5>
+                <el-switch v-model="form.planModeEnabled" :active-value="1" :inactive-value="0" />
+              </header>
+              <div class="form-grid compact" :class="{ disabled: !form.planModeEnabled }">
+                <el-form-item label="计划文件目录">
+                  <el-input v-model="form.planFileDirectory" placeholder="plans" />
+                </el-form-item>
+                <label class="switch-row">
+                  <span><b>任务列表</b><small>启用 todo_write</small></span>
+                  <el-switch v-model="form.taskListEnabled" :active-value="1" :inactive-value="0" />
+                </label>
+                <label class="switch-row full">
+                  <span><b>Plan 阶段允许 Shell</b><small>仅在确有需要时开启</small></span>
+                  <el-switch
+                    v-model="form.allowShellInPlanMode"
+                    :active-value="1"
+                    :inactive-value="0"
+                  />
+                </label>
+              </div>
+            </article>
+
+            <article class="advanced-card">
+              <header><h5>会话状态存储</h5></header>
+              <el-radio-group v-model="form.stateStoreType" class="state-store-options">
+                <el-radio-button value="local_file">本地文件</el-radio-button>
+                <el-radio-button value="redis">Redis</el-radio-button>
+              </el-radio-group>
+              <p class="store-note">
+                切换存储不会迁移既有会话状态；选择 Redis 时后端将在保存前检查连通性。
+              </p>
+            </article>
+          </div>
+        </section>
       </el-form>
 
       <template #footer>
-        <template v-if="isEditingAgent">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" :loading="submitting" @click="submitForm">
-            保存修改
-          </el-button>
-        </template>
-        <template v-else>
-          <el-button v-if="wizardStep === 1" @click="dialogVisible = false">取消</el-button>
-          <el-button v-else @click="prevStep">上一步</el-button>
-          <el-button
-            v-if="wizardStep < wizardSteps.length"
-            type="primary"
-            :icon="ArrowRight"
-            @click="nextStep"
-          >
-            下一步：{{ wizardSteps[wizardStep]?.title }}
-          </el-button>
-          <template v-else>
-            <el-button :loading="submitting" @click="submitForm">保存草稿</el-button>
-            <el-button type="primary" :loading="submitting" @click="submitForm">
-              创建智能体 <el-icon><Check /></el-icon>
+        <div class="dialog-footer">
+          <span>第 {{ activeStep + 1 }} / {{ steps.length }} 步</span>
+          <div>
+            <el-button v-if="activeStep === 0" @click="dialogVisible = false">取消</el-button>
+            <el-button v-else @click="previousStep">上一步</el-button>
+            <el-button v-if="activeStep < steps.length - 1" type="primary" @click="nextStep">
+              下一步
             </el-button>
-          </template>
-        </template>
+            <el-button v-else type="primary" :loading="submitting" @click="submit">
+              {{ isEditing ? '保存修改' : '创建智能体' }}
+            </el-button>
+          </div>
+        </div>
       </template>
+    </el-dialog>
+
+    <el-dialog
+      v-model="runDialog.visible"
+      :title="`${runDialog.agent?.agentName || ''} · 运行记录`"
+      width="980px"
+    >
+      <div class="run-filters">
+        <el-select v-model="runDialog.status" clearable placeholder="全部状态" @change="loadRuns">
+          <el-option label="运行中" value="RUNNING" />
+          <el-option label="成功" value="SUCCESS" />
+          <el-option label="失败" value="FAILED" />
+          <el-option label="已取消" value="CANCELLED" />
+        </el-select>
+        <el-date-picker
+          v-model="runDialog.range"
+          type="datetimerange"
+          value-format="YYYY-MM-DDTHH:mm:ss"
+          start-placeholder="开始时间"
+          end-placeholder="结束时间"
+          @change="() => { runDialog.current = 1; loadRuns() }"
+        />
+      </div>
+      <el-table v-loading="runDialog.loading" :data="runDialog.rows">
+        <el-table-column prop="id" label="运行 ID" min-width="170" />
+        <el-table-column prop="sessionId" label="会话 ID" min-width="170" />
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag
+              :type="row.status === 'SUCCESS' ? 'success' : row.status === 'FAILED' ? 'danger' : row.status === 'RUNNING' ? 'primary' : 'info'"
+            >
+              {{ row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="开始时间" min-width="165">
+          <template #default="{ row }">{{ formatDateTime(row.startedAt) }}</template>
+        </el-table-column>
+        <el-table-column label="耗时" width="100">
+          <template #default="{ row }">
+            {{ row.durationMs == null ? '--' : formatDuration(row.durationMs) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="errorMessage" label="错误信息" min-width="220" show-overflow-tooltip />
+      </el-table>
+      <el-pagination
+        v-model:current-page="runDialog.current"
+        v-model:page-size="runDialog.size"
+        background
+        layout="total, prev, pager, next"
+        :total="runDialog.total"
+        @current-change="loadRuns"
+      />
     </el-dialog>
   </section>
 </template>
+
+<style scoped>
+.agent-page {
+  min-height: 100%;
+  padding: 24px;
+  color: #182230;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(80, 109, 255, 0.08), transparent 27%),
+    #f5f7fb;
+}
+
+.page-hero,
+.list-toolbar,
+.agent-card header,
+.agent-card footer,
+.metric-card,
+.section-heading,
+.capability-box header,
+.advanced-card header,
+.switch-row,
+.dialog-footer,
+.run-filters {
+  display: flex;
+  align-items: center;
+}
+
+.page-hero {
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  color: #60708a;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.page-hero h2 {
+  margin: 5px 0 3px;
+  font-size: 30px;
+}
+
+.page-hero p,
+.list-toolbar p,
+.section-heading p,
+.store-note {
+  margin: 0;
+  color: #758197;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.metric-card {
+  gap: 14px;
+  min-height: 112px;
+  padding: 18px;
+  border: 1px solid #e7ebf2;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 25px rgba(31, 45, 72, 0.04);
+}
+
+.metric-icon {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border-radius: 13px;
+  font-size: 21px;
+}
+
+.metric-icon.blue { color: #3867ed; background: #edf2ff; }
+.metric-icon.green { color: #15936f; background: #e9f8f3; }
+.metric-icon.violet { color: #7b54d8; background: #f2edff; }
+.metric-icon.amber { color: #c27a19; background: #fff4df; }
+
+.metric-card small,
+.metric-card p {
+  color: #7d889b;
+  font-size: 12px;
+}
+
+.metric-card strong {
+  display: block;
+  margin: 4px 0;
+  font-size: 25px;
+}
+
+.metric-card p {
+  margin: 0;
+}
+
+.list-panel {
+  padding: 20px;
+  border: 1px solid #e5eaf2;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.list-toolbar {
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.list-toolbar h3 {
+  margin: 0 0 3px;
+  font-size: 18px;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.toolbar-actions .el-input {
+  width: 280px;
+}
+
+.view-switch {
+  display: flex;
+  padding: 3px;
+  border: 1px solid #e1e6ee;
+  border-radius: 9px;
+  background: #f6f8fb;
+}
+
+.view-switch button {
+  display: grid;
+  width: 30px;
+  height: 28px;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  color: #8390a5;
+  background: transparent;
+  cursor: pointer;
+}
+
+.view-switch button.active {
+  color: #3567e9;
+  background: #fff;
+  box-shadow: 0 2px 7px rgba(36, 54, 89, 0.12);
+}
+
+.agent-grid {
+  display: grid;
+  min-height: 210px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.agent-grid.list {
+  grid-template-columns: 1fr;
+}
+
+.agent-card {
+  min-width: 0;
+  padding: 17px;
+  border: 1px solid #e5eaf2;
+  border-radius: 15px;
+  background: linear-gradient(180deg, #fff, #fbfcfe);
+  transition: 0.2s ease;
+}
+
+.agent-card:hover {
+  border-color: #bfcdf3;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 26px rgba(43, 65, 108, 0.08);
+}
+
+.agent-card header {
+  gap: 11px;
+}
+
+.agent-card header > div {
+  min-width: 0;
+  flex: 1;
+}
+
+.agent-avatar {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  place-items: center;
+  border-radius: 12px;
+  color: #fff;
+  font-weight: 700;
+  background: linear-gradient(135deg, #4477ed, #7459d9);
+}
+
+.agent-card h4 {
+  overflow: hidden;
+  margin: 0 0 2px;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-card code {
+  color: #77849a;
+  font-size: 11px;
+}
+
+.description {
+  display: -webkit-box;
+  min-height: 42px;
+  overflow: hidden;
+  margin: 15px 0;
+  color: #66738a;
+  font-size: 13px;
+  line-height: 1.6;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.model-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 7px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  color: #3b5ca8;
+  background: #f0f4ff;
+  font-size: 12px;
+}
+
+.model-line.missing {
+  color: #b36c0e;
+  background: #fff5e5;
+}
+
+.model-line span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.card-data {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 13px 0;
+}
+
+.card-data span {
+  color: #8a95a7;
+  font-size: 11px;
+}
+
+.card-data b {
+  display: block;
+  overflow: hidden;
+  color: #364157;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-card footer {
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid #edf0f5;
+}
+
+.agent-card footer > span {
+  color: #97a0ae;
+  font-size: 11px;
+}
+
+.el-pagination {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
+.agent-steps {
+  margin: 0 12px 24px;
+}
+
+.agent-form {
+  min-height: 470px;
+}
+
+.form-section {
+  padding: 3px 5px;
+}
+
+.section-heading {
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.section-heading > span {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  color: #416ae5;
+  background: #edf2ff;
+  font-size: 19px;
+}
+
+.section-heading h4 {
+  margin: 0 0 3px;
+  font-size: 17px;
+}
+
+.section-heading p {
+  font-size: 12px;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 18px;
+}
+
+.form-grid .full {
+  grid-column: 1 / -1;
+}
+
+.field-warning {
+  display: block;
+  margin-top: 6px;
+  color: #bb7418;
+  line-height: 1.5;
+}
+
+.capability-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.capability-box,
+.advanced-card {
+  padding: 15px;
+  border: 1px solid #e4e9f1;
+  border-radius: 13px;
+  background: #fbfcfe;
+}
+
+.capability-box header,
+.advanced-card header {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.capability-box h5,
+.advanced-card h5 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.capability-box header b {
+  display: grid;
+  min-width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 8px;
+  color: #416ae5;
+  background: #eaf0ff;
+}
+
+.capability-box .el-checkbox-group {
+  display: flex;
+  max-height: 310px;
+  overflow-y: auto;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.capability-box :deep(.el-checkbox),
+.knowledge-grid :deep(.el-checkbox) {
+  height: auto;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid #e7ebf1;
+  border-radius: 9px;
+  background: #fff;
+  white-space: normal;
+}
+
+.capability-box :deep(.el-checkbox__label),
+.knowledge-grid :deep(.el-checkbox__label) {
+  min-width: 0;
+  white-space: normal;
+}
+
+.capability-box span,
+.knowledge-grid span {
+  display: block;
+}
+
+.capability-box strong,
+.knowledge-grid strong {
+  display: block;
+  color: #354057;
+  font-size: 12px;
+}
+
+.capability-box small,
+.knowledge-grid small {
+  display: -webkit-box;
+  overflow: hidden;
+  margin-top: 2px;
+  color: #8b95a7;
+  font-size: 11px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.knowledge-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.form-grid.compact {
+  gap: 0 12px;
+}
+
+.form-grid.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.switch-row {
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 0 2px;
+}
+
+.switch-row span,
+.switch-row small {
+  display: block;
+}
+
+.switch-row b {
+  font-size: 12px;
+}
+
+.switch-row small {
+  margin-top: 2px;
+  color: #8b95a7;
+  font-size: 11px;
+}
+
+.state-store-options {
+  width: 100%;
+}
+
+.state-store-options :deep(.el-radio-button) {
+  width: 50%;
+}
+
+.state-store-options :deep(.el-radio-button__inner) {
+  width: 100%;
+}
+
+.store-note {
+  margin-top: 12px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.dialog-footer {
+  justify-content: space-between;
+}
+
+.dialog-footer > span {
+  color: #8a95a7;
+  font-size: 12px;
+}
+
+.run-filters {
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.run-filters .el-select {
+  width: 150px;
+}
+
+@media (max-width: 1180px) {
+  .metric-grid,
+  .agent-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .agent-page { padding: 14px; }
+  .page-hero,
+  .list-toolbar { align-items: flex-start; flex-direction: column; }
+  .metric-grid,
+  .agent-grid,
+  .capability-columns,
+  .knowledge-grid,
+  .advanced-grid,
+  .form-grid { grid-template-columns: 1fr; }
+  .toolbar-actions { width: 100%; flex-wrap: wrap; }
+  .toolbar-actions .el-input { width: 100%; }
+  .form-grid .full { grid-column: auto; }
+}
+</style>
