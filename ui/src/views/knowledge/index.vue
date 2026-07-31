@@ -17,7 +17,9 @@ import {
   createKnowledgeBase,
   deleteKnowledgeBase,
   getKnowledgeBase,
+  getKnowledgeMetrics,
   getKnowledgeTask,
+  listRecentKnowledgeFailures,
   listKnowledgeBases,
   resubmitKnowledgeTask,
   updateKnowledgeBase
@@ -32,6 +34,8 @@ const formRef = ref()
 const dialogMode = ref('create')
 const rows = ref([])
 const total = ref(0)
+const metrics = ref({})
+const recentFailures = ref([])
 const current = ref(1)
 const size = ref(10)
 const alive = ref(true)
@@ -130,6 +134,30 @@ const taskStatusMeta = (status) => {
 
 const formatTime = (row) => row.updatedAt || row.updateTime || row.createdAt || row.createTime || '-'
 
+const formatNumber = value => Number(value || 0).toLocaleString('zh-CN')
+
+const knowledgeMetricCards = computed(() => [
+  { label: '知识库总数', value: formatNumber(metrics.value.totalKnowledgeBases), note: `已启用 ${formatNumber(metrics.value.enabledKnowledgeBases)}` },
+  { label: '文档总数', value: formatNumber(metrics.value.totalDocuments), note: `今日新增 ${formatNumber(metrics.value.newDocumentsToday)}` },
+  { label: '可检索文档', value: formatNumber(metrics.value.readyDocuments), note: metrics.value.documentReadyRate == null ? '暂无文档' : `就绪率 ${metrics.value.documentReadyRate}%` },
+  { label: '已索引内容', value: formatNumber(metrics.value.totalChunks), note: `${formatNumber(metrics.value.totalTokens)} Token` }
+])
+
+const loadKnowledgeOverview = async () => {
+  const [metricResult, failureResult] = await Promise.all([
+    getKnowledgeMetrics(),
+    listRecentKnowledgeFailures(5)
+  ])
+  metrics.value = metricResult || {}
+  recentFailures.value = Array.isArray(failureResult) ? failureResult : []
+}
+
+const retryRecentFailure = async task => {
+  await resubmitKnowledgeTask(task.id)
+  ElMessage.success('任务已重新提交')
+  await loadKnowledgeOverview()
+}
+
 const resetForm = () => {
   Object.assign(form, {
     id: '',
@@ -187,6 +215,10 @@ const loadRows = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const loadPage = async () => {
+  await Promise.all([loadRows(), loadKnowledgeOverview()])
 }
 
 const handleSearch = () => {
@@ -266,7 +298,7 @@ const submitForm = async () => {
       ElMessage.success('知识库创建成功')
     }
     dialogVisible.value = false
-    await loadRows()
+    await loadPage()
   } finally {
     submitting.value = false
   }
@@ -302,7 +334,7 @@ const toggleStatus = async (row) => {
     status: nextStatus
   })
   ElMessage.success(`知识库已${action}`)
-  await loadRows()
+  await loadPage()
 }
 
 const rememberDeletionTask = (knowledgeBaseId, task) => {
@@ -444,7 +476,7 @@ const handleDelete = async (row) => {
   rememberDeletionTask(row.id, task)
   ElMessage.success('删除任务已提交')
   scheduleTaskPoll(task.id, row.id)
-  await loadRows()
+  await loadPage()
 }
 
 const retryDeleteTask = async (row) => {
@@ -460,7 +492,7 @@ const taskFor = (row) => deletingTasks[String(row.id)]
 
 onMounted(async () => {
   restoreDeletionTasks()
-  await loadRows()
+  await loadPage()
 })
 
 onBeforeUnmount(() => {
@@ -478,11 +510,21 @@ onBeforeUnmount(() => {
         <p>配置独立的 Embedding 模型，管理可供智能体检索的租户知识。</p>
       </div>
       <div class="hero-actions">
-        <el-button :icon="Refresh" @click="loadRows">刷新</el-button>
+        <el-button :icon="Refresh" @click="loadPage">刷新</el-button>
         <el-button type="primary" :icon="Plus" @click="openCreate">创建知识库</el-button>
       </div>
     </header>
 
+    <div class="knowledge-metrics">
+      <article v-for="item in knowledgeMetricCards" :key="item.label">
+        <small>{{ item.label }}</small>
+        <strong>{{ item.value }}</strong>
+        <span>{{ item.note }}</span>
+      </article>
+    </div>
+
+    <div class="knowledge-content-grid">
+    <main class="knowledge-main">
     <div class="query-bar">
       <el-form class="query-form" inline @submit.prevent="handleSearch">
         <el-form-item label="关键词">
@@ -615,6 +657,26 @@ onBeforeUnmount(() => {
         />
       </div>
     </div>
+    </main>
+
+    <aside class="knowledge-side-column">
+      <section class="knowledge-side-panel">
+        <header><div><h3>处理异常</h3><p>最近失败的知识任务</p></div></header>
+        <article v-for="task in recentFailures" :key="task.id" class="failure-task">
+          <div class="failure-task-title">
+            <span><el-icon><Document /></el-icon></span>
+            <div><b>{{ task.documentName || task.knowledgeBaseName }}</b><small>{{ task.knowledgeBaseName }}</small></div>
+          </div>
+          <p :title="task.errorMessage">{{ task.errorMessage || '任务执行失败' }}</p>
+          <div class="failure-task-meta">
+            <span>{{ task.stage || task.taskType }} · {{ task.finishedAt ? String(task.finishedAt).replace('T', ' ') : '-' }}</span>
+            <el-button v-if="task.retryable" link type="danger" @click="retryRecentFailure(task)">重新提交</el-button>
+          </div>
+        </article>
+        <el-empty v-if="!recentFailures.length" description="暂无处理异常" :image-size="64" />
+      </section>
+    </aside>
+    </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="720px" destroy-on-close>
       <el-alert
@@ -736,6 +798,68 @@ onBeforeUnmount(() => {
 .knowledge-hero {
   margin-bottom: 0;
 }
+
+.knowledge-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.knowledge-metrics article {
+  padding: 18px;
+  border: 1px solid #dce8f5;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(48, 94, 151, 0.06);
+}
+
+.knowledge-metrics small,
+.knowledge-metrics strong,
+.knowledge-metrics span { display: block; }
+.knowledge-metrics small { color: #71849e; font-size: 12px; }
+.knowledge-metrics strong { margin: 6px 0; color: #0a2547; font-size: 25px; }
+.knowledge-metrics span { color: #8293a8; font-size: 12px; }
+
+.knowledge-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
+  gap: 18px;
+}
+
+.knowledge-main,
+.knowledge-side-column { min-width: 0; }
+.knowledge-main { display: grid; gap: 18px; }
+
+.knowledge-side-panel {
+  overflow: hidden;
+  border: 1px solid #dce8f5;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(48, 94, 151, 0.06);
+}
+
+.knowledge-side-panel > header {
+  padding: 18px;
+  border-bottom: 1px solid #e8eff7;
+}
+
+.knowledge-side-panel h3,
+.knowledge-side-panel p { margin: 0; }
+.knowledge-side-panel h3 { color: #0a2547; font-size: 16px; }
+.knowledge-side-panel header p { margin-top: 4px; color: #71849e; font-size: 12px; }
+
+.failure-task { padding: 15px 18px; border-bottom: 1px solid #edf2f7; }
+.failure-task:last-of-type { border-bottom: 0; }
+.failure-task-title { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; }
+.failure-task-title > span { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; color: #d94b4b; background: #fff0f0; }
+.failure-task-title b,
+.failure-task-title small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.failure-task-title b { color: #17324d; font-size: 13px; }
+.failure-task-title small { margin-top: 3px; color: #8293a8; font-size: 11px; }
+.failure-task > p { overflow: hidden; margin: 10px 0 6px; color: #bd3e3e; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.failure-task-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.failure-task-meta > span { overflow: hidden; color: #8b99aa; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
 
 .knowledge-hero h2 {
   margin: 4px 0 8px;
@@ -859,6 +983,11 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 760px) {
+  .knowledge-metrics,
+  .knowledge-content-grid {
+    grid-template-columns: 1fr;
+  }
+
   .form-grid {
     grid-template-columns: 1fr;
   }
@@ -866,5 +995,10 @@ onBeforeUnmount(() => {
   .full-field {
     grid-column: auto;
   }
+}
+
+@media (min-width: 761px) and (max-width: 1180px) {
+  .knowledge-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .knowledge-content-grid { grid-template-columns: 1fr; }
 }
 </style>

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.zw.agent.entity.DTO.AgentDetailResponse;
 import com.zw.agent.entity.DTO.AgentListItemResponse;
 import com.zw.agent.entity.DTO.AgentMetricsResponse;
+import com.zw.agent.entity.DTO.AgentRecentRunsResponse;
 import com.zw.agent.entity.DTO.AgentRunLogResponse;
 import com.zw.agent.entity.DTO.AgentSaveRequest;
 import com.zw.agent.service.AgentManagementService;
@@ -32,6 +33,13 @@ public class AiAgentController {
     @GetMapping("/metrics")
     public Result<AgentMetricsResponse> metrics() {
         return handle(managementService::metrics);
+    }
+
+    @GetMapping("/recent-runs")
+    public Result<AgentRecentRunsResponse> recentRuns(
+            @RequestParam(defaultValue = "5") int size
+    ) {
+        return handle(() -> managementService.recentRuns(size));
     }
 
     @GetMapping("/page")

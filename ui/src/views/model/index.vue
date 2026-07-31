@@ -44,8 +44,6 @@ const query = reactive({
   current: 1,
   size: 6,
   keyword: '',
-  provider: '',
-  protocol: '',
   status: ''
 })
 
@@ -190,8 +188,6 @@ const loadDashboard = async () => {
         current: query.current,
         size: query.size,
         keyword: query.keyword || undefined,
-        provider: query.provider || undefined,
-        protocol: query.protocol || undefined,
         status: query.status === '' ? undefined : query.status
       })
     ])
@@ -211,8 +207,6 @@ const loadPage = async () => {
       current: query.current,
       size: query.size,
       keyword: query.keyword || undefined,
-      provider: query.provider || undefined,
-      protocol: query.protocol || undefined,
       status: query.status === '' ? undefined : query.status
     })
     rows.value = result?.records || []
@@ -409,8 +403,6 @@ const resetQuery = () => {
   Object.assign(query, {
     current: 1,
     keyword: '',
-    provider: '',
-    protocol: '',
     status: ''
   })
   loadPage()
@@ -486,38 +478,21 @@ onMounted(loadDashboard)
             <h3>模型配置</h3>
             <p>共 {{ total }} 条配置，仅管理聊天与文本生成模型</p>
           </div>
-        </div>
-
-        <div class="filter-bar">
-          <el-input
-            v-model="query.keyword"
-            clearable
-            :prefix-icon="Search"
-            placeholder="搜索配置名、供应商或模型名"
-            @clear="search"
-            @keyup.enter="search"
-          />
-          <el-select v-model="query.provider" clearable placeholder="全部供应商" @change="search">
-            <el-option
-              v-for="provider in providerOptions"
-              :key="provider"
-              :label="provider"
-              :value="provider"
+          <div class="filter-bar">
+            <el-input
+              v-model="query.keyword"
+              clearable
+              :prefix-icon="Search"
+              placeholder="搜索配置名、供应商或模型名"
+              @clear="search"
+              @keyup.enter="search"
             />
-          </el-select>
-          <el-select v-model="query.protocol" clearable placeholder="全部协议" @change="search">
-            <el-option
-              v-for="item in protocols"
-              :key="item.value"
-              :label="item.label"
-              :value="item.value"
-            />
-          </el-select>
-          <el-select v-model="query.status" clearable placeholder="全部状态" @change="search">
-            <el-option label="已启用" :value="1" />
-            <el-option label="已停用" :value="0" />
-          </el-select>
-          <el-button @click="resetQuery">重置</el-button>
+            <el-select v-model="query.status" clearable placeholder="全部状态" @change="search">
+              <el-option label="已启用" :value="1" />
+              <el-option label="已停用" :value="0" />
+            </el-select>
+            <el-button @click="resetQuery">重置</el-button>
+          </div>
         </div>
 
         <div v-if="rows.length" class="model-list">
@@ -853,7 +828,10 @@ onMounted(loadDashboard)
 
 <style scoped>
 .model-page {
-  min-height: 100%;
+  box-sizing: border-box;
+  width: calc(100% + 60px);
+  min-height: calc(100vh - 75px);
+  margin: 0 -30px;
   padding: 24px;
   color: #172033;
   background:
@@ -989,11 +967,22 @@ p {
   font-size: 12px;
 }
 
+.panel-title {
+  gap: 24px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.panel-title > div:first-child {
+  flex: 0 0 auto;
+}
+
 .filter-bar {
   display: grid;
-  grid-template-columns: minmax(220px, 1.6fr) repeat(3, minmax(130px, 1fr)) auto;
+  width: min(100%, 560px);
+  margin-left: auto;
+  grid-template-columns: minmax(240px, 1fr) 140px auto;
   gap: 10px;
-  margin: 18px 0;
 }
 
 .model-list {
@@ -1315,6 +1304,12 @@ p {
 }
 
 @media (max-width: 900px) {
+  .model-page {
+    width: calc(100% + 36px);
+    min-height: 0;
+    margin: -18px;
+  }
+
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1325,7 +1320,13 @@ p {
   }
 
   .filter-bar {
+    width: 100%;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .panel-title {
+    align-items: flex-start;
+    flex-wrap: wrap;
   }
 }
 

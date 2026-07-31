@@ -6,6 +6,12 @@ export const listKnowledgeBases = (params) => {
   return get(`${baseUrl}/knowledgeBases`, params)
 }
 
+export const getKnowledgeMetrics = () => get(`${baseUrl}/knowledgeBases/metrics`)
+
+export const listRecentKnowledgeFailures = (size = 5) => (
+  get(`${baseUrl}/knowledgeTasks/recent-failures`, { size })
+)
+
 export const getKnowledgeBase = (knowledgeBaseId) => {
   return get(`${baseUrl}/knowledgeBases/${stringifyId(knowledgeBaseId)}`)
 }

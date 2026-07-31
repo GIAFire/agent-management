@@ -5,6 +5,7 @@ import com.zw.agent.knowledge.dto.KnowledgeBaseCreateRequest;
 import com.zw.agent.knowledge.dto.KnowledgeBaseOptionResponse;
 import com.zw.agent.knowledge.dto.KnowledgeBaseResponse;
 import com.zw.agent.knowledge.dto.KnowledgeBaseUpdateRequest;
+import com.zw.agent.knowledge.dto.KnowledgeMetricsResponse;
 import com.zw.agent.knowledge.dto.KnowledgeTaskResponse;
 import com.zw.agent.knowledge.service.KnowledgeManagementService;
 import com.zw.common.entity.Result;
@@ -26,6 +27,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AiKnowledgeBaseController {
 
     private final KnowledgeManagementService managementService;
+
+    @GetMapping("/metrics")
+    public Result<KnowledgeMetricsResponse> metrics() {
+        return Result.ok(managementService.knowledgeMetrics());
+    }
 
     @GetMapping
     public Result<IPage<KnowledgeBaseResponse>> page(

@@ -21,6 +21,8 @@ import com.zw.agent.entity.DTO.AgentBoundResourceResponse;
 import com.zw.agent.entity.DTO.AgentDetailResponse;
 import com.zw.agent.entity.DTO.AgentListItemResponse;
 import com.zw.agent.entity.DTO.AgentMetricsResponse;
+import com.zw.agent.entity.DTO.AgentRecentRunResponse;
+import com.zw.agent.entity.DTO.AgentRecentRunsResponse;
 import com.zw.agent.entity.DTO.AgentRunLogResponse;
 import com.zw.agent.entity.DTO.AgentRunSummary;
 import com.zw.agent.entity.DTO.AgentSaveRequest;
@@ -126,6 +128,61 @@ public class AgentManagementService {
                 successRate(today),
                 difference(successRate(today), successRate(yesterday)),
                 round(today.getAverageDurationMs())
+        );
+    }
+
+    public AgentRecentRunsResponse recentRuns(int size) {
+        if (size < 1 || size > 20) {
+            throw new IllegalArgumentException("近期运行条数必须在 1–20 之间");
+        }
+        Long tenantId = tenantId();
+        List<AiAgentRunLogEntity> completed = recentRunEntities(
+                tenantId, List.of("SUCCESS", "CANCELLED"), size);
+        List<AiAgentRunLogEntity> failed = recentRunEntities(
+                tenantId, List.of("FAILED"), size);
+        Set<Long> agentIds = new HashSet<>();
+        completed.forEach(run -> agentIds.add(run.getAgentId()));
+        failed.forEach(run -> agentIds.add(run.getAgentId()));
+        Map<Long, String> names = selectByIds(
+                agentIds,
+                ids -> agentMapper.selectList(activeAgents(tenantId)
+                        .in(AiAgentEntity::getId, ids)),
+                AiAgentEntity::getId
+        ).values().stream().collect(Collectors.toMap(
+                AiAgentEntity::getId, AiAgentEntity::getAgentName));
+        return new AgentRecentRunsResponse(
+                completed.stream().map(run -> toRecentRun(run, names)).toList(),
+                failed.stream().map(run -> toRecentRun(run, names)).toList()
+        );
+    }
+
+    private List<AiAgentRunLogEntity> recentRunEntities(
+            Long tenantId, List<String> statuses, int size
+    ) {
+        return runLogMapper.selectPage(
+                new Page<>(1, size),
+                new LambdaQueryWrapper<AiAgentRunLogEntity>()
+                        .eq(AiAgentRunLogEntity::getTenantId, tenantId)
+                        .eq(AiAgentRunLogEntity::getDeleted, 0)
+                        .in(AiAgentRunLogEntity::getStatus, statuses)
+                        .orderByDesc(AiAgentRunLogEntity::getEndedAt)
+                        .orderByDesc(AiAgentRunLogEntity::getId)
+        ).getRecords();
+    }
+
+    private AgentRecentRunResponse toRecentRun(
+            AiAgentRunLogEntity run, Map<Long, String> names
+    ) {
+        return new AgentRecentRunResponse(
+                run.getId(),
+                run.getAgentId(),
+                names.getOrDefault(run.getAgentId(), "已删除智能体"),
+                run.getStatus(),
+                run.getErrorCode(),
+                run.getErrorMessage(),
+                run.getStartedAt(),
+                run.getEndedAt(),
+                durationMs(run.getStartedAt(), run.getEndedAt())
         );
     }
 

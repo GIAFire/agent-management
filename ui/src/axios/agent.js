@@ -4,6 +4,8 @@ const baseUrl = '/agent/agent'
 
 export const getAgentMetrics = () => get(`${baseUrl}/metrics`)
 
+export const getRecentAgentRuns = (size = 5) => get(`${baseUrl}/recent-runs`, { size })
+
 export const pageAgents = (params) => get(`${baseUrl}/page`, params)
 
 export const getAgent = (id) => get(`${baseUrl}/${stringifyId(id)}`)

@@ -24,6 +24,7 @@ import {
   deleteAgent,
   getAgent,
   getAgentMetrics,
+  getRecentAgentRuns,
   pageAgentRuns,
   pageAgents,
   updateAgent
@@ -49,6 +50,7 @@ const viewMode = ref('grid')
 const rows = ref([])
 const total = ref(0)
 const metrics = ref({})
+const recentRuns = ref({ completed: [], failed: [] })
 
 const query = reactive({
   current: 1,
@@ -233,6 +235,10 @@ const loadMetrics = async () => {
   metrics.value = await getAgentMetrics() || {}
 }
 
+const loadRecentRuns = async () => {
+  recentRuns.value = await getRecentAgentRuns(5) || { completed: [], failed: [] }
+}
+
 const loadRows = async () => {
   loading.value = true
   try {
@@ -245,8 +251,10 @@ const loadRows = async () => {
 }
 
 const loadPage = async () => {
-  await Promise.all([loadMetrics(), loadRows()])
+  await Promise.all([loadMetrics(), loadRows(), loadRecentRuns()])
 }
+
+const openRecentRun = run => openRuns({ id: run.agentId, agentName: run.agentName })
 
 const search = () => {
   query.current = 1
@@ -548,6 +556,7 @@ onMounted(async () => {
       </article>
     </div>
 
+    <div class="agent-content-grid">
     <article class="list-panel">
       <header class="list-toolbar">
         <div>
@@ -623,6 +632,42 @@ onMounted(async () => {
         @current-change="loadRows"
       />
     </article>
+
+    <aside class="agent-side-column">
+      <section class="side-panel">
+        <header><div><h3>近期完成</h3><p>最近成功或取消的运行</p></div></header>
+        <button
+          v-for="run in recentRuns.completed"
+          :key="run.id"
+          class="activity-row"
+          type="button"
+          @click="openRecentRun(run)"
+        >
+          <span class="activity-dot" :class="String(run.status).toLowerCase()" />
+          <span><b>{{ run.agentName }}</b><small>{{ formatDateTime(run.endedAt) }} · {{ formatDuration(run.durationMs) }}</small></span>
+          <el-tag size="small" :type="run.status === 'SUCCESS' ? 'success' : 'info'">
+            {{ run.status === 'SUCCESS' ? '成功' : '已取消' }}
+          </el-tag>
+        </button>
+        <el-empty v-if="!recentRuns.completed?.length" description="暂无近期完成记录" :image-size="58" />
+      </section>
+
+      <section class="side-panel">
+        <header><div><h3>近期失败</h3><p>需要关注的运行异常</p></div></header>
+        <button
+          v-for="run in recentRuns.failed"
+          :key="run.id"
+          class="activity-row failure"
+          type="button"
+          @click="openRecentRun(run)"
+        >
+          <span class="activity-dot failed" />
+          <span><b>{{ run.agentName }}</b><small :title="run.errorMessage">{{ run.errorMessage || run.errorCode || '运行失败' }}</small><em>{{ formatDateTime(run.endedAt) }}</em></span>
+        </button>
+        <el-empty v-if="!recentRuns.failed?.length" description="暂无近期失败" :image-size="58" />
+      </section>
+    </aside>
+    </div>
 
     <el-dialog
       v-model="dialogVisible"
@@ -1074,6 +1119,67 @@ onMounted(async () => {
   background: #fff;
 }
 
+.agent-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  align-items: start;
+  gap: 18px;
+}
+
+.agent-side-column {
+  display: grid;
+  gap: 18px;
+}
+
+.side-panel {
+  overflow: hidden;
+  border: 1px solid #e5eaf2;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.side-panel > header {
+  padding: 18px;
+  border-bottom: 1px solid #edf0f5;
+}
+
+.side-panel h3,
+.side-panel p {
+  margin: 0;
+}
+
+.side-panel h3 { font-size: 16px; }
+.side-panel p { margin-top: 4px; color: #7d889b; font-size: 12px; }
+
+.activity-row {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 9px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 18px;
+  border: 0;
+  border-bottom: 1px solid #f0f2f6;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.activity-row:hover { background: #f8faff; }
+.activity-row:last-of-type { border-bottom: 0; }
+.activity-row > span:nth-child(2) { min-width: 0; }
+.activity-row b,
+.activity-row small,
+.activity-row em { display: block; }
+.activity-row b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.activity-row small { overflow: hidden; margin-top: 4px; color: #7d889b; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.activity-row em { margin-top: 3px; color: #a0a8b7; font-size: 10px; font-style: normal; }
+.activity-dot { width: 8px; height: 8px; border-radius: 50%; background: #8a96aa; }
+.activity-dot.success { background: #22a77a; }
+.activity-dot.cancelled { background: #8a96aa; }
+.activity-dot.failed { background: #e05252; }
+
 .list-toolbar {
   justify-content: space-between;
   gap: 18px;
@@ -1470,6 +1576,14 @@ onMounted(async () => {
 }
 
 @media (max-width: 1180px) {
+  .agent-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-side-column {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .metric-grid,
   .agent-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1482,6 +1596,7 @@ onMounted(async () => {
   .list-toolbar { align-items: flex-start; flex-direction: column; }
   .metric-grid,
   .agent-grid,
+  .agent-side-column,
   .capability-columns,
   .knowledge-grid,
   .advanced-grid,

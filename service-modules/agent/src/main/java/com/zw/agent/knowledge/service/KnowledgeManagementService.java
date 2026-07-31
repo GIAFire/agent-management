@@ -10,6 +10,7 @@ import static com.zw.agent.knowledge.KnowledgeConstants.DISABLED;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_DELETING;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_FAILED;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_PENDING;
+import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_READY;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_UPLOADED;
 import static com.zw.agent.knowledge.KnowledgeConstants.ENABLED;
 import static com.zw.agent.knowledge.KnowledgeConstants.MAX_CHUNK_OVERLAP;
@@ -25,6 +26,7 @@ import static com.zw.agent.knowledge.KnowledgeConstants.TASK_PENDING;
 import static com.zw.agent.knowledge.KnowledgeConstants.TASK_RUNNING;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -43,6 +45,8 @@ import com.zw.agent.knowledge.dto.KnowledgeBaseUpdateRequest;
 import com.zw.agent.knowledge.dto.KnowledgeChunkResponse;
 import com.zw.agent.knowledge.dto.KnowledgeDocumentResponse;
 import com.zw.agent.knowledge.dto.KnowledgeIndexTaskRequest;
+import com.zw.agent.knowledge.dto.KnowledgeFailureResponse;
+import com.zw.agent.knowledge.dto.KnowledgeMetricsResponse;
 import com.zw.agent.knowledge.dto.KnowledgeTaskResponse;
 import com.zw.agent.knowledge.processing.KnowledgeUploadValidator;
 import com.zw.agent.knowledge.processing.KnowledgeUploadValidator.ValidatedUpload;
@@ -62,7 +66,12 @@ import io.agentscope.core.embedding.EmbeddingModel;
 import io.agentscope.core.rag.store.MilvusStore;
 import java.math.BigDecimal;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.Locale;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
@@ -88,6 +97,85 @@ public class KnowledgeManagementService {
     private final MilvusStoreFactory milvusStoreFactory;
     private final KnowledgeUploadValidator uploadValidator;
     private final KnowledgeSourceStorage sourceStorage;
+
+    public KnowledgeMetricsResponse knowledgeMetrics() {
+        Long tenantId = currentUser().getTenantId();
+        LambdaQueryWrapper<AiKnowledgeBaseEntity> activeBases =
+                new LambdaQueryWrapper<AiKnowledgeBaseEntity>()
+                        .eq(AiKnowledgeBaseEntity::getTenantId, tenantId)
+                        .ne(AiKnowledgeBaseEntity::getStatus, DELETING)
+                        .eq(AiKnowledgeBaseEntity::getDeleted, 0);
+        long totalBases = knowledgeBaseService.count(activeBases);
+        long enabledBases = knowledgeBaseService.count(
+                new LambdaQueryWrapper<AiKnowledgeBaseEntity>()
+                        .eq(AiKnowledgeBaseEntity::getTenantId, tenantId)
+                        .eq(AiKnowledgeBaseEntity::getStatus, ENABLED)
+                        .eq(AiKnowledgeBaseEntity::getDeleted, 0));
+        List<AiKnowledgeDocumentEntity> documents = documentService.list(
+                new LambdaQueryWrapper<AiKnowledgeDocumentEntity>()
+                        .eq(AiKnowledgeDocumentEntity::getTenantId, tenantId)
+                        .eq(AiKnowledgeDocumentEntity::getDeleted, 0)
+                        .ne(AiKnowledgeDocumentEntity::getStatus, DELETING));
+        long ready = documents.stream()
+                .filter(item -> DOCUMENT_READY.equals(item.getParseStatus()))
+                .count();
+        long newToday = documents.stream()
+                .filter(item -> item.getCreatedAt() != null
+                        && !item.getCreatedAt().isBefore(LocalDate.now().atStartOfDay()))
+                .count();
+        long chunks = documents.stream().map(AiKnowledgeDocumentEntity::getChunkCount)
+                .filter(Objects::nonNull).mapToLong(Integer::longValue).sum();
+        long tokens = documents.stream().map(AiKnowledgeDocumentEntity::getTokenCount)
+                .filter(Objects::nonNull).mapToLong(Integer::longValue).sum();
+        Double readyRate = documents.isEmpty()
+                ? null : Math.round(ready * 10000D / documents.size()) / 100D;
+        return new KnowledgeMetricsResponse(
+                totalBases, enabledBases, documents.size(), newToday,
+                ready, readyRate, chunks, tokens);
+    }
+
+    public List<KnowledgeFailureResponse> recentFailures(int size) {
+        if (size < 1 || size > 20) {
+            throw new IllegalArgumentException("失败任务条数必须在 1–20 之间");
+        }
+        Long tenantId = currentUser().getTenantId();
+        List<AiKnowledgeTaskEntity> tasks = taskService.page(
+                new Page<>(1, size),
+                new LambdaQueryWrapper<AiKnowledgeTaskEntity>()
+                        .eq(AiKnowledgeTaskEntity::getTenantId, tenantId)
+                        .eq(AiKnowledgeTaskEntity::getDeleted, 0)
+                        .eq(AiKnowledgeTaskEntity::getStatus, TASK_FAILED)
+                        .orderByDesc(AiKnowledgeTaskEntity::getFinishedAt)
+                        .orderByDesc(AiKnowledgeTaskEntity::getId)
+        ).getRecords();
+        Set<Long> baseIds = tasks.stream().map(AiKnowledgeTaskEntity::getKnowledgeBaseId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Long> documentIds = tasks.stream().map(AiKnowledgeTaskEntity::getDocumentId)
+                .filter(Objects::nonNull).collect(Collectors.toSet());
+        Map<Long, String> baseNames = baseIds.isEmpty() ? Map.of()
+                : knowledgeBaseService.listByIds(baseIds).stream().collect(Collectors.toMap(
+                        AiKnowledgeBaseEntity::getId,
+                        AiKnowledgeBaseEntity::getKnowledgeName,
+                        (left, right) -> left));
+        Map<Long, String> documentNames = documentIds.isEmpty() ? Map.of()
+                : documentService.listByIds(documentIds).stream().collect(Collectors.toMap(
+                        AiKnowledgeDocumentEntity::getId,
+                        AiKnowledgeDocumentEntity::getDocumentName,
+                        (left, right) -> left));
+        return tasks.stream().map(task -> new KnowledgeFailureResponse(
+                task.getId(),
+                task.getKnowledgeBaseId(),
+                baseNames.getOrDefault(task.getKnowledgeBaseId(), "已删除知识库"),
+                task.getDocumentId(),
+                documentNames.get(task.getDocumentId()),
+                task.getTaskType(),
+                task.getStage(),
+                task.getStatus(),
+                task.getErrorMessage(),
+                true,
+                task.getFinishedAt()
+        )).toList();
+    }
 
     public IPage<KnowledgeBaseResponse> pageKnowledgeBases(
             long current,
