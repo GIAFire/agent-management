@@ -106,6 +106,16 @@
   border-radius: 18px;
 }
 
+.management-data-card {
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+
+.management-data-card:hover {
+  transform: translateY(-2px);
+  border-color: #cfd8f5;
+  box-shadow: 0 14px 30px rgba(35, 55, 100, .08);
+}
+
 .management-panel-title {
   display: flex;
   flex-direction: row;

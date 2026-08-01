@@ -572,7 +572,7 @@ onMounted(async () => {
       </header>
 
       <div v-loading="loading" class="agent-grid" :class="{ list: viewMode === 'list' }">
-        <article v-for="row in rows" :key="row.id" class="agent-card">
+        <article v-for="row in rows" :key="row.id" class="agent-card management-data-card">
           <header>
             <span class="agent-avatar">{{ (row.agentName || '智').slice(0, 1) }}</span>
             <div>
@@ -1199,13 +1199,6 @@ onMounted(async () => {
   border: 1px solid #e5eaf2;
   border-radius: 15px;
   background: linear-gradient(180deg, #fff, #fbfcfe);
-  transition: 0.2s ease;
-}
-
-.agent-card:hover {
-  border-color: #bfcdf3;
-  transform: translateY(-2px);
-  box-shadow: 0 12px 26px rgba(43, 65, 108, 0.08);
 }
 
 .agent-card header {

@@ -694,7 +694,7 @@ onMounted(async () => {
           </div>
 
           <div v-loading="loading" class="skill-grid">
-            <article v-for="row in rows" :key="row.id" class="skill-card">
+            <article v-for="row in rows" :key="row.id" class="skill-card management-data-card">
               <div class="skill-card-head">
                 <div class="skill-avatar"><el-icon><Setting /></el-icon></div>
                 <div class="skill-identity">
@@ -1158,12 +1158,6 @@ p {
   padding: 17px;
   border: 1px solid #e8ecf2;
   border-radius: 12px;
-  transition: border-color .2s, box-shadow .2s;
-}
-
-.skill-card:hover {
-  border-color: #b9cdfc;
-  box-shadow: 0 10px 24px rgb(37 99 235 / 8%);
 }
 
 .skill-avatar {

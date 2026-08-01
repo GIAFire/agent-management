@@ -500,7 +500,7 @@ onMounted(loadDashboard)
         </div>
 
         <div class="subagent-list" :class="viewMode">
-          <article v-for="row in pagedRows" :key="row.id" class="subagent-card">
+          <article v-for="row in pagedRows" :key="row.id" class="subagent-card management-data-card">
             <header class="subagent-card-head">
               <div class="subagent-main">
                 <h4>{{ row.subagentName }}</h4>
@@ -865,7 +865,7 @@ onMounted(loadDashboard)
 
 .subagent-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px 16px;
   padding: 0 18px 18px;
 }
@@ -884,13 +884,6 @@ onMounted(loadDashboard)
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 10px 24px rgba(42, 72, 108, 0.05);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.subagent-card:hover {
-  border-color: #a9c9ff;
-  box-shadow: 0 12px 28px rgba(47, 117, 255, 0.08);
-  transform: translateY(-1px);
 }
 
 .subagent-card-head {
@@ -1248,6 +1241,10 @@ onMounted(loadDashboard)
 
 @media (max-width: 980px) {
   .subagent-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .subagent-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 

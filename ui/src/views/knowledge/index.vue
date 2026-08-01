@@ -37,7 +37,7 @@ const total = ref(0)
 const metrics = ref({})
 const recentFailures = ref([])
 const current = ref(1)
-const size = ref(10)
+const size = ref(12)
 const alive = ref(true)
 const taskPollers = new Map()
 const deletingTasks = reactive({})
@@ -495,7 +495,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="knowledge-page management-page">
+  <section v-loading="loading" class="knowledge-page management-page">
     <div class="knowledge-metrics management-metrics">
       <article v-for="item in knowledgeMetricCards" :key="item.label" class="management-metric-card">
         <div class="management-metric-icon" :class="item.tone">
@@ -535,106 +535,108 @@ onBeforeUnmount(() => {
         </div>
       </div>
 
-      <el-table v-loading="loading" :data="rows" stripe class="data-table">
-        <el-table-column label="知识库" min-width="240">
-          <template #default="{ row }">
-            <button class="knowledge-name" type="button" @click="openDocuments(row)">
-              <span><el-icon><Collection /></el-icon></span>
-              <span>
-                <strong>{{ row.knowledgeName }}</strong>
-                <small>{{ row.description || '暂无描述' }}</small>
-              </span>
-            </button>
-          </template>
-        </el-table-column>
-        <el-table-column label="Embedding 模型" min-width="190">
-          <template #default="{ row }">
-            <div class="model-cell">
-              <strong>{{ row.embeddingModelName }}</strong>
-              <span>{{ row.embeddingDimension }} 维 · {{ row.metricType }}</span>
+      <div v-if="rows.length" class="knowledge-list">
+        <article
+          v-for="row in rows"
+          :key="row.id"
+          class="knowledge-card management-data-card"
+          :class="{ 'is-deleting': normalizeStatus(row.status) === 2 }"
+        >
+          <header>
+            <span class="knowledge-mark"><el-icon><Collection /></el-icon></span>
+            <div class="knowledge-heading">
+              <div>
+                <h4>{{ row.knowledgeName }}</h4>
+                <el-tag :type="statusMeta(row.status).type" effect="light">
+                  {{ statusMeta(row.status).text }}
+                </el-tag>
+              </div>
+              <p>{{ row.description || '暂无描述' }}</p>
             </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="检索配置" min-width="145">
-          <template #default="{ row }">
-            <span class="retrieval-cell">TopK {{ row.topK }} · 阈值 {{ row.scoreThreshold }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="文档" width="100" align="center">
-          <template #default="{ row }">
-            <el-button link type="primary" :icon="Document" @click="openDocuments(row)">
-              {{ Number(row.documentCount || 0) }}
-            </el-button>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="120">
-          <template #default="{ row }">
-            <el-tag :type="statusMeta(row.status).type">{{ statusMeta(row.status).text }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="更新时间" min-width="170">
-          <template #default="{ row }">{{ formatTime(row) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="275" fixed="right">
-          <template #default="{ row }">
+            <el-dropdown v-if="normalizeStatus(row.status) !== 2" trigger="click">
+              <el-button circle text aria-label="知识库操作">
+                <el-icon><Edit /></el-icon>
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item :icon="Document" @click="openDocuments(row)">管理文档</el-dropdown-item>
+                  <el-dropdown-item :icon="Edit" @click="openEdit(row)">编辑配置</el-dropdown-item>
+                  <el-dropdown-item :icon="SwitchButton" @click="toggleStatus(row)">
+                    {{ normalizeStatus(row.status) === 1 ? '停用' : '启用' }}
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    :icon="Delete"
+                    :disabled="normalizeStatus(row.status) !== 1"
+                    divided
+                    class="danger-item"
+                    @click="handleDelete(row)"
+                  >
+                    删除
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </header>
+
+          <div class="knowledge-facts">
+            <span><small>Embedding 模型</small><b>{{ row.embeddingModelName || '-' }}</b></span>
+            <span><small>向量规格</small><b>{{ row.embeddingDimension }} 维 · {{ row.metricType }}</b></span>
+            <span><small>检索配置</small><b>TopK {{ row.topK }} · 阈值 {{ row.scoreThreshold }}</b></span>
+            <span><small>知识文档</small><b>{{ formatNumber(row.documentCount) }} 篇</b></span>
+          </div>
+
+          <footer>
             <template v-if="normalizeStatus(row.status) !== 2">
-              <el-button link type="primary" :icon="View" @click="openDocuments(row)">文档</el-button>
-              <el-button link type="primary" :icon="Edit" @click="openEdit(row)">编辑</el-button>
-              <el-button link :icon="SwitchButton" @click="toggleStatus(row)">
-                {{ normalizeStatus(row.status) === 1 ? '停用' : '启用' }}
-              </el-button>
-              <el-button
-                link
-                type="danger"
-                :icon="Delete"
-                :disabled="normalizeStatus(row.status) !== 1"
-                @click="handleDelete(row)"
-              >
-                删除
-              </el-button>
+              <div>
+                <b>最近更新</b>
+                <small>{{ formatTime(row) }}</small>
+              </div>
+              <div>
+                <el-button @click="openDocuments(row)">文档</el-button>
+                <el-button type="primary" plain @click="openEdit(row)">配置</el-button>
+              </div>
             </template>
             <template v-else>
-              <el-progress
-                class="delete-progress"
-                :percentage="Number(taskFor(row)?.progress || 0)"
-                :status="String(taskFor(row)?.status).toUpperCase() === 'FAILED' ? 'exception' : undefined"
-                :stroke-width="6"
-              />
-              <el-tooltip
-                v-if="taskFor(row)?.errorMessage"
-                :content="taskFor(row).errorMessage"
-                placement="top"
-              >
-                <el-tag type="danger">{{ taskStatusMeta(taskFor(row)?.status).text }}</el-tag>
-              </el-tooltip>
-              <el-button
-                v-if="String(taskFor(row)?.status).toUpperCase() === 'FAILED'"
-                link
-                type="danger"
-                @click="retryDeleteTask(row)"
-              >
-                重新提交
-              </el-button>
+              <div class="delete-summary">
+                <b>{{ taskStatusMeta(taskFor(row)?.status).text }}</b>
+                <small :title="taskFor(row)?.errorMessage">
+                  {{ taskFor(row)?.errorMessage || '正在清理知识库关联资源' }}
+                </small>
+              </div>
+              <div class="delete-controls">
+                <el-progress
+                  class="delete-progress"
+                  :percentage="Number(taskFor(row)?.progress || 0)"
+                  :status="String(taskFor(row)?.status).toUpperCase() === 'FAILED' ? 'exception' : undefined"
+                  :stroke-width="6"
+                />
+                <el-button
+                  v-if="String(taskFor(row)?.status).toUpperCase() === 'FAILED'"
+                  link
+                  type="danger"
+                  @click="retryDeleteTask(row)"
+                >
+                  重新提交
+                </el-button>
+              </div>
             </template>
-          </template>
-        </el-table-column>
-        <template #empty>
-          <el-empty description="暂无知识库，点击右上角创建" />
-        </template>
-      </el-table>
-
-      <div class="pagination-row">
-        <el-pagination
-          v-model:current-page="current"
-          v-model:page-size="size"
-          class="management-pagination"
-          :total="total"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @current-change="loadRows"
-          @size-change="handleSearch"
-        />
+          </footer>
+        </article>
       </div>
+      <el-empty v-else description="暂无符合条件的知识库">
+        <el-button type="primary" @click="openCreate">创建知识库</el-button>
+      </el-empty>
+
+      <el-pagination
+        v-model:current-page="current"
+        v-model:page-size="size"
+        class="management-pagination"
+        :total="total"
+        :page-sizes="[12, 24, 48]"
+        layout="total, prev, pager, next, sizes"
+        @current-change="loadRows"
+        @size-change="handleSearch"
+      />
     </main>
 
     <aside class="knowledge-side-column management-side-column">
@@ -829,69 +831,158 @@ onBeforeUnmount(() => {
 .failure-task-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .failure-task-meta > span { overflow: hidden; color: #8b99aa; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
 
-.knowledge-name {
+.knowledge-list {
   display: grid;
-  width: 100%;
-  grid-template-columns: 40px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  padding: 0;
-  border: 0;
-  color: inherit;
-  text-align: left;
-  background: transparent;
-  cursor: pointer;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.knowledge-name > span:first-child {
+.knowledge-card {
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid #e5eaf3;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.knowledge-card.is-deleting {
+  border-color: #f0d6ae;
+}
+
+.knowledge-card > header,
+.knowledge-card > footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.knowledge-card > header {
+  align-items: flex-start;
+  padding: 17px 17px 12px;
+}
+
+.knowledge-mark {
   display: grid;
-  width: 40px;
-  height: 40px;
+  height: 42px;
+  flex: 0 0 42px;
   place-items: center;
-  border-radius: 11px;
-  color: #2f75ff;
-  background: #eaf2ff;
+  border-radius: 13px;
+  color: #fff;
+  background: linear-gradient(145deg, #4f82ff, #6954d9);
   font-size: 20px;
 }
 
-.knowledge-name strong,
-.knowledge-name small,
-.model-cell strong,
-.model-cell span {
-  display: block;
+.knowledge-heading {
   min-width: 0;
+  flex: 1;
+}
+
+.knowledge-heading > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.knowledge-heading h4 {
+  overflow: hidden;
+  color: #172033;
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-heading p {
+  overflow: hidden;
+  margin-top: 6px;
+  color: #8a95a8;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knowledge-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 17px 16px;
+}
+
+.knowledge-facts span {
+  min-width: 0;
+  padding: 10px 11px;
+  border-radius: 10px;
+  background: #f7f8fb;
+}
+
+.knowledge-facts small,
+.knowledge-facts b {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.knowledge-name strong {
-  color: #0a2547;
-  font-size: 14px;
+.knowledge-facts small {
+  margin-bottom: 4px;
+  color: #929cad;
+  font-size: 11px;
 }
 
-.knowledge-name small,
-.model-cell span {
-  margin-top: 5px;
-  color: #71849e;
+.knowledge-facts b {
+  color: #384258;
   font-size: 12px;
 }
 
-.model-cell strong {
-  color: #284462;
-  font-size: 13px;
+.knowledge-card > footer {
+  min-height: 65px;
+  padding: 12px 17px;
+  border-top: 1px solid #eef1f6;
+  background: #fbfcfe;
 }
 
-.retrieval-cell {
-  color: #526981;
-  font-size: 13px;
+.knowledge-card > footer > div:first-child {
+  min-width: 0;
+}
+
+.knowledge-card > footer b,
+.knowledge-card > footer small {
+  display: block;
+}
+
+.knowledge-card > footer b {
+  color: #44516a;
+  font-size: 12px;
+}
+
+.knowledge-card > footer small {
+  overflow: hidden;
+  margin-top: 3px;
+  color: #949dae;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delete-summary {
+  flex: 1;
+}
+
+.delete-controls {
+  display: flex;
+  min-width: 112px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .delete-progress {
-  display: inline-flex;
-  width: 96px;
-  margin-right: 8px;
-  vertical-align: middle;
+  width: 112px;
+}
+
+:deep(.danger-item) {
+  color: #d95050;
 }
 
 .create-alert {
@@ -940,7 +1031,8 @@ onBeforeUnmount(() => {
 
 @media (max-width: 760px) {
   .knowledge-metrics,
-  .knowledge-content-grid {
+  .knowledge-content-grid,
+  .knowledge-list {
     grid-template-columns: 1fr;
   }
 
@@ -956,6 +1048,7 @@ onBeforeUnmount(() => {
 @media (min-width: 761px) and (max-width: 1180px) {
   .knowledge-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .knowledge-content-grid { grid-template-columns: 1fr; }
+  .knowledge-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 </style>
 

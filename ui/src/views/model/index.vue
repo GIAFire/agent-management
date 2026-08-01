@@ -474,7 +474,7 @@ onMounted(loadDashboard)
         </div>
 
         <div v-if="rows.length" class="model-list">
-          <article v-for="row in rows" :key="row.id" class="model-card">
+          <article v-for="row in rows" :key="row.id" class="model-card management-data-card">
             <header>
               <span class="provider-mark">{{ (row.providerName || 'M').slice(0, 1).toUpperCase() }}</span>
               <div class="model-heading">
@@ -945,13 +945,6 @@ p {
   border: 1px solid #e5eaf3;
   border-radius: 16px;
   background: #fff;
-  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
-}
-
-.model-card:hover {
-  transform: translateY(-2px);
-  border-color: #cfd8f5;
-  box-shadow: 0 14px 30px rgba(35, 55, 100, .08);
 }
 
 .model-card header {

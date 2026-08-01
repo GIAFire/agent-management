@@ -487,7 +487,7 @@ onMounted(loadDashboard)
         </div>
 
         <div class="tool-list">
-          <article v-for="tool in pagedTools" :key="tool.id" class="tool-row">
+          <article v-for="tool in pagedTools" :key="tool.id" class="tool-row management-data-card">
             <header class="tool-card-head">
               <span class="tool-mark" :class="riskClass(tool.riskLevel)">
                 <el-icon><component :is="tool.readOnly ? Search : Setting" /></el-icon>
@@ -868,13 +868,6 @@ onMounted(loadDashboard)
   border-radius: 8px;
   background: #ffffff;
   box-shadow: 0 10px 24px rgba(42, 72, 108, 0.05);
-  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
-}
-
-.tool-row:hover {
-  border-color: #a9c9ff;
-  box-shadow: 0 12px 28px rgba(47, 117, 255, 0.08);
-  transform: translateY(-1px);
 }
 
 .tool-mark {
@@ -930,11 +923,6 @@ onMounted(loadDashboard)
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: color 0.18s ease;
-}
-
-.tool-row:hover .tool-title-line h4 {
-  color: #0b63f6;
 }
 
 .tool-title-line span {
