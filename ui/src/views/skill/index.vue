@@ -663,7 +663,7 @@ onMounted(async () => {
 
     <div class="content-grid management-content-grid">
       <main class="main-column">
-        <section class="panel list-panel management-panel">
+        <section v-loading="loading" class="panel list-panel management-panel">
           <div class="panel-title management-panel-title">
             <div>
               <h3>技能列表</h3>
@@ -693,7 +693,7 @@ onMounted(async () => {
             </div>
           </div>
 
-          <div v-loading="loading" class="skill-grid">
+          <div v-if="rows.length" class="skill-grid">
             <article v-for="row in rows" :key="row.id" class="skill-card management-data-card">
               <el-dropdown class="management-card-menu" trigger="click">
                 <button class="management-card-menu-button" type="button" aria-label="技能操作">
@@ -735,8 +735,10 @@ onMounted(async () => {
                 <el-button link @click="openLogs({ skillId: row.id })">使用记录</el-button>
               </footer>
             </article>
-            <el-empty v-if="!loading && !rows.length" description="暂无符合条件的技能" />
           </div>
+          <el-empty v-else description="暂无符合条件的技能">
+            <el-button type="primary" @click="openCreate">新建技能</el-button>
+          </el-empty>
 
           <el-pagination
             v-model:current-page="filters.current"

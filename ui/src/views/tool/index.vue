@@ -477,7 +477,7 @@ onMounted(loadDashboard)
           </div>
         </div>
 
-        <div class="tool-list">
+        <div v-if="pagedTools.length" class="tool-list">
           <article v-for="tool in pagedTools" :key="tool.id" class="tool-row management-data-card">
             <el-dropdown class="management-card-menu" trigger="click">
               <button class="management-card-menu-button" type="button" aria-label="工具操作">
@@ -524,6 +524,7 @@ onMounted(loadDashboard)
             </footer>
           </article>
         </div>
+        <el-empty v-else description="暂无符合条件的工具" />
 
         <div class="table-footer">
           <span>共 {{ currentTabTotal }} 项</span>

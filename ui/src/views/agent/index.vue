@@ -584,7 +584,7 @@ onMounted(async () => {
     </div>
 
     <div class="agent-content-grid management-content-grid">
-    <article class="list-panel management-panel">
+    <article v-loading="loading" class="list-panel management-panel">
       <header class="list-toolbar management-panel-title">
         <div>
           <h3>智能体列表</h3>
@@ -612,7 +612,7 @@ onMounted(async () => {
         </div>
       </header>
 
-      <div v-loading="loading" class="agent-grid" :class="{ list: viewMode === 'list' }">
+      <div v-if="rows.length" class="agent-grid" :class="{ list: viewMode === 'list' }">
         <article v-for="row in rows" :key="row.id" class="agent-card management-data-card">
           <header>
             <span class="agent-avatar">{{ (row.agentName || '智').slice(0, 1) }}</span>
@@ -650,8 +650,10 @@ onMounted(async () => {
             </el-button>
           </footer>
         </article>
-        <el-empty v-if="!loading && !rows.length" description="暂无智能体" />
       </div>
+      <el-empty v-else description="暂无符合条件的智能体">
+        <el-button type="primary" @click="handleCreate">新建智能体</el-button>
+      </el-empty>
 
       <el-pagination
         v-model:current-page="query.current"

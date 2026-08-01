@@ -499,7 +499,7 @@ onMounted(loadDashboard)
           </div>
         </div>
 
-        <div class="subagent-list" :class="viewMode">
+        <div v-if="pagedRows.length" class="subagent-list" :class="viewMode">
           <article v-for="row in pagedRows" :key="row.id" class="subagent-card management-data-card">
             <el-dropdown class="management-card-menu" trigger="click">
               <button class="management-card-menu-button" type="button" aria-label="子智能体操作">
@@ -544,6 +544,9 @@ onMounted(loadDashboard)
             </footer>
           </article>
         </div>
+        <el-empty v-else description="暂无符合条件的子智能体">
+          <el-button type="primary" @click="openCreateDialog">新建子智能体</el-button>
+        </el-empty>
 
         <div class="subagent-list-footer">
           <span>共 {{ total }} 项</span>
