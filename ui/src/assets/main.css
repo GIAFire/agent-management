@@ -251,6 +251,13 @@
   margin-top: 0;
 }
 
+.navbar-description {
+  margin: 4px 0 0;
+  color: #718096;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
 .navbar-actions {
   display: flex;
   min-width: 0;

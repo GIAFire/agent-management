@@ -40,7 +40,11 @@ export const adminRoutes = [
             path: 'model',
             name: 'ModelManage',
             component: () => import('@/views/model/index.vue'),
-            meta: { title: '模型', icon: 'Connection', section: 'MODEL PROVIDERS' }
+            meta: {
+              title: '模型管理',
+              icon: 'Connection',
+              description: '集中维护文本模型连接、生成参数与调用状态。配置变更会应用于后续所有请求。'
+            }
           },
           {
             path: 'knowledge',

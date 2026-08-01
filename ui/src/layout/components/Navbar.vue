@@ -8,6 +8,7 @@ const route = useRoute()
 const router = useRouter()
 const title = computed(() => route.meta.title || '后台管理')
 const section = computed(() => route.meta.section || '')
+const description = computed(() => route.meta.description || '')
 const user = getUser()
 const userName = user?.userName || 'Fire'
 const avatarText = computed(() => userName.charAt(0).toUpperCase())
@@ -23,6 +24,7 @@ const logout = () => {
     <div class="navbar-title">
       <span v-if="section" class="navbar-path">{{ section }}</span>
       <h1>{{ title }}</h1>
+      <p v-if="description" class="navbar-description">{{ description }}</p>
     </div>
     <div class="navbar-actions">
       <el-button class="env-button">

@@ -444,20 +444,6 @@ onMounted(loadDashboard)
 
 <template>
   <section v-loading="loading" class="model-page">
-    <header class="page-hero">
-      <div>
-        <span class="eyebrow">MODEL RUNTIME</span>
-        <h2>模型管理</h2>
-        <p>集中维护文本模型连接、生成参数与调用状态。配置变更会应用于后续所有请求。</p>
-      </div>
-      <div class="hero-actions">
-        <el-button :icon="Refresh" size="large" @click="loadDashboard">刷新</el-button>
-        <el-button :icon="Plus" size="large" type="primary" @click="openCreate">
-          新建模型配置
-        </el-button>
-      </div>
-    </header>
-
     <div class="metric-grid">
       <article v-for="item in metricCards" :key="item.label" class="metric-card">
         <span class="metric-icon" :class="item.tone">
@@ -492,6 +478,7 @@ onMounted(loadDashboard)
               <el-option label="已停用" :value="0" />
             </el-select>
             <el-button @click="resetQuery">重置</el-button>
+            <el-button :icon="Plus" type="primary" @click="openCreate">新建模型配置</el-button>
           </div>
         </div>
 
@@ -839,7 +826,6 @@ onMounted(loadDashboard)
     linear-gradient(180deg, #f7f9fd 0%, #f4f6fb 100%);
 }
 
-.page-hero,
 .panel-title,
 .analytics-card header,
 .model-card header,
@@ -853,40 +839,10 @@ onMounted(loadDashboard)
   gap: 16px;
 }
 
-.page-hero {
-  margin-bottom: 22px;
-}
-
-.eyebrow {
-  display: block;
-  margin-bottom: 7px;
-  color: #5b7cff;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .18em;
-}
-
-h2,
 h3,
 h4,
 p {
   margin: 0;
-}
-
-.page-hero h2 {
-  font-size: 28px;
-  letter-spacing: -.03em;
-}
-
-.page-hero p {
-  margin-top: 7px;
-  color: #718096;
-  font-size: 14px;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 10px;
 }
 
 .metric-grid {
@@ -903,6 +859,7 @@ p {
   border-radius: 18px;
   background: rgba(255, 255, 255, .95);
   box-shadow: 0 12px 34px rgba(31, 44, 77, .05);
+  min-height: 118px;
 }
 
 .metric-card {
@@ -971,6 +928,7 @@ p {
   gap: 24px;
   justify-content: space-between;
   flex-wrap: wrap;
+  margin-bottom: 10px;
 }
 
 .panel-title > div:first-child {
@@ -979,9 +937,9 @@ p {
 
 .filter-bar {
   display: grid;
-  width: min(100%, 560px);
+  width: min(100%, 720px);
   margin-left: auto;
-  grid-template-columns: minmax(240px, 1fr) 140px auto;
+  grid-template-columns: minmax(220px, 1fr) 140px auto auto;
   gap: 10px;
 }
 
@@ -1333,11 +1291,6 @@ p {
 @media (max-width: 640px) {
   .model-page {
     padding: 14px;
-  }
-
-  .page-hero {
-    align-items: flex-start;
-    flex-direction: column;
   }
 
   .metric-grid,
