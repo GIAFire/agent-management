@@ -71,7 +71,7 @@ public class AiAgentController {
 
     @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
-        return handle(() -> managementService.delete(id));
+        return Result.ok(managementService.delete(id));
     }
 
     @GetMapping("/{id}/runs")

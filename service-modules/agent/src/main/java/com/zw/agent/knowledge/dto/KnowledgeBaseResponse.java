@@ -29,12 +29,6 @@ public class KnowledgeBaseResponse {
 
     private Long documentCount;
 
-    private Long latestTaskId;
-
-    private String latestTaskStatus;
-
-    private String latestTaskError;
-
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;

@@ -7,6 +7,7 @@ import static com.zw.agent.knowledge.KnowledgeConstants.DEFAULT_CHUNK_OVERLAP;
 import static com.zw.agent.knowledge.KnowledgeConstants.DEFAULT_CHUNK_SIZE;
 import static com.zw.agent.knowledge.KnowledgeConstants.DELETING;
 import static com.zw.agent.knowledge.KnowledgeConstants.DISABLED;
+import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_DELETED;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_DELETING;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_FAILED;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_PENDING;
@@ -19,7 +20,6 @@ import static com.zw.agent.knowledge.KnowledgeConstants.MAX_DELIMITER_LENGTH;
 import static com.zw.agent.knowledge.KnowledgeConstants.MIN_CHUNK_SIZE;
 import static com.zw.agent.knowledge.KnowledgeConstants.SUPPORTED_METRICS;
 import static com.zw.agent.knowledge.KnowledgeConstants.TASK_DELETE_DOCUMENT;
-import static com.zw.agent.knowledge.KnowledgeConstants.TASK_DELETE_KNOWLEDGE_BASE;
 import static com.zw.agent.knowledge.KnowledgeConstants.TASK_FAILED;
 import static com.zw.agent.knowledge.KnowledgeConstants.TASK_INDEX_DOCUMENT;
 import static com.zw.agent.knowledge.KnowledgeConstants.TASK_PENDING;
@@ -30,6 +30,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zw.agent.entity.AiKnowledgeAgentBindingEntity;
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.zw.agent.entity.AiKnowledgeChunkEntity;
 import com.zw.agent.entity.AiKnowledgeDocumentEntity;
@@ -53,7 +54,9 @@ import com.zw.agent.knowledge.processing.KnowledgeUploadValidator.ValidatedUploa
 import com.zw.agent.knowledge.storage.KnowledgeSourceStorage;
 import com.zw.agent.knowledge.storage.KnowledgeSourceStorage.StoredSource;
 import com.zw.agent.mapper.AiKnowledgeBaseMapper;
+import com.zw.agent.mapper.AiKnowledgeChunkMapper;
 import com.zw.agent.mapper.AiKnowledgeDocumentMapper;
+import com.zw.agent.service.AiKnowledgeAgentBindingService;
 import com.zw.agent.service.AiKnowledgeBaseService;
 import com.zw.agent.service.AiKnowledgeChunkService;
 import com.zw.agent.service.AiKnowledgeDocumentService;
@@ -75,9 +78,12 @@ import java.util.stream.Collectors;
 import java.util.Locale;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -85,18 +91,23 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class KnowledgeManagementService {
 
+    private static final Logger log =
+            LoggerFactory.getLogger(KnowledgeManagementService.class);
     private static final int MAX_PAGE_SIZE = 100;
 
     private final AiKnowledgeBaseService knowledgeBaseService;
     private final AiKnowledgeDocumentService documentService;
     private final AiKnowledgeChunkService chunkService;
     private final AiKnowledgeTaskService taskService;
+    private final AiKnowledgeAgentBindingService bindingService;
     private final AiKnowledgeBaseMapper knowledgeBaseMapper;
+    private final AiKnowledgeChunkMapper chunkMapper;
     private final AiKnowledgeDocumentMapper knowledgeDocumentMapper;
     private final EmbeddingModelFactory embeddingModelFactory;
     private final MilvusStoreFactory milvusStoreFactory;
     private final KnowledgeUploadValidator uploadValidator;
     private final KnowledgeSourceStorage sourceStorage;
+    private final TransactionTemplate transactionTemplate;
 
     public KnowledgeMetricsResponse knowledgeMetrics() {
         Long tenantId = currentUser().getTenantId();
@@ -172,7 +183,8 @@ public class KnowledgeManagementService {
                 task.getStage(),
                 task.getStatus(),
                 task.getErrorMessage(),
-                true,
+                TASK_INDEX_DOCUMENT.equals(task.getTaskType())
+                        || TASK_DELETE_DOCUMENT.equals(task.getTaskType()),
                 task.getFinishedAt()
         )).toList();
     }
@@ -328,35 +340,78 @@ public class KnowledgeManagementService {
         return toKnowledgeBaseResponse(entity);
     }
 
-    @Transactional(rollbackFor = Exception.class)
-    public KnowledgeTaskResponse deleteKnowledgeBase(Long knowledgeBaseId) {
-        AiKnowledgeBaseEntity knowledgeBase =
-                requireKnowledgeBaseForUpdate(knowledgeBaseId);
-        if (Objects.equals(knowledgeBase.getStatus(), DELETING)) {
-            throw new KnowledgeOperationException(
-                    "知识库已处于删除中；失败任务请使用手动重提"
-            );
-        }
-        if (!Objects.equals(knowledgeBase.getStatus(), ENABLED)) {
-            throw new KnowledgeOperationException(
-                    "知识库已停用，不能删除，请先启用"
-            );
-        }
-        assertNoActiveKnowledgeBaseTask(knowledgeBaseId);
-        byte previousStatus = knowledgeBase.getStatus();
-        knowledgeBase.setStatus(DELETING);
-        EntityDefaults.update(knowledgeBase);
-        knowledgeBaseService.updateById(knowledgeBase);
+    public boolean deleteKnowledgeBase(Long knowledgeBaseId) {
+        KnowledgeBaseDeletion deletion = transactionTemplate.execute(status -> {
+            AiKnowledgeBaseEntity knowledgeBase =
+                    requireKnowledgeBaseForUpdate(knowledgeBaseId);
+            if (!Objects.equals(knowledgeBase.getStatus(), ENABLED)) {
+                throw new KnowledgeOperationException(
+                        "知识库已停用，不能删除，请先启用"
+                );
+            }
+            assertNoActiveKnowledgeBaseTask(knowledgeBaseId);
 
-        AiKnowledgeTaskEntity task = newTask(
-                TASK_DELETE_KNOWLEDGE_BASE,
-                knowledgeBaseId,
-                null,
-                null
-        );
-        task.setRequestJson("{\"previousStatus\":" + previousStatus + "}");
-        saveTask(task);
-        return toTaskResponse(task);
+            List<AiKnowledgeDocumentEntity> documents =
+                    documentService.lambdaQuery()
+                            .eq(
+                                    AiKnowledgeDocumentEntity::getKnowledgeBaseId,
+                                    knowledgeBase.getId()
+                            )
+                            .list();
+
+            QueryWrapper<AiKnowledgeAgentBindingEntity> bindingQuery =
+                    new QueryWrapper<>();
+            bindingQuery.eq("knowledge_base_id", knowledgeBase.getId());
+            bindingService.remove(bindingQuery);
+            chunkMapper.physicalDeleteByKnowledgeBase(
+                    knowledgeBase.getTenantId(),
+                    knowledgeBase.getId()
+            );
+
+            for (AiKnowledgeDocumentEntity document : documents) {
+                document.setParseStatus(DOCUMENT_DELETED).setStatus(DELETING);
+                EntityDefaults.update(document);
+                updateDocumentOrThrow(document);
+                if (!documentService.removeById(document.getId())) {
+                    throw new KnowledgeOperationException("知识文档删除失败");
+                }
+            }
+            if (!knowledgeBaseService.removeById(knowledgeBase.getId())) {
+                throw new KnowledgeOperationException("知识库删除失败");
+            }
+            return new KnowledgeBaseDeletion(knowledgeBase, documents);
+        });
+        if (deletion == null) {
+            throw new KnowledgeOperationException("知识库数据库数据删除失败");
+        }
+
+        for (AiKnowledgeDocumentEntity document : deletion.documents()) {
+            try {
+                sourceStorage.delete(document.getSourceUri());
+            } catch (Exception error) {
+                log.error(
+                        "Failed to delete knowledge source after database deletion, knowledgeBaseId={}, documentId={}",
+                        deletion.knowledgeBase().getId(),
+                        document.getId(),
+                        error
+                );
+                throw new KnowledgeOperationException(
+                        "删除知识源文件失败：" + document.getDocumentName(),
+                        error
+                );
+            }
+        }
+        try {
+            milvusStoreFactory.dropCollection(deletion.knowledgeBase());
+        } catch (RuntimeException error) {
+            log.error(
+                    "Failed to delete vector collection after database deletion, knowledgeBaseId={}",
+                    deletion.knowledgeBase().getId(),
+                    error
+            );
+            throw new KnowledgeOperationException("删除向量库数据失败", error);
+        }
+        return true;
     }
 
     public IPage<KnowledgeDocumentResponse> pageDocuments(
@@ -596,13 +651,6 @@ public class KnowledgeManagementService {
             document.setParseStatus(DOCUMENT_DELETING).setStatus(DELETING);
             EntityDefaults.update(document);
             updateDocumentOrThrow(document);
-        } else if (TASK_DELETE_KNOWLEDGE_BASE.equals(failed.getTaskType())) {
-            AiKnowledgeBaseEntity knowledgeBase =
-                    requireKnowledgeBaseForUpdate(failed.getKnowledgeBaseId());
-            if (!Objects.equals(knowledgeBase.getStatus(), DELETING)) {
-                throw new KnowledgeOperationException("知识库当前状态不能重提删除");
-            }
-            assertNoActiveKnowledgeBaseTask(knowledgeBase.getId());
         } else {
             throw new KnowledgeOperationException("不支持重提该任务类型");
         }
@@ -945,18 +993,6 @@ public class KnowledgeManagementService {
                         entity.getId()
                 )
                 .count());
-        AiKnowledgeTaskEntity latest = taskService.lambdaQuery()
-                .eq(AiKnowledgeTaskEntity::getKnowledgeBaseId, entity.getId())
-                .isNull(AiKnowledgeTaskEntity::getDocumentId)
-                .orderByDesc(AiKnowledgeTaskEntity::getCreatedAt)
-                .orderByDesc(AiKnowledgeTaskEntity::getId)
-                .last("LIMIT 1")
-                .one();
-        if (latest != null) {
-            response.setLatestTaskId(latest.getId());
-            response.setLatestTaskStatus(latest.getStatus());
-            response.setLatestTaskError(latest.getErrorMessage());
-        }
         return response;
     }
 
@@ -1115,6 +1151,12 @@ public class KnowledgeManagementService {
                 // 验证调用已完成，关闭异常不覆盖原验证结果。
             }
         }
+    }
+
+    private record KnowledgeBaseDeletion(
+            AiKnowledgeBaseEntity knowledgeBase,
+            List<AiKnowledgeDocumentEntity> documents
+    ) {
     }
 
     private record ChunkConfig(

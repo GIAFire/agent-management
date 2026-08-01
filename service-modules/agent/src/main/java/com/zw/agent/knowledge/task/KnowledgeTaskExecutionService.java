@@ -10,14 +10,11 @@ import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_PARSING;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_READY;
 import static com.zw.agent.knowledge.KnowledgeConstants.ENABLED;
 import static com.zw.agent.knowledge.KnowledgeConstants.TASK_DELETE_DOCUMENT;
-import static com.zw.agent.knowledge.KnowledgeConstants.TASK_DELETE_KNOWLEDGE_BASE;
 import static com.zw.agent.knowledge.KnowledgeConstants.TASK_INDEX_DOCUMENT;
 import static com.zw.agent.knowledge.KnowledgeConstants.TASK_RUNNING;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.zw.agent.config.knowledge.KnowledgeProperties;
-import com.zw.agent.entity.AiKnowledgeAgentBindingEntity;
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.zw.agent.entity.AiKnowledgeChunkEntity;
 import com.zw.agent.entity.AiKnowledgeDocumentEntity;
@@ -31,7 +28,6 @@ import com.zw.agent.knowledge.processing.KnowledgeDocumentParser;
 import com.zw.agent.knowledge.storage.KnowledgeSourceStorage;
 import com.zw.agent.mapper.AiKnowledgeTaskMapper;
 import com.zw.agent.mapper.AiKnowledgeChunkMapper;
-import com.zw.agent.service.AiKnowledgeAgentBindingService;
 import com.zw.agent.service.AiKnowledgeBaseService;
 import com.zw.agent.service.AiKnowledgeChunkService;
 import com.zw.agent.service.AiKnowledgeDocumentService;
@@ -79,7 +75,6 @@ public class KnowledgeTaskExecutionService {
     private final AiKnowledgeBaseService knowledgeBaseService;
     private final AiKnowledgeDocumentService documentService;
     private final AiKnowledgeChunkService chunkService;
-    private final AiKnowledgeAgentBindingService bindingService;
     private final KnowledgeDocumentParser documentParser;
     private final KnowledgeChunker chunker;
     private final KnowledgeSourceStorage sourceStorage;
@@ -137,8 +132,6 @@ public class KnowledgeTaskExecutionService {
                 case TASK_INDEX_DOCUMENT -> executeIndexTask(task, workerId);
                 case TASK_DELETE_DOCUMENT ->
                         executeDeleteDocumentTask(task, workerId);
-                case TASK_DELETE_KNOWLEDGE_BASE ->
-                        executeDeleteKnowledgeBaseTask(task, workerId);
                 default -> throw new KnowledgeOperationException(
                         "不支持的知识任务类型：" + task.getTaskType()
                 );
@@ -337,100 +330,6 @@ public class KnowledgeTaskExecutionService {
                     0,
                     0,
                     "{\"documentId\":" + document.getId() + "}",
-                    LocalDateTime.now()
-            );
-            ensureOwned(task.getId(), completed);
-        });
-    }
-
-    private void executeDeleteKnowledgeBaseTask(
-            AiKnowledgeTaskEntity task,
-            String workerId
-    ) {
-        AiKnowledgeBaseEntity knowledgeBase =
-                requireKnowledgeBase(task.getKnowledgeBaseId());
-        List<AiKnowledgeDocumentEntity> documents =
-                documentService.lambdaQuery()
-                        .eq(
-                                AiKnowledgeDocumentEntity::getKnowledgeBaseId,
-                                knowledgeBase.getId()
-                        )
-                        .list();
-
-        heartbeat(task, workerId, "UNBINDING", 10, 0, 4);
-        QueryWrapper<AiKnowledgeAgentBindingEntity> bindingQuery =
-                new QueryWrapper<>();
-        bindingQuery.eq("knowledge_base_id", knowledgeBase.getId());
-        bindingService.remove(bindingQuery);
-
-        heartbeat(task, workerId, "DELETING_VECTORS", 30, 1, 4);
-        milvusStoreFactory.dropCollection(knowledgeBase);
-
-        heartbeat(task, workerId, "DELETING_CHUNKS", 55, 2, 4);
-        chunkMapper.physicalDeleteByKnowledgeBase(
-                task.getTenantId(),
-                knowledgeBase.getId()
-        );
-
-        int sourceTotal = documents.size();
-        heartbeat(task, workerId, "DELETING_SOURCE", 75, 0, sourceTotal);
-        for (int index = 0; index < sourceTotal; index++) {
-            AiKnowledgeDocumentEntity document = documents.get(index);
-            int sourceProgress = 75
-                    + (int) (15L * index / Math.max(1, sourceTotal));
-            heartbeat(
-                    task,
-                    workerId,
-                    "DELETING_SOURCE",
-                    sourceProgress,
-                    index,
-                    sourceTotal
-            );
-            try {
-                runWithLeaseHeartbeat(
-                        task,
-                        workerId,
-                        "DELETING_SOURCE",
-                        sourceProgress,
-                        index,
-                        sourceTotal,
-                        () -> {
-                            sourceStorage.delete(document.getSourceUri());
-                            return null;
-                        }
-                );
-            } catch (Exception error) {
-                throw new KnowledgeOperationException(
-                        "删除知识源文件失败：" + document.getDocumentName(),
-                        error
-                );
-            }
-        }
-        heartbeat(
-                task,
-                workerId,
-                "DELETING_SOURCE",
-                90,
-                sourceTotal,
-                sourceTotal
-        );
-
-        heartbeat(task, workerId, "SAVING", 95, 4, 4);
-        transactionTemplate.executeWithoutResult(status -> {
-            for (AiKnowledgeDocumentEntity document : documents) {
-                document.setParseStatus(DOCUMENT_DELETED).setStatus(DELETING);
-                EntityDefaults.update(document);
-                documentService.updateById(document);
-                documentService.removeById(document.getId());
-            }
-            knowledgeBaseService.removeById(knowledgeBase.getId());
-            int completed = taskMapper.completeOwned(
-                    task.getId(),
-                    task.getTenantId(),
-                    workerId,
-                    0,
-                    0,
-                    "{\"knowledgeBaseId\":" + knowledgeBase.getId() + "}",
                     LocalDateTime.now()
             );
             ensureOwned(task.getId(), completed);

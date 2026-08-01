@@ -6,7 +6,6 @@ import com.zw.agent.knowledge.dto.KnowledgeBaseOptionResponse;
 import com.zw.agent.knowledge.dto.KnowledgeBaseResponse;
 import com.zw.agent.knowledge.dto.KnowledgeBaseUpdateRequest;
 import com.zw.agent.knowledge.dto.KnowledgeMetricsResponse;
-import com.zw.agent.knowledge.dto.KnowledgeTaskResponse;
 import com.zw.agent.knowledge.service.KnowledgeManagementService;
 import com.zw.common.entity.Result;
 import java.util.List;
@@ -85,7 +84,7 @@ public class AiKnowledgeBaseController {
     }
 
     @DeleteMapping("/{knowledgeBaseId}")
-    public Result<KnowledgeTaskResponse> delete(
+    public Result<Boolean> delete(
             @PathVariable Long knowledgeBaseId
     ) {
         return Result.ok(

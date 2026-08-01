@@ -124,8 +124,7 @@ const taskStatusMeta = (status) => {
 const taskTypeText = (type) => {
   const map = {
     INDEX_DOCUMENT: '切片入库',
-    DELETE_DOCUMENT: '删除文档',
-    DELETE_KNOWLEDGE_BASE: '删除知识库'
+    DELETE_DOCUMENT: '删除文档'
   }
   return map[String(type || '').toUpperCase()] || type || '-'
 }

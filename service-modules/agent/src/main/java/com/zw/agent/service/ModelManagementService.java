@@ -315,37 +315,8 @@ public class ModelManagementService {
         return toListItem(model, countTodayCalls(model.getId()), recentTest(model.getId()));
     }
 
-    @Transactional(rollbackFor = Exception.class)
     public boolean delete(Long id) {
-        AiAgentModelEntity model = requireModel(id);
-        Long tenantId = tenantId();
-        long references = modelMapper.countAgentConfigReferences(model.getId(), tenantId);
-        if (references > 0) {
-            modelMapper.clearAgentConfigReferences(model.getId(), tenantId);
-        }
-        long logs = callLogService.count(new LambdaQueryWrapper<AiModelCallLogEntity>()
-                .eq(AiModelCallLogEntity::getTenantId, tenantId)
-                .eq(AiModelCallLogEntity::getModelConfigId, model.getId()));
-        if (references == 0 && logs == 0) {
-            headerMapper.hardDeleteModelHeaders(model.getId(), tenantId);
-            if (modelMapper.hardDeleteById(model.getId(), tenantId) != 1) {
-                throw new IllegalStateException("模型配置删除失败");
-            }
-        } else {
-            model.setDeleted(1);
-            modelService.updateById(EntityDefaults.update(model));
-            List<AiHttpHeaderEntity> headers = headerService.list(
-                    new LambdaQueryWrapper<AiHttpHeaderEntity>()
-                    .eq(AiHttpHeaderEntity::getTenantId, tenantId)
-                    .eq(AiHttpHeaderEntity::getSourceId, model.getId())
-                    .eq(AiHttpHeaderEntity::getSource, HeaderSourceType.MODEL)
-                    .eq(AiHttpHeaderEntity::getDeleted, 0));
-            for (AiHttpHeaderEntity header : headers) {
-                header.setDeleted(1);
-                headerService.updateById(EntityDefaults.update(header));
-            }
-        }
-        invalidateAgentsAfterCommit();
+        modelMapper.deleteById(id);
         return true;
     }
 

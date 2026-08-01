@@ -6,11 +6,7 @@ import com.zw.agent.knowledge.service.KnowledgeManagementService;
 import com.zw.common.entity.Result;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/knowledgeTasks")
@@ -26,7 +22,7 @@ public class AiKnowledgeTaskController {
 
     @GetMapping("/recent-failures")
     public Result<List<KnowledgeFailureResponse>> recentFailures(
-            @org.springframework.web.bind.annotation.RequestParam(defaultValue = "5") int size
+            @RequestParam(defaultValue = "5") int size
     ) {
         return Result.ok(managementService.recentFailures(size));
     }

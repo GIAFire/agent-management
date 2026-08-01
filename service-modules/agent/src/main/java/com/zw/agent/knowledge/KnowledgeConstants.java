@@ -24,7 +24,6 @@ public final class KnowledgeConstants {
 
     public static final String TASK_INDEX_DOCUMENT = "INDEX_DOCUMENT";
     public static final String TASK_DELETE_DOCUMENT = "DELETE_DOCUMENT";
-    public static final String TASK_DELETE_KNOWLEDGE_BASE = "DELETE_KNOWLEDGE_BASE";
 
     public static final String TASK_PENDING = "PENDING";
     public static final String TASK_RUNNING = "RUNNING";

@@ -39,7 +39,11 @@ export const updateKnowledgeBase = (knowledgeBaseId, data) => {
 }
 
 export const deleteKnowledgeBase = (knowledgeBaseId) => {
-  return del(`${baseUrl}/knowledgeBases/${stringifyId(knowledgeBaseId)}`)
+  return request({
+    url: `${baseUrl}/knowledgeBases/${stringifyId(knowledgeBaseId)}`,
+    method: 'delete',
+    timeout: 120000
+  })
 }
 
 export const listKnowledgeDocuments = (knowledgeBaseId, params) => {

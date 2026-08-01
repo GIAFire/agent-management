@@ -244,7 +244,7 @@ public class AgentManagementService {
 
         result.setRecords(agents.stream().map(agent -> {
             AiAgentConfigEntity config = configs.get(agent.getId());
-            AiAgentModelEntity model = config == null ? null : models.get(config.getModelId());
+            AiAgentModelEntity model = config.getModelId() == null ? null : models.get(config.getModelId());
             AgentRunSummary run = runSummaries.get(agent.getId());
             return new AgentListItemResponse(
                     agent.getId(),
@@ -445,28 +445,17 @@ public class AgentManagementService {
 
     @Transactional(rollbackFor = Exception.class)
     public boolean delete(Long id) {
-        Long tenantId = tenantId();
-        AiAgentEntity agent = requireAgent(id, tenantId);
-        AiAgentConfigEntity config = requireConfig(id, tenantId);
-        agent.setDeleted(1);
-        if (agentMapper.updateById(EntityDefaults.update(agent)) != 1) {
-            throw new IllegalStateException("智能体删除失败");
-        }
-        config.setDeleted(1);
-        if (configMapper.updateById(EntityDefaults.update(config)) != 1) {
-            throw new IllegalStateException("智能体配置删除失败");
-        }
-        List<AiSubagentEntity> localDefinitions = subagentMapper.selectList(
-                new LambdaQueryWrapper<AiSubagentEntity>()
-                        .eq(AiSubagentEntity::getTenantId, tenantId)
-                        .eq(AiSubagentEntity::getDeleted, 0)
-                        .eq(AiSubagentEntity::getSourceType, (byte) 1)
-                        .eq(AiSubagentEntity::getLocalAgentId, id));
-        for (AiSubagentEntity definition : localDefinitions) {
-            definition.setDeleted(1);
-            subagentMapper.updateById(EntityDefaults.update(definition));
-        }
-        invalidateAgentsAfterCommit();
+        agentMapper.deleteById(id);
+        configMapper.delete(new LambdaQueryWrapper<AiAgentConfigEntity>()
+                .eq(AiAgentConfigEntity::getAgentId, id));
+
+        List<AiSubagentAgentBindingEntity> bindingList = subagentBindingMapper.selectList(new LambdaQueryWrapper<AiSubagentAgentBindingEntity>()
+                .eq(AiSubagentAgentBindingEntity::getAgentId, id));
+
+        subagentMapper.delete(new LambdaQueryWrapper<AiSubagentEntity>()
+                .eq(AiSubagentEntity::getLocalAgentId , id));
+
+        subagentBindingMapper.deleteByIds(bindingList);
         return true;
     }
 

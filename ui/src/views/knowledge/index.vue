@@ -1,5 +1,5 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -18,13 +18,11 @@ import {
   deleteKnowledgeBase,
   getKnowledgeBase,
   getKnowledgeMetrics,
-  getKnowledgeTask,
   listRecentKnowledgeFailures,
   listKnowledgeBases,
   resubmitKnowledgeTask,
   updateKnowledgeBase
 } from '@/axios/knowledge'
-import { getUser } from '@/utils/auth'
 
 const router = useRouter()
 const loading = ref(false)
@@ -38,17 +36,6 @@ const metrics = ref({})
 const recentFailures = ref([])
 const current = ref(1)
 const size = ref(12)
-const alive = ref(true)
-const taskPollers = new Map()
-const deletingTasks = reactive({})
-
-const deletionStorageKey = () => {
-  const user = getUser() || {}
-  const tenantIdentity = user.tenantId || user.tenant?.id || user.tenantCode || 'unknownTenant'
-  const userIdentity = user.id || user.userId || user.username || 'unknownUser'
-  return `knowledge_delete_tasks:${tenantIdentity}:${userIdentity}`
-}
-
 const query = reactive({
   keyword: '',
   status: ''
@@ -107,29 +94,15 @@ const normalizePage = (data) => ({
 
 const normalizeStatus = (status) => {
   const value = String(status ?? '').toUpperCase()
-  if (value === '2' || value === 'DELETING') {
-    return 2
-  }
   return value === '0' || value === 'DISABLED' ? 0 : 1
 }
 
 const statusMeta = (status) => {
   const value = normalizeStatus(status)
-  if (value === 2) {
-    return { text: '删除中', type: 'warning' }
-  }
   if (value === 0) {
     return { text: '已停用', type: 'info' }
   }
   return { text: '已启用', type: 'success' }
-}
-
-const taskStatusMeta = (status) => {
-  const value = String(status || '').toUpperCase()
-  if (value === 'FAILED') return { text: '删除失败', type: 'danger' }
-  if (value === 'SUCCEEDED') return { text: '删除完成', type: 'success' }
-  if (value === 'RUNNING') return { text: '删除中', type: 'warning' }
-  return { text: '等待删除', type: 'info' }
 }
 
 const formatTime = (row) => row.updatedAt || row.updateTime || row.createdAt || row.createTime || '-'
@@ -192,26 +165,6 @@ const loadRows = async () => {
       await loadRows()
     }
 
-    rows.value.forEach((row) => {
-      const taskId = row.latestTaskId || row.deleteTaskId
-      const taskStatus = row.latestTaskStatus || row.deleteTaskStatus
-      const normalizedTaskStatus = String(taskStatus || '').toUpperCase()
-      if (
-        normalizeStatus(row.status) === 2 &&
-        taskId &&
-        ['PENDING', 'RUNNING', 'FAILED'].includes(normalizedTaskStatus)
-      ) {
-        deletingTasks[String(row.id)] = {
-          id: String(taskId),
-          status: taskStatus,
-          progress: Number(row.latestTaskProgress || 0),
-          errorMessage: row.latestTaskError || ''
-        }
-        if (['PENDING', 'RUNNING'].includes(normalizedTaskStatus)) {
-          scheduleTaskPoll(taskId, row.id)
-        }
-      }
-    })
   } finally {
     loading.value = false
   }
@@ -330,130 +283,10 @@ const toggleStatus = async (row) => {
   await loadPage()
 }
 
-const rememberDeletionTask = (knowledgeBaseId, task) => {
-  if (!task?.id) return
-  deletingTasks[String(knowledgeBaseId)] = task
-  try {
-    const storageKey = deletionStorageKey()
-    const saved = JSON.parse(localStorage.getItem(storageKey) || '{}')
-    saved[String(knowledgeBaseId)] = String(task.id)
-    localStorage.setItem(storageKey, JSON.stringify(saved))
-  } catch {
-    // Storage may be unavailable in restricted browsers; in-memory polling still works.
-  }
-}
-
-const forgetDeletionTask = (knowledgeBaseId) => {
-  try {
-    const storageKey = deletionStorageKey()
-    const saved = JSON.parse(localStorage.getItem(storageKey) || '{}')
-    delete saved[String(knowledgeBaseId)]
-    localStorage.setItem(storageKey, JSON.stringify(saved))
-  } catch {
-    // Ignore storage failures.
-  }
-}
-
-const stopTaskPoller = (timerKey) => {
-  const poller = taskPollers.get(timerKey)
-  if (poller?.timerId) {
-    window.clearTimeout(poller.timerId)
-  }
-  taskPollers.delete(timerKey)
-}
-
-const clearTaskPollers = () => {
-  taskPollers.forEach((poller) => {
-    if (poller.timerId) {
-      window.clearTimeout(poller.timerId)
-    }
-  })
-  taskPollers.clear()
-}
-
-const scheduleTaskPoll = (taskId, knowledgeBaseId) => {
-  const timerKey = `${taskId}:${knowledgeBaseId}`
-  if (taskPollers.has(timerKey)) return
-  const poller = { timerId: null, consecutiveFailures: 0 }
-  taskPollers.set(timerKey, poller)
-
-  const scheduleNext = (delay) => {
-    if (!alive.value || !taskPollers.has(timerKey)) return
-    poller.timerId = window.setTimeout(poll, delay)
-  }
-
-  const poll = async () => {
-    if (!alive.value) {
-      stopTaskPoller(timerKey)
-      return
-    }
-    poller.timerId = null
-    try {
-      const task = await getKnowledgeTask(taskId, { skipErrorMessage: true })
-      if (!alive.value || !taskPollers.has(timerKey)) {
-        return
-      }
-      poller.consecutiveFailures = 0
-      deletingTasks[String(knowledgeBaseId)] = task
-      const status = String(task?.status || '').toUpperCase()
-      if (status === 'SUCCEEDED') {
-        stopTaskPoller(timerKey)
-        forgetDeletionTask(knowledgeBaseId)
-        delete deletingTasks[String(knowledgeBaseId)]
-        ElMessage.success('知识库及其数据已删除')
-        await loadRows()
-        return
-      }
-      if (status === 'FAILED') {
-        stopTaskPoller(timerKey)
-        forgetDeletionTask(knowledgeBaseId)
-        ElMessage.error(task.errorMessage || '知识库删除失败，可手动重新提交')
-        await loadRows()
-        return
-      }
-    } catch (error) {
-      const statusCode = Number(error?.response?.status || 0)
-      const taskMissing = String(error?.message || '').includes('知识任务不存在')
-      if ([401, 403, 404].includes(statusCode) || taskMissing) {
-        stopTaskPoller(timerKey)
-        if (statusCode === 404 || taskMissing) {
-          forgetDeletionTask(knowledgeBaseId)
-          delete deletingTasks[String(knowledgeBaseId)]
-        }
-        return
-      }
-      poller.consecutiveFailures += 1
-      const retryDelay = Math.min(
-        2500 * (2 ** Math.min(poller.consecutiveFailures - 1, 4)),
-        30000
-      )
-      scheduleNext(retryDelay)
-      return
-    }
-
-    scheduleNext(2500)
-  }
-
-  poll()
-}
-
-const restoreDeletionTasks = () => {
-  try {
-    localStorage.removeItem('knowledge_delete_tasks')
-    const saved = JSON.parse(localStorage.getItem(deletionStorageKey()) || '{}')
-    Object.entries(saved).forEach(([knowledgeBaseId, taskId]) => {
-      deletingTasks[knowledgeBaseId] = { id: taskId, status: 'PENDING', progress: 0 }
-      scheduleTaskPoll(taskId, knowledgeBaseId)
-    })
-  } catch {
-    // Ignore malformed or unavailable storage.
-  }
-}
-
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
-      `删除知识库“${row.knowledgeName}”吗？系统将异步解绑智能体并清理所有文档、切片、源文件与向量。此操作不可撤销。`,
+      `删除知识库“${row.knowledgeName}”吗？系统将同步解绑智能体并清理所有文档、切片、源文件与向量。此操作不可撤销。`,
       '删除知识库',
       {
         type: 'warning',
@@ -465,32 +298,18 @@ const handleDelete = async (row) => {
     return
   }
 
-  const task = await deleteKnowledgeBase(row.id)
-  rememberDeletionTask(row.id, task)
-  ElMessage.success('删除任务已提交')
-  scheduleTaskPoll(task.id, row.id)
-  await loadPage()
+  loading.value = true
+  try {
+    await deleteKnowledgeBase(row.id)
+    ElMessage.success('知识库及其数据已删除')
+    await loadPage()
+  } finally {
+    loading.value = false
+  }
 }
-
-const retryDeleteTask = async (row) => {
-  const oldTask = deletingTasks[String(row.id)]
-  if (!oldTask?.id) return
-  const task = await resubmitKnowledgeTask(oldTask.id)
-  rememberDeletionTask(row.id, task)
-  ElMessage.success('删除任务已重新提交')
-  scheduleTaskPoll(task.id, row.id)
-}
-
-const taskFor = (row) => deletingTasks[String(row.id)]
 
 onMounted(async () => {
-  restoreDeletionTasks()
   await loadPage()
-})
-
-onBeforeUnmount(() => {
-  alive.value = false
-  clearTaskPollers()
 })
 </script>
 
@@ -528,7 +347,6 @@ onBeforeUnmount(() => {
           <el-select v-model="query.status" clearable placeholder="全部状态" @change="handleSearch">
             <el-option label="已启用" :value="1" />
             <el-option label="已停用" :value="0" />
-            <el-option label="删除中" :value="2" />
           </el-select>
           <el-button :icon="Refresh" @click="loadPage">刷新</el-button>
           <el-button type="primary" :icon="Plus" @click="openCreate">创建知识库</el-button>
@@ -540,7 +358,6 @@ onBeforeUnmount(() => {
           v-for="row in rows"
           :key="row.id"
           class="knowledge-card management-data-card"
-          :class="{ 'is-deleting': normalizeStatus(row.status) === 2 }"
         >
           <header>
             <span class="knowledge-mark"><el-icon><Collection /></el-icon></span>
@@ -553,11 +370,7 @@ onBeforeUnmount(() => {
               </div>
               <p>{{ row.description || '暂无描述' }}</p>
             </div>
-            <el-dropdown
-              v-if="normalizeStatus(row.status) !== 2"
-              class="management-card-menu"
-              trigger="click"
-            >
+            <el-dropdown class="management-card-menu" trigger="click">
               <button class="management-card-menu-button" type="button" aria-label="知识库操作">
                 <el-icon class="management-card-menu-icon"><MoreFilled /></el-icon>
               </button>
@@ -588,40 +401,14 @@ onBeforeUnmount(() => {
           </div>
 
           <footer>
-            <template v-if="normalizeStatus(row.status) !== 2">
-              <div>
-                <b>最近更新</b>
-                <small>{{ formatTime(row) }}</small>
-              </div>
-              <div>
-                <el-button @click="openDocuments(row)">文档</el-button>
-                <el-button type="primary" plain @click="openEdit(row)">配置</el-button>
-              </div>
-            </template>
-            <template v-else>
-              <div class="delete-summary">
-                <b>{{ taskStatusMeta(taskFor(row)?.status).text }}</b>
-                <small :title="taskFor(row)?.errorMessage">
-                  {{ taskFor(row)?.errorMessage || '正在清理知识库关联资源' }}
-                </small>
-              </div>
-              <div class="delete-controls">
-                <el-progress
-                  class="delete-progress"
-                  :percentage="Number(taskFor(row)?.progress || 0)"
-                  :status="String(taskFor(row)?.status).toUpperCase() === 'FAILED' ? 'exception' : undefined"
-                  :stroke-width="6"
-                />
-                <el-button
-                  v-if="String(taskFor(row)?.status).toUpperCase() === 'FAILED'"
-                  link
-                  type="danger"
-                  @click="retryDeleteTask(row)"
-                >
-                  重新提交
-                </el-button>
-              </div>
-            </template>
+            <div>
+              <b>最近更新</b>
+              <small>{{ formatTime(row) }}</small>
+            </div>
+            <div>
+              <el-button @click="openDocuments(row)">文档</el-button>
+              <el-button type="primary" plain @click="openEdit(row)">配置</el-button>
+            </div>
           </footer>
         </article>
       </div>
@@ -700,7 +487,7 @@ onBeforeUnmount(() => {
 
         <div class="form-section-title">
           <strong>Embedding 配置</strong>
-          <span>仅支持 OpenAI 兼容接口；API Key 只写不回显。</span>
+          <span>仅支持 OpenAI 兼容接口</span>
         </div>
         <div class="form-grid">
           <el-form-item label="API 地址" prop="modelUrl" class="full-field">
@@ -847,10 +634,6 @@ onBeforeUnmount(() => {
   background: #fff;
 }
 
-.knowledge-card.is-deleting {
-  border-color: #f0d6ae;
-}
-
 .knowledge-card > header,
 .knowledge-card > footer {
   display: flex;
@@ -965,22 +748,6 @@ onBeforeUnmount(() => {
   font-size: 10px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.delete-summary {
-  flex: 1;
-}
-
-.delete-controls {
-  display: flex;
-  min-width: 112px;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.delete-progress {
-  width: 112px;
 }
 
 :deep(.danger-item) {
