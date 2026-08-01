@@ -695,6 +695,19 @@ onMounted(async () => {
 
           <div v-loading="loading" class="skill-grid">
             <article v-for="row in rows" :key="row.id" class="skill-card management-data-card">
+              <el-dropdown class="management-card-menu" trigger="click">
+                <button class="management-card-menu-button" type="button" aria-label="技能操作">
+                  <el-icon class="management-card-menu-icon"><MoreFilled /></el-icon>
+                </button>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item @click="toggleStatus(row)">
+                      {{ Number(row.status) === 1 ? '停用' : '启用' }}
+                    </el-dropdown-item>
+                    <el-dropdown-item divided @click="removeSkill(row)">删除</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
               <div class="skill-card-head">
                 <div class="skill-avatar"><el-icon><Setting /></el-icon></div>
                 <div class="skill-identity">
@@ -720,17 +733,6 @@ onMounted(async () => {
                 <el-button link type="primary" @click="openEditor(row)">编辑内容</el-button>
                 <el-button link @click="openEdit(row)">配置</el-button>
                 <el-button link @click="openLogs({ skillId: row.id })">使用记录</el-button>
-                <el-dropdown trigger="click">
-                  <el-button link>更多</el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item @click="toggleStatus(row)">
-                        {{ Number(row.status) === 1 ? '停用' : '启用' }}
-                      </el-dropdown-item>
-                      <el-dropdown-item divided @click="removeSkill(row)">删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
               </footer>
             </article>
             <el-empty v-if="!loading && !rows.length" description="暂无符合条件的技能" />
@@ -1158,6 +1160,10 @@ p {
   padding: 17px;
   border: 1px solid #e8ecf2;
   border-radius: 12px;
+}
+
+.skill-card-head {
+  padding-right: 36px;
 }
 
 .skill-avatar {

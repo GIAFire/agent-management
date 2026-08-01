@@ -375,13 +375,37 @@ const validateCurrentStep = async () => {
   if (activeStep.value === 0) {
     await formRef.value?.validateField(['agentCode', 'agentName', 'description'])
   }
-  if (activeStep.value === 4 && Number(form.compactionEnabled) === 1) {
+  if (activeStep.value === 4) {
+    validateAdvancedConfig()
+  }
+}
+
+const validateAdvancedConfig = () => {
+  if (Number(form.compactionEnabled) === 1) {
     if (Number(form.keepMessages) > Number(form.triggerMessages)) {
       throw new Error('保留消息数不能大于触发消息数')
     }
     if (Number(form.keepTokens) > Number(form.triggerTokens)) {
       throw new Error('保留 Token 不能大于触发 Token')
     }
+  }
+}
+
+const validateBeforeSubmit = async () => {
+  try {
+    await formRef.value?.validate()
+  } catch {
+    activeStep.value = 0
+    await nextTick()
+    throw new Error('请检查基础信息')
+  }
+
+  try {
+    validateAdvancedConfig()
+  } catch (error) {
+    activeStep.value = 4
+    await nextTick()
+    throw error
   }
 }
 
@@ -396,6 +420,11 @@ const nextStep = async () => {
 
 const previousStep = () => {
   activeStep.value = Math.max(0, activeStep.value - 1)
+}
+
+const goToStep = index => {
+  if (!isEditing.value || submitting.value || optionsLoading.value) return
+  activeStep.value = index
 }
 
 const buildPayload = () => ({
@@ -427,21 +456,33 @@ const buildPayload = () => ({
 })
 
 const submit = async () => {
-  await formRef.value?.validate()
-  if (!form.modelId) {
-    await ElMessageBox.confirm(
-      '当前未绑定模型。智能体可以保存，但在绑定可用模型前不能对话或运行。',
-      '确认保存未完成配置',
-      { type: 'warning', confirmButtonText: '继续保存' }
-    )
+  try {
+    await validateBeforeSubmit()
+  } catch (error) {
+    ElMessage.warning(error.message || '请检查智能体配置')
+    return
   }
-  if (isEditing.value && form.stateStoreType !== originalStateStoreType.value) {
-    await ElMessageBox.confirm(
-      '切换会话状态存储不会迁移既有会话状态，原会话可能无法恢复之前的上下文。',
-      '确认切换状态存储',
-      { type: 'warning', confirmButtonText: '确认切换' }
-    )
+
+  try {
+    if (!form.modelId) {
+      await ElMessageBox.confirm(
+        '当前未绑定模型。智能体可以保存，但在绑定可用模型前不能对话或运行。',
+        '确认保存未完成配置',
+        { type: 'warning', confirmButtonText: '继续保存' }
+      )
+    }
+    if (isEditing.value && form.stateStoreType !== originalStateStoreType.value) {
+      await ElMessageBox.confirm(
+        '切换会话状态存储不会迁移既有会话状态，原会话可能无法恢复之前的上下文。',
+        '确认切换状态存储',
+        { type: 'warning', confirmButtonText: '确认切换' }
+      )
+    }
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    throw error
   }
+
   submitting.value = true
   try {
     const payload = buildPayload()
@@ -579,8 +620,10 @@ onMounted(async () => {
               <h4>{{ row.agentName }}</h4>
               <code>{{ row.agentCode }}</code>
             </div>
-            <el-dropdown trigger="click">
-              <el-button text :icon="MoreFilled" />
+            <el-dropdown class="management-card-menu" trigger="click">
+              <button class="management-card-menu-button" type="button" aria-label="智能体操作">
+                <el-icon class="management-card-menu-icon"><MoreFilled /></el-icon>
+              </button>
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item :icon="Edit" @click="handleEdit(row)">编辑</el-dropdown-item>
@@ -668,10 +711,16 @@ onMounted(async () => {
     >
       <el-steps :active="activeStep" align-center class="agent-steps">
         <el-step
-          v-for="step in steps"
+          v-for="(step, index) in steps"
           :key="step.title"
           :title="step.title"
           :description="step.description"
+          :class="{ 'is-clickable': isEditing }"
+          :role="isEditing ? 'button' : undefined"
+          :tabindex="isEditing ? 0 : undefined"
+          @click="goToStep(index)"
+          @keydown.enter="goToStep(index)"
+          @keydown.space.prevent="goToStep(index)"
         />
       </el-steps>
 
@@ -790,7 +839,7 @@ onMounted(async () => {
                   <span><strong>{{ skillName(item) }}</strong><small>{{ item.description || item.source }}</small></span>
                 </el-checkbox>
               </el-checkbox-group>
-              <el-empty v-if="!optionRows.skills.length" description="暂无可用技能" :image-size="60" />
+              <el-empty v-if="!optionRows.skills.length" description="暂无已启用技能" :image-size="60" />
             </article>
             <article class="capability-box">
               <header><h5>子智能体</h5><b>{{ form.selectedSubagentIds.length }}</b></header>
@@ -929,13 +978,21 @@ onMounted(async () => {
         <div class="dialog-footer">
           <span>第 {{ activeStep + 1 }} / {{ steps.length }} 步</span>
           <div>
-            <el-button v-if="activeStep === 0" @click="dialogVisible = false">取消</el-button>
-            <el-button v-else @click="previousStep">上一步</el-button>
-            <el-button v-if="activeStep < steps.length - 1" type="primary" @click="nextStep">
+            <el-button v-if="activeStep === 0" :disabled="submitting" @click="dialogVisible = false">取消</el-button>
+            <el-button v-else :disabled="submitting" @click="previousStep">上一步</el-button>
+            <el-button v-if="isEditing" type="primary" plain :loading="submitting" @click="submit">
+              保存
+            </el-button>
+            <el-button
+              v-if="activeStep < steps.length - 1"
+              type="primary"
+              :disabled="submitting"
+              @click="nextStep"
+            >
               下一步
             </el-button>
-            <el-button v-else type="primary" :loading="submitting" @click="submit">
-              {{ isEditing ? '保存修改' : '创建智能体' }}
+            <el-button v-else-if="!isEditing" type="primary" :loading="submitting" @click="submit">
+              创建智能体
             </el-button>
           </div>
         </div>
@@ -1194,6 +1251,7 @@ onMounted(async () => {
 }
 
 .agent-card {
+  position: relative;
   min-width: 0;
   padding: 17px;
   border: 1px solid #e5eaf2;
@@ -1203,6 +1261,7 @@ onMounted(async () => {
 
 .agent-card header {
   gap: 11px;
+  padding-right: 36px;
 }
 
 .agent-card header > div {
@@ -1308,6 +1367,27 @@ onMounted(async () => {
 
 .agent-steps {
   margin: 0 12px 24px;
+}
+
+.agent-steps :deep(.el-step.is-clickable) {
+  cursor: pointer;
+}
+
+.agent-steps :deep(.el-step.is-clickable .el-step__head),
+.agent-steps :deep(.el-step.is-clickable .el-step__title) {
+  transition: color .18s ease, border-color .18s ease;
+}
+
+.agent-steps :deep(.el-step.is-clickable:hover .el-step__head),
+.agent-steps :deep(.el-step.is-clickable:hover .el-step__title) {
+  color: #3f6fe5;
+  border-color: #3f6fe5;
+}
+
+.agent-steps :deep(.el-step.is-clickable:focus-visible) {
+  border-radius: 8px;
+  outline: 2px solid #8fb0ff;
+  outline-offset: 4px;
 }
 
 .agent-form {

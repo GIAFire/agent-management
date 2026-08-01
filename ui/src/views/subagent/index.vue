@@ -501,6 +501,17 @@ onMounted(loadDashboard)
 
         <div class="subagent-list" :class="viewMode">
           <article v-for="row in pagedRows" :key="row.id" class="subagent-card management-data-card">
+            <el-dropdown class="management-card-menu" trigger="click">
+              <button class="management-card-menu-button" type="button" aria-label="子智能体操作">
+                <el-icon class="management-card-menu-icon"><MoreFilled /></el-icon>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item :icon="Edit" @click="openEditDialog(row)">编辑配置</el-dropdown-item>
+                  <el-dropdown-item :icon="Delete" divided @click="handleDelete(row)">删除</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <header class="subagent-card-head">
               <div class="subagent-main">
                 <h4>{{ row.subagentName }}</h4>
@@ -530,20 +541,6 @@ onMounted(loadDashboard)
 
             <footer class="subagent-card-actions">
               <span>{{ row.runtimeType }} · {{ row.sourceName }}</span>
-              <nav>
-                <el-button link type="primary" @click="openEditDialog(row)">编辑</el-button>
-                <el-dropdown trigger="click">
-                  <button class="more-button" type="button" aria-label="更多操作">
-                    <el-icon><MoreFilled /></el-icon>
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item :icon="Edit" @click="openEditDialog(row)">编辑配置</el-dropdown-item>
-                      <el-dropdown-item :icon="Delete" divided @click="handleDelete(row)">删除</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </nav>
             </footer>
           </article>
         </div>
@@ -891,7 +888,7 @@ onMounted(loadDashboard)
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 18px 18px 0;
+  padding: 18px 52px 0 18px;
 }
 
 .subagent-main {
@@ -1024,35 +1021,6 @@ onMounted(loadDashboard)
   color: #6d819b;
   font-size: 13px;
   font-weight: 750;
-}
-
-.subagent-card-actions nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.subagent-card-actions .el-button.is-link {
-  height: auto;
-  padding: 0;
-  font-weight: 800;
-}
-
-.more-button {
-  display: grid;
-  width: 30px;
-  height: 30px;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  color: #405874;
-  background: transparent;
-  cursor: pointer;
-}
-
-.more-button:hover {
-  background: #edf4ff;
-  color: #2f75ff;
 }
 
 .subagent-list-footer {

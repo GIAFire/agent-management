@@ -107,6 +107,7 @@
 }
 
 .management-data-card {
+  position: relative;
   transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
 }
 
@@ -114,6 +115,43 @@
   transform: translateY(-2px);
   border-color: #cfd8f5;
   box-shadow: 0 14px 30px rgba(35, 55, 100, .08);
+}
+
+.management-card-menu {
+  position: absolute;
+  z-index: 2;
+  top: 10px;
+  right: 10px;
+}
+
+.management-card-menu-button {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  color: #405874;
+  background: transparent;
+  cursor: pointer;
+  transition: color .18s ease, background-color .18s ease;
+}
+
+.management-card-menu-button:hover,
+.management-card-menu-button:focus-visible {
+  color: #2f75ff;
+  background: #edf4ff;
+}
+
+.management-card-menu-button:focus-visible {
+  outline: 2px solid #8fb0ff;
+  outline-offset: 2px;
+}
+
+.management-card-menu-icon {
+  font-size: 17px;
+  transform: rotate(90deg);
 }
 
 .management-panel-title {

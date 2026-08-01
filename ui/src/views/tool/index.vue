@@ -409,15 +409,6 @@ const riskLabel = (riskLevel) => {
   return map[String(riskLevel || '').toUpperCase()] || riskLevel || '-'
 }
 
-const statusLabel = (status) => {
-  const map = {
-    normal: '正常',
-    limited: '受限',
-    disabled: '停用'
-  }
-  return map[status] || status
-}
-
 const behaviorType = (behavior) => {
   const value = String(behavior || '').toUpperCase()
   if (value === 'DENY') {
@@ -488,6 +479,17 @@ onMounted(loadDashboard)
 
         <div class="tool-list">
           <article v-for="tool in pagedTools" :key="tool.id" class="tool-row management-data-card">
+            <el-dropdown class="management-card-menu" trigger="click">
+              <button class="management-card-menu-button" type="button" aria-label="工具操作">
+                <el-icon class="management-card-menu-icon"><MoreFilled /></el-icon>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item @click="configureTool(tool)">权限配置</el-dropdown-item>
+                  <el-dropdown-item @click="openToolCalls(tool)">查看调用</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <header class="tool-card-head">
               <span class="tool-mark" :class="riskClass(tool.riskLevel)">
                 <el-icon><component :is="tool.readOnly ? Search : Setting" /></el-icon>
@@ -499,10 +501,6 @@ onMounted(loadDashboard)
                 </div>
                 <p>{{ tool.toolNameExplain }}</p>
               </div>
-              <span class="status-pill-mini" :class="tool.status">
-                <i />
-                {{ statusLabel(tool.status) }}
-              </span>
             </header>
             <div class="tool-card-stats">
               <div>
@@ -523,19 +521,6 @@ onMounted(loadDashboard)
                 <el-icon><Finished /></el-icon>
                 {{ riskLabel(tool.riskLevel) }}
               </span>
-              <nav>
-                <el-dropdown trigger="click">
-                  <button class="more-button" type="button" aria-label="更多操作">
-                    <el-icon><MoreFilled /></el-icon>
-                  </button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item @click="configureTool(tool)">权限配置</el-dropdown-item>
-                      <el-dropdown-item @click="openToolCalls(tool)">查看调用</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </nav>
             </footer>
           </article>
         </div>
@@ -898,7 +883,7 @@ onMounted(loadDashboard)
 
 .tool-main {
   min-width: 0;
-  padding-right: 78px;
+  padding-right: 36px;
 }
 
 .tool-card-head {
@@ -946,43 +931,6 @@ onMounted(loadDashboard)
   -webkit-line-clamp: 2;
 }
 
-.status-pill-mini {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 62px;
-  height: 24px;
-  border: 1px solid #bce8cc;
-  border-radius: 7px;
-  color: #168354;
-  background: #eaf8ef;
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.status-pill-mini i {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.status-pill-mini.limited {
-  border-color: #ffdca6;
-  color: #c56a1c;
-  background: #fff5e8;
-}
-
-.status-pill-mini.disabled {
-  border-color: #d9e2ec;
-  color: #6d819b;
-  background: #edf3f8;
-}
-
 .risk-shield {
   display: grid;
   width: 34px;
@@ -998,23 +946,6 @@ onMounted(loadDashboard)
 
 .risk-shield.high {
   color: #e45765;
-}
-
-.more-button {
-  display: grid;
-  width: 32px;
-  height: 32px;
-  place-items: center;
-  border: 0;
-  border-radius: 8px;
-  color: #405874;
-  background: transparent;
-  cursor: pointer;
-}
-
-.more-button:hover {
-  background: #edf4ff;
-  color: #2f75ff;
 }
 
 .tool-card-stats {
@@ -1057,18 +988,6 @@ onMounted(loadDashboard)
   gap: 12px;
   padding-top: 14px;
   border-top: 1px solid #e5edf6;
-}
-
-.tool-card-actions nav {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tool-card-actions .el-button.is-link {
-  height: auto;
-  padding: 0;
-  font-weight: 800;
 }
 
 .risk-label {
@@ -1328,16 +1247,6 @@ onMounted(loadDashboard)
   .tool-mark {
     width: 48px;
     height: 48px;
-  }
-
-  .tool-main {
-    padding-right: 0;
-  }
-
-  .status-pill-mini {
-    position: static;
-    grid-column: 1 / -1;
-    justify-self: start;
   }
 
   .tool-card-stats {

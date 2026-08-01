@@ -6,7 +6,7 @@ import {
   Collection,
   Delete,
   Document,
-  Edit,
+  MoreFilled,
   Plus,
   Refresh,
   Search,
@@ -553,14 +553,16 @@ onBeforeUnmount(() => {
               </div>
               <p>{{ row.description || '暂无描述' }}</p>
             </div>
-            <el-dropdown v-if="normalizeStatus(row.status) !== 2" trigger="click">
-              <el-button circle text aria-label="知识库操作">
-                <el-icon><Edit /></el-icon>
-              </el-button>
+            <el-dropdown
+              v-if="normalizeStatus(row.status) !== 2"
+              class="management-card-menu"
+              trigger="click"
+            >
+              <button class="management-card-menu-button" type="button" aria-label="知识库操作">
+                <el-icon class="management-card-menu-icon"><MoreFilled /></el-icon>
+              </button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item :icon="Document" @click="openDocuments(row)">管理文档</el-dropdown-item>
-                  <el-dropdown-item :icon="Edit" @click="openEdit(row)">编辑配置</el-dropdown-item>
                   <el-dropdown-item :icon="SwitchButton" @click="toggleStatus(row)">
                     {{ normalizeStatus(row.status) === 1 ? '停用' : '启用' }}
                   </el-dropdown-item>
@@ -859,7 +861,7 @@ onBeforeUnmount(() => {
 
 .knowledge-card > header {
   align-items: flex-start;
-  padding: 17px 17px 12px;
+  padding: 17px 52px 12px 17px;
 }
 
 .knowledge-mark {

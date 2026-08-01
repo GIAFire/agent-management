@@ -7,6 +7,7 @@ import {
   Edit,
   Hide,
   Key,
+  MoreFilled,
   Plus,
   Refresh,
   Search,
@@ -475,6 +476,25 @@ onMounted(loadDashboard)
 
         <div v-if="rows.length" class="model-list">
           <article v-for="row in rows" :key="row.id" class="model-card management-data-card">
+            <el-dropdown class="management-card-menu" trigger="click">
+              <button class="management-card-menu-button" type="button" aria-label="模型操作">
+                <el-icon class="management-card-menu-icon"><MoreFilled /></el-icon>
+              </button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item :icon="Edit" @click="openEdit(row)">编辑配置</el-dropdown-item>
+                  <el-dropdown-item :icon="TrendCharts" @click="openLogs(row)">调用日志</el-dropdown-item>
+                  <el-dropdown-item
+                    :icon="Delete"
+                    divided
+                    class="danger-item"
+                    @click="removeModel(row)"
+                  >
+                    删除
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
             <header>
               <span class="provider-mark">{{ (row.providerName || 'M').slice(0, 1).toUpperCase() }}</span>
               <div class="model-heading">
@@ -486,25 +506,6 @@ onMounted(loadDashboard)
                 </div>
                 <p>{{ row.description || '暂无描述' }}</p>
               </div>
-              <el-dropdown trigger="click">
-                <el-button circle text>
-                  <el-icon><Edit /></el-icon>
-                </el-button>
-                <template #dropdown>
-                  <el-dropdown-menu>
-                    <el-dropdown-item :icon="Edit" @click="openEdit(row)">编辑配置</el-dropdown-item>
-                    <el-dropdown-item :icon="TrendCharts" @click="openLogs(row)">调用日志</el-dropdown-item>
-                    <el-dropdown-item
-                      :icon="Delete"
-                      divided
-                      class="danger-item"
-                      @click="removeModel(row)"
-                    >
-                      删除
-                    </el-dropdown-item>
-                  </el-dropdown-menu>
-                </template>
-              </el-dropdown>
             </header>
 
             <div class="model-facts">
@@ -949,7 +950,7 @@ p {
 
 .model-card header {
   align-items: flex-start;
-  padding: 17px 17px 12px;
+  padding: 17px 52px 12px 17px;
 }
 
 .provider-mark {
