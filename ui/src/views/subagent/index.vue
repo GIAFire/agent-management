@@ -126,7 +126,7 @@ const metrics = computed(() => {
 })
 
 watch(
-  () => [queryParams.keyword, queryParams.type, queryParams.status, queryParams.sourceAvailable],
+  () => [queryParams.type, queryParams.status, queryParams.sourceAvailable],
   () => {
     currentPage.value = 1
     loadSubagentPage()
@@ -347,6 +347,11 @@ async function loadDashboard() {
   }
 }
 
+function searchSubagents() {
+  currentPage.value = 1
+  loadSubagentPage()
+}
+
 function selectLocalAgent(agentId) {
   const agent = localAgentOptions.value.find((item) => String(item.id) === String(agentId))
   if (!agent) return
@@ -444,43 +449,35 @@ onMounted(loadDashboard)
 </script>
 
 <template>
-  <section v-loading="loading" class="subagent-console">
-    <div class="subagent-hero">
-      <div>
-        <h2>子智能体</h2>
-        <p>集中管理可被主智能体委派任务的专业 Agent，监控协作状态与执行表现。</p>
-      </div>
-      <div class="hero-actions">
-        <el-button size="large" type="primary" :icon="Plus" @click="openCreateDialog">新建子智能体</el-button>
-      </div>
-    </div>
-
-    <div class="subagent-metrics">
-      <article v-for="item in metrics" :key="item.label" class="subagent-metric">
-        <span class="metric-icon" :class="item.tone">
+  <section v-loading="loading" class="subagent-console management-page">
+    <div class="subagent-metrics management-metrics">
+      <article v-for="item in metrics" :key="item.label" class="subagent-metric management-metric-card">
+        <div class="metric-icon management-metric-icon" :class="item.tone">
           <el-icon><component :is="item.icon" /></el-icon>
-        </span>
+        </div>
         <div>
-          <span>{{ item.label }}</span>
+          <small>{{ item.label }}</small>
           <strong>{{ item.value }}</strong>
-          <small :class="{ positive: item.positive }">{{ item.sub }}</small>
+          <p :class="{ positive: item.positive }">{{ item.sub }}</p>
         </div>
       </article>
     </div>
 
-    <div class="subagent-dashboard">
-      <section class="subagent-list-panel">
-        <div class="panel-head">
+    <div class="subagent-dashboard management-content-grid">
+      <section class="subagent-list-panel management-panel">
+        <div class="panel-head management-panel-title">
           <div>
             <h3>子智能体列表</h3>
             <p>共 {{ total }} 个子智能体</p>
           </div>
-          <div class="subagent-filter-bar">
+          <div class="subagent-filter-bar management-filter-bar">
             <el-input
               v-model="queryParams.keyword"
               clearable
               :prefix-icon="Search"
               placeholder="搜索名称或描述"
+              @clear="searchSubagents"
+              @keyup.enter="searchSubagents"
             />
             <el-select v-model="queryParams.type" clearable placeholder="全部类型">
               <el-option v-for="type in typeOptions" :key="type.value" :label="type.label" :value="type.value" />
@@ -493,11 +490,12 @@ onMounted(loadDashboard)
               <el-option label="来源可用" :value="true" />
               <el-option label="来源不可用" :value="false" />
             </el-select>
-            <el-button :icon="Refresh" @click="loadDashboard" />
             <el-button-group class="view-toggle">
               <el-button :type="viewMode === 'grid' ? 'primary' : 'default'" :icon="Grid" @click="viewMode = 'grid'" />
               <el-button :type="viewMode === 'list' ? 'primary' : 'default'" :icon="Menu" @click="viewMode = 'list'" />
             </el-button-group>
+            <el-button :icon="Refresh" @click="loadDashboard">刷新</el-button>
+            <el-button type="primary" :icon="Plus" @click="openCreateDialog">新建子智能体</el-button>
           </div>
         </div>
 
@@ -555,6 +553,7 @@ onMounted(loadDashboard)
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
+            class="management-pagination"
             background
             layout="prev, pager, next, sizes"
             :page-sizes="[6, 12, 24]"
@@ -563,8 +562,8 @@ onMounted(loadDashboard)
         </div>
       </section>
 
-      <aside class="subagent-side">
-        <section class="side-panel">
+      <aside class="subagent-side management-side-column">
+        <section class="side-panel management-side-card">
           <div class="side-head">
             <h3>最近委派记录</h3>
           </div>
@@ -582,7 +581,7 @@ onMounted(loadDashboard)
           </div>
         </section>
 
-        <section class="side-panel exception-panel">
+        <section class="side-panel exception-panel management-side-card">
           <div class="side-head">
             <h3>异常执行</h3>
           </div>
@@ -708,40 +707,6 @@ onMounted(loadDashboard)
 </template>
 
 <style scoped>
-.subagent-console {
-  display: grid;
-  min-height: calc(100vh - 115px);
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 18px;
-  padding-bottom: 28px;
-}
-
-.subagent-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.subagent-hero h2 {
-  margin: 14px 0 8px;
-  color: #071f40;
-  font-size: 34px;
-  font-weight: 850;
-  letter-spacing: 0;
-}
-
-.subagent-hero p {
-  margin: 0;
-  color: #526b87;
-}
-
-.hero-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-}
-
 .subagent-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1279,41 +1244,10 @@ onMounted(loadDashboard)
     grid-template-rows: none;
   }
 
-  .panel-head {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .subagent-filter-bar {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 980px) {
-  .subagent-hero {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .subagent-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .subagent-filter-bar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .subagent-filter-bar .el-input,
-  .subagent-filter-bar .el-select,
-  .subagent-filter-bar .el-button,
-  .view-toggle {
-    width: 100%;
-  }
-
-  .view-toggle {
-    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -1329,15 +1263,6 @@ onMounted(loadDashboard)
 }
 
 @media (max-width: 640px) {
-  .subagent-hero h2 {
-    font-size: 28px;
-  }
-
-  .hero-actions,
-  .hero-actions .el-button {
-    width: 100%;
-  }
-
   .subagent-metrics {
     grid-template-columns: 1fr;
   }
@@ -1367,3 +1292,5 @@ onMounted(loadDashboard)
   }
 }
 </style>
+
+<style scoped src="../../assets/management-page.css"></style>

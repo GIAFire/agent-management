@@ -355,17 +355,6 @@ function search() {
   loadDashboard()
 }
 
-function resetFilters() {
-  Object.assign(filters, {
-    keyword: '',
-    category: '',
-    status: '',
-    riskLevel: '',
-    current: 1
-  })
-  loadDashboard()
-}
-
 async function openCreate() {
   resetForm()
   formMode.value = 'create'
@@ -660,57 +649,48 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="skill-page">
-    <header class="page-header">
-      <div>
-        <h2>技能管理</h2>
-        <p>集中维护技能指令、资源文件、角色范围与 Agent 绑定后的真实使用情况。</p>
-      </div>
-      <el-button type="primary" :icon="Plus" @click="openCreate">新建技能</el-button>
-    </header>
-
-    <div class="metric-grid">
-      <article v-for="card in metricCards" :key="card.label" class="metric-card">
-        <div class="metric-icon" :class="card.tone"><el-icon><component :is="card.icon" /></el-icon></div>
+  <section class="skill-page management-page">
+    <div class="metric-grid management-metrics">
+      <article v-for="card in metricCards" :key="card.label" class="metric-card management-metric-card">
+        <div class="metric-icon management-metric-icon" :class="card.tone"><el-icon><component :is="card.icon" /></el-icon></div>
         <div>
-          <span>{{ card.label }}</span>
+          <small>{{ card.label }}</small>
           <strong>{{ card.value }}</strong>
-          <small>{{ card.note }}</small>
+          <p>{{ card.note }}</p>
         </div>
       </article>
     </div>
 
-    <div class="content-grid">
+    <div class="content-grid management-content-grid">
       <main class="main-column">
-        <section class="panel list-panel">
-          <div class="panel-title">
+        <section class="panel list-panel management-panel">
+          <div class="panel-title management-panel-title">
             <div>
               <h3>技能列表</h3>
               <p>列表指标均来自当天真实使用日志。</p>
             </div>
-            <el-button :icon="Refresh" circle @click="loadDashboard" />
-          </div>
-
-          <div class="filters">
-            <el-input
-              v-model="filters.keyword"
-              clearable
-              placeholder="搜索名称、编码或描述"
-              :prefix-icon="Search"
-              @keyup.enter="search"
-            />
-            <el-select v-model="filters.category" clearable placeholder="全部分类" @change="search">
-              <el-option v-for="item in categories" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-            <el-select v-model="filters.status" clearable placeholder="全部状态" @change="search">
-              <el-option label="启用" :value="1" />
-              <el-option label="停用" :value="0" />
-            </el-select>
-            <el-select v-model="filters.riskLevel" clearable placeholder="全部风险" @change="search">
-              <el-option v-for="risk in riskOptions" :key="risk" :label="risk" :value="risk" />
-            </el-select>
-            <el-button type="primary" :icon="Search" @click="search">查询</el-button>
-            <el-button @click="resetFilters">重置</el-button>
+            <div class="filters management-filter-bar">
+              <el-input
+                v-model="filters.keyword"
+                clearable
+                placeholder="搜索名称、编码或描述"
+                :prefix-icon="Search"
+                @clear="search"
+                @keyup.enter="search"
+              />
+              <el-select v-model="filters.category" clearable placeholder="全部分类" @change="search">
+                <el-option v-for="item in categories" :key="item.value" :label="item.label" :value="item.value" />
+              </el-select>
+              <el-select v-model="filters.status" clearable placeholder="全部状态" @change="search">
+                <el-option label="启用" :value="1" />
+                <el-option label="停用" :value="0" />
+              </el-select>
+              <el-select v-model="filters.riskLevel" clearable placeholder="全部风险" @change="search">
+                <el-option v-for="risk in riskOptions" :key="risk" :label="risk" :value="risk" />
+              </el-select>
+              <el-button :icon="Refresh" @click="loadDashboard">刷新</el-button>
+              <el-button type="primary" :icon="Plus" @click="openCreate">新建技能</el-button>
+            </div>
           </div>
 
           <div v-loading="loading" class="skill-grid">
@@ -759,6 +739,7 @@ onMounted(async () => {
           <el-pagination
             v-model:current-page="filters.current"
             v-model:page-size="filters.size"
+            class="management-pagination"
             background
             layout="total, sizes, prev, pager, next"
             :page-sizes="[8, 16, 32]"
@@ -768,8 +749,8 @@ onMounted(async () => {
         </section>
       </main>
 
-      <aside class="side-column">
-        <section class="panel activity-panel">
+      <aside class="side-column management-side-column">
+        <section class="panel activity-panel management-side-card">
           <div class="panel-title compact">
             <div><h3>最近使用记录</h3><p>最近 6 条技能读取行为</p></div>
             <el-button link type="primary" @click="openLogs()">查看全部</el-button>
@@ -792,7 +773,7 @@ onMounted(async () => {
           </div>
         </section>
 
-        <section class="panel exception-panel">
+        <section class="panel exception-panel management-side-card">
           <div class="panel-title compact">
             <div><h3>异常使用</h3><p>最近 4 条失败记录</p></div>
             <el-button link type="danger" @click="openLogs({ success: 0 })">查看全部</el-button>
@@ -1067,14 +1048,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.skill-page {
-  min-height: 100%;
-  padding: 24px;
-  background: #f5f7fb;
-  color: #172033;
-}
-
-.page-header,
 .panel-title,
 .skill-card-head,
 .editor-header,
@@ -1086,10 +1059,6 @@ onMounted(async () => {
   gap: 16px;
 }
 
-.page-header {
-  margin-bottom: 20px;
-}
-
 h2,
 h3,
 h4,
@@ -1097,11 +1066,6 @@ p {
   margin: 0;
 }
 
-.page-header h2 {
-  font-size: 25px;
-}
-
-.page-header p,
 .panel-title p {
   margin-top: 6px;
   color: #768198;
@@ -1186,7 +1150,7 @@ p {
 .skill-grid {
   display: grid;
   min-height: 240px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1484,3 +1448,5 @@ code {
   .editor-body { grid-template-columns: 220px minmax(0, 1fr); }
 }
 </style>
+
+<style scoped src="../../assets/management-page.css"></style>

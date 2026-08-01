@@ -137,10 +137,10 @@ const formatTime = (row) => row.updatedAt || row.updateTime || row.createdAt || 
 const formatNumber = value => Number(value || 0).toLocaleString('zh-CN')
 
 const knowledgeMetricCards = computed(() => [
-  { label: '知识库总数', value: formatNumber(metrics.value.totalKnowledgeBases), note: `已启用 ${formatNumber(metrics.value.enabledKnowledgeBases)}` },
-  { label: '文档总数', value: formatNumber(metrics.value.totalDocuments), note: `今日新增 ${formatNumber(metrics.value.newDocumentsToday)}` },
-  { label: '可检索文档', value: formatNumber(metrics.value.readyDocuments), note: metrics.value.documentReadyRate == null ? '暂无文档' : `就绪率 ${metrics.value.documentReadyRate}%` },
-  { label: '已索引内容', value: formatNumber(metrics.value.totalChunks), note: `${formatNumber(metrics.value.totalTokens)} Token` }
+  { label: '知识库总数', value: formatNumber(metrics.value.totalKnowledgeBases), note: `已启用 ${formatNumber(metrics.value.enabledKnowledgeBases)}`, icon: Collection, tone: 'blue' },
+  { label: '文档总数', value: formatNumber(metrics.value.totalDocuments), note: `今日新增 ${formatNumber(metrics.value.newDocumentsToday)}`, icon: Document, tone: 'violet' },
+  { label: '可检索文档', value: formatNumber(metrics.value.readyDocuments), note: metrics.value.documentReadyRate == null ? '暂无文档' : `就绪率 ${metrics.value.documentReadyRate}%`, icon: View, tone: 'green' },
+  { label: '已索引内容', value: formatNumber(metrics.value.totalChunks), note: `${formatNumber(metrics.value.totalTokens)} Token`, icon: Search, tone: 'amber' }
 ])
 
 const loadKnowledgeOverview = async () => {
@@ -222,13 +222,6 @@ const loadPage = async () => {
 }
 
 const handleSearch = () => {
-  current.value = 1
-  loadRows()
-}
-
-const resetSearch = () => {
-  query.keyword = ''
-  query.status = ''
   current.value = 1
   loadRows()
 }
@@ -502,58 +495,43 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <section class="knowledge-page">
-    <header class="page-hero knowledge-hero">
-      <div>
-        <span class="hero-kicker">KNOWLEDGE &amp; RAG</span>
-        <h2><el-icon><Collection /></el-icon>知识库</h2>
-        <p>配置独立的 Embedding 模型，管理可供智能体检索的租户知识。</p>
-      </div>
-      <div class="hero-actions">
-        <el-button :icon="Refresh" @click="loadPage">刷新</el-button>
-        <el-button type="primary" :icon="Plus" @click="openCreate">创建知识库</el-button>
-      </div>
-    </header>
-
-    <div class="knowledge-metrics">
-      <article v-for="item in knowledgeMetricCards" :key="item.label">
-        <small>{{ item.label }}</small>
-        <strong>{{ item.value }}</strong>
-        <span>{{ item.note }}</span>
+  <section class="knowledge-page management-page">
+    <div class="knowledge-metrics management-metrics">
+      <article v-for="item in knowledgeMetricCards" :key="item.label" class="management-metric-card">
+        <div class="management-metric-icon" :class="item.tone">
+          <el-icon><component :is="item.icon" /></el-icon>
+        </div>
+        <div>
+          <small>{{ item.label }}</small>
+          <strong>{{ item.value }}</strong>
+          <p>{{ item.note }}</p>
+        </div>
       </article>
     </div>
 
-    <div class="knowledge-content-grid">
-    <main class="knowledge-main">
-    <div class="query-bar">
-      <el-form class="query-form" inline @submit.prevent="handleSearch">
-        <el-form-item label="关键词">
+    <div class="knowledge-content-grid management-content-grid">
+    <main class="table-panel management-panel">
+      <div class="table-toolbar management-panel-title">
+        <div class="table-title">
+          <h2>知识库列表</h2>
+          <span class="management-panel-note">共 {{ total }} 个知识库</span>
+        </div>
+        <div class="management-filter-bar">
           <el-input
             v-model="query.keyword"
             clearable
+            :prefix-icon="Search"
             placeholder="知识库名称或描述"
+            @clear="handleSearch"
             @keyup.enter="handleSearch"
           />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="query.status" clearable placeholder="全部状态">
+          <el-select v-model="query.status" clearable placeholder="全部状态" @change="handleSearch">
             <el-option label="已启用" :value="1" />
             <el-option label="已停用" :value="0" />
             <el-option label="删除中" :value="2" />
           </el-select>
-        </el-form-item>
-        <el-form-item>
-          <el-button type="primary" :icon="Search" @click="handleSearch">查询</el-button>
-          <el-button :icon="Refresh" @click="resetSearch">重置</el-button>
-        </el-form-item>
-      </el-form>
-    </div>
-
-    <div class="table-panel">
-      <div class="table-toolbar">
-        <div class="table-title">
-          <h2>知识库列表</h2>
-          <span>共 {{ total }} 个知识库</span>
+          <el-button :icon="Refresh" @click="loadPage">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="openCreate">创建知识库</el-button>
         </div>
       </div>
 
@@ -649,6 +627,7 @@ onBeforeUnmount(() => {
         <el-pagination
           v-model:current-page="current"
           v-model:page-size="size"
+          class="management-pagination"
           :total="total"
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -656,11 +635,10 @@ onBeforeUnmount(() => {
           @size-change="handleSearch"
         />
       </div>
-    </div>
     </main>
 
-    <aside class="knowledge-side-column">
-      <section class="knowledge-side-panel">
+    <aside class="knowledge-side-column management-side-column">
+      <section class="knowledge-side-panel management-side-card">
         <header><div><h3>处理异常</h3><p>最近失败的知识任务</p></div></header>
         <article v-for="task in recentFailures" :key="task.id" class="failure-task">
           <div class="failure-task-title">
@@ -789,16 +767,6 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.knowledge-page {
-  display: grid;
-  gap: 18px;
-  padding: 22px 0 28px;
-}
-
-.knowledge-hero {
-  margin-bottom: 0;
-}
-
 .knowledge-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -849,7 +817,7 @@ onBeforeUnmount(() => {
 .knowledge-side-panel h3 { color: #0a2547; font-size: 16px; }
 .knowledge-side-panel header p { margin-top: 4px; color: #71849e; font-size: 12px; }
 
-.failure-task { padding: 15px 18px; border-bottom: 1px solid #edf2f7; }
+.failure-task { padding: 15px 0; border-bottom: 1px solid #edf2f7; }
 .failure-task:last-of-type { border-bottom: 0; }
 .failure-task-title { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; }
 .failure-task-title > span { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; color: #d94b4b; background: #fff0f0; }
@@ -860,18 +828,6 @@ onBeforeUnmount(() => {
 .failure-task > p { overflow: hidden; margin: 10px 0 6px; color: #bd3e3e; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 .failure-task-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .failure-task-meta > span { overflow: hidden; color: #8b99aa; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
-
-.knowledge-hero h2 {
-  margin: 4px 0 8px;
-  font-size: 28px;
-}
-
-.hero-kicker {
-  color: #2f75ff;
-  font-size: 11px;
-  font-weight: 850;
-  letter-spacing: 0.12em;
-}
 
 .knowledge-name {
   display: grid;
@@ -1002,3 +958,5 @@ onBeforeUnmount(() => {
   .knowledge-content-grid { grid-template-columns: 1fr; }
 }
 </style>
+
+<style scoped src="../../assets/management-page.css"></style>

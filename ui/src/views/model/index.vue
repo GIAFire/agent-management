@@ -399,15 +399,6 @@ const search = () => {
   loadPage()
 }
 
-const resetQuery = () => {
-  Object.assign(query, {
-    current: 1,
-    keyword: '',
-    status: ''
-  })
-  loadPage()
-}
-
 const protocolLabel = (value) => (
   protocols.find((item) => item.value === value)?.label || value || '--'
 )
@@ -443,10 +434,10 @@ onMounted(loadDashboard)
 </script>
 
 <template>
-  <section v-loading="loading" class="model-page">
-    <div class="metric-grid">
-      <article v-for="item in metricCards" :key="item.label" class="metric-card">
-        <span class="metric-icon" :class="item.tone">
+  <section v-loading="loading" class="model-page management-page">
+    <div class="metric-grid management-metrics">
+      <article v-for="item in metricCards" :key="item.label" class="metric-card management-metric-card">
+        <span class="metric-icon management-metric-icon" :class="item.tone">
           <el-icon><component :is="item.icon" /></el-icon>
         </span>
         <div>
@@ -457,14 +448,14 @@ onMounted(loadDashboard)
       </article>
     </div>
 
-    <div class="content-grid">
-      <main class="list-panel">
-        <div class="panel-title">
+    <div class="content-grid management-content-grid">
+      <main class="list-panel management-panel">
+        <div class="panel-title management-panel-title">
           <div>
             <h3>模型配置</h3>
             <p>共 {{ total }} 条配置，仅管理聊天与文本生成模型</p>
           </div>
-          <div class="filter-bar">
+          <div class="filter-bar management-filter-bar">
             <el-input
               v-model="query.keyword"
               clearable
@@ -477,7 +468,7 @@ onMounted(loadDashboard)
               <el-option label="已启用" :value="1" />
               <el-option label="已停用" :value="0" />
             </el-select>
-            <el-button @click="resetQuery">重置</el-button>
+            <el-button :icon="Refresh" @click="loadDashboard">刷新</el-button>
             <el-button :icon="Plus" type="primary" @click="openCreate">新建模型配置</el-button>
           </div>
         </div>
@@ -546,7 +537,7 @@ onMounted(loadDashboard)
         <el-pagination
           v-model:current-page="query.current"
           v-model:page-size="query.size"
-          class="pagination"
+          class="pagination management-pagination"
           layout="total, prev, pager, next, sizes"
           :page-sizes="[6, 12, 24, 48]"
           :total="total"
@@ -555,8 +546,8 @@ onMounted(loadDashboard)
         />
       </main>
 
-      <aside class="analytics-column">
-        <section class="analytics-card trend-card">
+      <aside class="analytics-column management-side-column">
+        <section class="analytics-card trend-card management-side-card">
           <header>
             <div>
               <h3>调用趋势</h3>
@@ -592,7 +583,7 @@ onMounted(loadDashboard)
           </div>
         </section>
 
-        <section class="analytics-card provider-card">
+        <section class="analytics-card provider-card management-side-card">
           <header>
             <div>
               <h3>供应商分布</h3>
@@ -945,7 +936,7 @@ p {
 
 .model-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1313,3 +1304,5 @@ p {
   }
 }
 </style>
+
+<style scoped src="../../assets/management-page.css"></style>

@@ -22,13 +22,21 @@ export const adminRoutes = [
             path: 'manage',
             name: 'AgentManage',
             component: () => import('@/views/agent/index.vue'),
-            meta: { title: '智能体', icon: 'Cpu' }
+            meta: {
+              title: '智能体',
+              icon: 'Cpu',
+              description: '统一配置模型、提示词和可调用能力，查看真实运行表现。'
+            }
           },
           {
             path: 'subagent',
             name: 'SubagentManage',
             component: () => import('@/views/subagent/index.vue'),
-            meta: { title: '子智能体', icon: 'Connection', section: 'SUBAGENTS' }
+            meta: {
+              title: '子智能体',
+              icon: 'Connection',
+              description: '集中管理可被智能体委派工作的可复用能力，监控协作状态与执行表现。'
+            }
           },
           {
             path: 'chat/:agentId',
@@ -50,7 +58,11 @@ export const adminRoutes = [
             path: 'knowledge',
             name: 'KnowledgeManage',
             component: () => import('@/views/knowledge/index.vue'),
-            meta: { title: '知识库', icon: 'Collection', section: 'KNOWLEDGE & RAG' }
+            meta: {
+              title: '知识库',
+              icon: 'Collection',
+              description: '配置独立的 Embedding 模型，管理可供智能体检索的租户知识。'
+            }
           },
           {
             path: 'knowledge/:knowledgeBaseId/documents',
@@ -62,13 +74,21 @@ export const adminRoutes = [
             path: 'tool',
             name: 'ToolManage',
             component: () => import('@/views/tool/index.vue'),
-            meta: { title: '工具管理', icon: 'Tools', section: 'TOOLS & SKILLS' }
+            meta: {
+              title: '工具管理',
+              icon: 'Tools',
+              description: '集中管理智能体可调用的工具、工具分组与权限策略，安全扩展智能体执行能力。'
+            }
           },
           {
             path: 'skill',
             name: 'SkillManage',
             component: () => import('@/views/skill/index.vue'),
-            meta: { title: '技能管理', icon: 'MagicStick', section: 'TOOLS & SKILLS' }
+            meta: {
+              title: '技能管理',
+              icon: 'MagicStick',
+              description: '集中维护技能指令、资源文件、角色范围与智能体绑定后的真实使用情况。'
+            }
           },
           {
             path: 'skill-package',

@@ -220,15 +220,13 @@ const formatDateTime = value => value ? String(value).replace('T', ' ') : '--'
 const modelLabel = row => {
   if (!row?.modelId) return '未绑定模型'
   return [
-    row.modelConfigName,
     row.providerName,
-    row.protocol,
     row.modelName
   ].filter(Boolean).join(' · ')
 }
 
 const successText = row => (
-  row.todaySuccessRate == null ? '暂无已结束运行' : `成功率 ${row.todaySuccessRate}%`
+  row.todaySuccessRate == null ? '暂无运行' : `成功率 ${row.todaySuccessRate}%`
 )
 
 const loadMetrics = async () => {
@@ -530,22 +528,10 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="agent-page">
-    <header class="page-hero">
-      <div>
-        <span class="eyebrow">AGENT MANAGEMENT</span>
-        <h2>智能体</h2>
-        <p>统一配置模型、提示词和可调用能力，查看真实运行表现。</p>
-      </div>
-      <div class="hero-actions">
-        <el-button :icon="Refresh" circle @click="loadPage" />
-        <el-button type="primary" :icon="Plus" @click="handleCreate">新建智能体</el-button>
-      </div>
-    </header>
-
-    <div class="metric-grid">
-      <article v-for="item in metricCards" :key="item.label" class="metric-card">
-        <span class="metric-icon" :class="item.tone">
+  <section class="agent-page management-page">
+    <div class="metric-grid management-metrics">
+      <article v-for="item in metricCards" :key="item.label" class="metric-card management-metric-card">
+        <span class="metric-icon management-metric-icon" :class="item.tone">
           <el-icon><component :is="item.icon" /></el-icon>
         </span>
         <div>
@@ -556,14 +542,14 @@ onMounted(async () => {
       </article>
     </div>
 
-    <div class="agent-content-grid">
-    <article class="list-panel">
-      <header class="list-toolbar">
+    <div class="agent-content-grid management-content-grid">
+    <article class="list-panel management-panel">
+      <header class="list-toolbar management-panel-title">
         <div>
           <h3>智能体列表</h3>
           <p>共 {{ formatNumber(total) }} 个智能体</p>
         </div>
-        <div class="toolbar-actions">
+        <div class="toolbar-actions management-filter-bar">
           <el-input
             v-model="query.keyword"
             clearable
@@ -572,7 +558,6 @@ onMounted(async () => {
             @keyup.enter="search"
             @clear="search"
           />
-          <el-button @click="search">查询</el-button>
           <div class="view-switch">
             <button :class="{ active: viewMode === 'grid' }" @click="viewMode = 'grid'">
               <el-icon><MagicStick /></el-icon>
@@ -581,6 +566,8 @@ onMounted(async () => {
               <el-icon><Menu /></el-icon>
             </button>
           </div>
+          <el-button :icon="Refresh" @click="loadPage">刷新</el-button>
+          <el-button type="primary" :icon="Plus" @click="handleCreate">新建智能体</el-button>
         </div>
       </header>
 
@@ -626,6 +613,7 @@ onMounted(async () => {
       <el-pagination
         v-model:current-page="query.current"
         v-model:page-size="query.size"
+        class="management-pagination"
         background
         layout="total, prev, pager, next"
         :total="total"
@@ -633,8 +621,8 @@ onMounted(async () => {
       />
     </article>
 
-    <aside class="agent-side-column">
-      <section class="side-panel">
+    <aside class="agent-side-column management-side-column">
+      <section class="side-panel management-side-card">
         <header><div><h3>近期完成</h3><p>最近成功或取消的运行</p></div></header>
         <button
           v-for="run in recentRuns.completed"
@@ -652,7 +640,7 @@ onMounted(async () => {
         <el-empty v-if="!recentRuns.completed?.length" description="暂无近期完成记录" :image-size="58" />
       </section>
 
-      <section class="side-panel">
+      <section class="side-panel management-side-card">
         <header><div><h3>近期失败</h3><p>需要关注的运行异常</p></div></header>
         <button
           v-for="run in recentRuns.failed"
@@ -1010,16 +998,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.agent-page {
-  min-height: 100%;
-  padding: 24px;
-  color: #182230;
-  background:
-    radial-gradient(circle at 92% 0%, rgba(80, 109, 255, 0.08), transparent 27%),
-    #f5f7fb;
-}
-
-.page-hero,
 .list-toolbar,
 .agent-card header,
 .agent-card footer,
@@ -1034,34 +1012,11 @@ onMounted(async () => {
   align-items: center;
 }
 
-.page-hero {
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.eyebrow {
-  color: #60708a;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-}
-
-.page-hero h2 {
-  margin: 5px 0 3px;
-  font-size: 30px;
-}
-
-.page-hero p,
 .list-toolbar p,
 .section-heading p,
 .store-note {
   margin: 0;
   color: #758197;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 10px;
 }
 
 .metric-grid {
@@ -1230,7 +1185,7 @@ onMounted(async () => {
 .agent-grid {
   display: grid;
   min-height: 210px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1591,9 +1546,6 @@ onMounted(async () => {
 }
 
 @media (max-width: 760px) {
-  .agent-page { padding: 14px; }
-  .page-hero,
-  .list-toolbar { align-items: flex-start; flex-direction: column; }
   .metric-grid,
   .agent-grid,
   .agent-side-column,
@@ -1601,8 +1553,8 @@ onMounted(async () => {
   .knowledge-grid,
   .advanced-grid,
   .form-grid { grid-template-columns: 1fr; }
-  .toolbar-actions { width: 100%; flex-wrap: wrap; }
-  .toolbar-actions .el-input { width: 100%; }
   .form-grid .full { grid-column: auto; }
 }
 </style>
+
+<style scoped src="../../assets/management-page.css"></style>

@@ -446,35 +446,28 @@ onMounted(loadDashboard)
 </script>
 
 <template>
-  <section v-loading="loading" class="tool-console">
-    <div class="tool-hero">
-      <div>
-        <h2>工具</h2>
-        <p>集中管理 Agent 可调用的工具、工具分组与权限策略，安全扩展智能体执行能力。</p>
-      </div>
-    </div>
-
-    <div class="tool-metrics">
-      <article v-for="item in metrics" :key="item.label" class="tool-metric">
-        <span class="metric-icon" :class="item.tone">
+  <section v-loading="loading" class="tool-console management-page">
+    <div class="tool-metrics management-metrics">
+      <article v-for="item in metrics" :key="item.label" class="tool-metric management-metric-card">
+        <div class="metric-icon management-metric-icon" :class="item.tone">
           <el-icon><component :is="item.icon" /></el-icon>
-        </span>
+        </div>
         <div>
-          <span>{{ item.label }}</span>
+          <small>{{ item.label }}</small>
           <strong>{{ item.value }}</strong>
-          <small :class="{ positive: item.positive, danger: item.danger }">{{ item.sub }}</small>
+          <p :class="{ positive: item.positive, danger: item.danger }">{{ item.sub }}</p>
         </div>
       </article>
     </div>
 
-    <div class="tool-dashboard">
-      <section class="tool-library-panel">
-        <div class="panel-head">
+    <div class="tool-dashboard management-content-grid">
+      <section class="tool-library-panel management-panel">
+        <div class="panel-head management-panel-title">
           <div>
             <h3>工具列表</h3>
             <p>共 {{ filteredTools.length }} 个工具</p>
           </div>
-          <div class="tool-filter-bar">
+          <div class="tool-filter-bar management-filter-bar">
             <el-input
               v-model="queryParams.keyword"
               clearable
@@ -552,6 +545,7 @@ onMounted(loadDashboard)
           <el-pagination
             v-model:current-page="pagination.currentPage"
             v-model:page-size="pagination.pageSize"
+            class="management-pagination"
             background
             layout="prev, pager, next, sizes"
             :page-sizes="[6, 12, 24]"
@@ -560,8 +554,8 @@ onMounted(loadDashboard)
         </div>
       </section>
 
-      <aside class="tool-side">
-        <section class="side-panel">
+      <aside class="tool-side management-side-column">
+        <section class="side-panel management-side-card">
           <div class="side-head">
             <h3>最近更新的权限规则</h3>
             <el-button link type="primary" @click="openPermissionDialog">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
@@ -578,7 +572,7 @@ onMounted(loadDashboard)
           </div>
         </section>
 
-        <section class="side-panel">
+        <section class="side-panel management-side-card">
           <div class="side-head">
             <h3>最近失败调用</h3>
             <el-button link type="primary" @click="openToolCalls(null, 'FAILED')">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
@@ -706,40 +700,6 @@ onMounted(loadDashboard)
 </template>
 
 <style scoped>
-.tool-console {
-  display: grid;
-  min-height: calc(100vh - 115px);
-  grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 18px;
-  padding-bottom: 28px;
-}
-
-.tool-hero {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 20px;
-}
-
-.tool-hero h2 {
-  margin: 14px 0 8px;
-  color: #071f40;
-  font-size: 34px;
-  font-weight: 850;
-  letter-spacing: 0;
-}
-
-.tool-hero p {
-  margin: 0;
-  color: #526b87;
-}
-
-.hero-actions {
-  display: flex;
-  flex: 0 0 auto;
-  gap: 10px;
-}
-
 .tool-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1344,36 +1304,11 @@ onMounted(loadDashboard)
     grid-template-rows: none;
   }
 
-  .panel-head {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .tool-filter-bar {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
 }
 
 @media (max-width: 980px) {
-  .tool-hero {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .tool-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .tool-filter-bar {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .tool-filter-bar .el-input,
-  .tool-filter-bar .el-select,
-  .tool-filter-bar .el-button {
-    width: 100%;
   }
 
   .permission-change-list > div {
@@ -1382,10 +1317,6 @@ onMounted(loadDashboard)
 }
 
 @media (max-width: 640px) {
-  .tool-hero h2 {
-    font-size: 28px;
-  }
-
   .tool-metrics {
     grid-template-columns: 1fr;
   }
@@ -1435,3 +1366,5 @@ onMounted(loadDashboard)
   }
 }
 </style>
+
+<style scoped src="../../assets/management-page.css"></style>
