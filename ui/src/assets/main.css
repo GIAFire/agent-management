@@ -116,6 +116,7 @@
 
 .sidebar-nav-parent {
   width: 100%;
+  background: transparent;
   cursor: pointer;
   font: inherit;
   text-align: left;
