@@ -52,7 +52,7 @@ const queryParams = reactive({
 
 const pagination = reactive({
   currentPage: 1,
-  pageSize: 6
+  pageSize: 8
 })
 
 const permissionPagination = reactive({
@@ -468,11 +468,6 @@ onMounted(loadDashboard)
             <el-select v-model="queryParams.category" clearable placeholder="全部分类">
               <el-option v-for="type in toolTypeOptions" :key="type" :label="type" :value="type" />
             </el-select>
-            <el-select v-model="queryParams.status" clearable placeholder="全部状态">
-              <el-option label="正常" value="normal" />
-              <el-option label="受限" value="limited" />
-              <el-option label="停用" value="disabled" />
-            </el-select>
             <el-button :icon="Refresh" @click="loadDashboard">刷新</el-button>
           </div>
         </div>
@@ -497,9 +492,8 @@ onMounted(loadDashboard)
               <div class="tool-main">
                 <div class="tool-title-line">
                   <h4>{{ tool.toolName }}</h4>
-                  <span>{{ tool.toolType }}</span>
                 </div>
-                <p>{{ tool.toolNameExplain }}</p>
+                <p>{{ tool.description }}</p>
               </div>
             </header>
             <div class="tool-card-stats">
@@ -516,12 +510,6 @@ onMounted(loadDashboard)
                 <strong>{{ tool.avgLatency }}ms</strong>
               </div>
             </div>
-            <footer class="tool-card-actions">
-              <span class="risk-label" :class="riskClass(tool.riskLevel)">
-                <el-icon><Finished /></el-icon>
-                {{ riskLabel(tool.riskLevel) }}
-              </span>
-            </footer>
           </article>
         </div>
         <el-empty v-else description="暂无符合条件的工具" />
@@ -534,7 +522,7 @@ onMounted(loadDashboard)
             class="management-pagination"
             background
             layout="prev, pager, next, sizes"
-            :page-sizes="[6, 12, 24]"
+            :page-sizes="[8, 16, 32]"
             :total="currentTabTotal"
           />
         </div>
