@@ -564,6 +564,16 @@ onMounted(async () => {
   await loadPage()
   if (route.query.create === '1') {
     await handleCreate()
+  } else if (route.query.editAgentId) {
+    await handleEdit({ id: route.query.editAgentId })
+  } else if (route.query.runAgentId) {
+    await openRuns({
+      id: route.query.runAgentId,
+      agentName: route.query.runAgentName || '智能体'
+    })
+  }
+  if (route.query.create || route.query.editAgentId || route.query.runAgentId) {
+    await router.replace({ path: route.path, query: {} })
   }
 })
 </script>

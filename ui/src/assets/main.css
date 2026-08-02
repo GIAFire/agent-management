@@ -452,6 +452,10 @@
   margin-bottom: 16px;
 }
 
+.overview-error {
+  margin-bottom: 16px;
+}
+
 .agent-stats {
   margin-bottom: 0;
 }
@@ -587,6 +591,18 @@
   font-size: 12px;
 }
 
+.trend-controls {
+  display: flex;
+  max-width: 100%;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.trend-controls .el-date-editor {
+  width: 250px;
+}
+
 .chart-legend {
   display: flex;
   gap: 18px;
@@ -710,6 +726,21 @@
   border-bottom: 1px solid #e3edf8;
 }
 
+.flow-row-button {
+  width: 100%;
+  padding: 0;
+  border-top: 0;
+  border-right: 0;
+  border-left: 0;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.flow-row-button:hover {
+  background: #f7faff;
+}
+
 .flow-row strong,
 .quick-row strong {
   overflow: hidden;
@@ -744,9 +775,23 @@
   background: #ef6673;
 }
 
+.flow-dot.cancelled {
+  background: #9aaac0;
+}
+
 .flow-row em.danger {
   color: #e64f5b;
   background: #fff0f2;
+}
+
+.flow-row em.running {
+  color: #087f99;
+  background: #e8fbff;
+}
+
+.flow-row em.cancelled {
+  color: #65778e;
+  background: #eef2f7;
 }
 
 .quick-row {
@@ -759,7 +804,10 @@
 
 .quick-row small {
   display: block;
+  overflow: hidden;
   margin-top: 3px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .round-action {
@@ -2576,6 +2624,16 @@
   .page-hero {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .trend-controls {
+    width: 100%;
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .trend-controls .el-date-editor {
+    width: 100%;
   }
 
   .stats-grid,
