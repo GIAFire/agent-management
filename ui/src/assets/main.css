@@ -19,6 +19,47 @@
   border-right: 1px solid #dbe7f7;
   background: rgba(255, 255, 255, 0.88);
   backdrop-filter: blur(18px);
+  transition: width 0.2s ease, flex-basis 0.2s ease;
+}
+
+.sidebar-container.is-collapsed {
+  width: 64px;
+  flex-basis: 64px;
+}
+
+.sidebar-container.is-collapsed .sidebar-logo {
+  justify-content: center;
+  padding: 0;
+}
+
+.sidebar-container.is-collapsed .sidebar-logo strong,
+.sidebar-container.is-collapsed .sidebar-nav-item > span,
+.sidebar-container.is-collapsed .sidebar-group-arrow {
+  display: none;
+}
+
+.sidebar-container.is-collapsed .sidebar-nav {
+  padding-right: 9px;
+  padding-left: 9px;
+}
+
+.sidebar-container.is-collapsed .sidebar-nav-item {
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+}
+
+.sidebar-container.is-collapsed .sidebar-sub-nav {
+  display: none;
+}
+
+.sidebar-container.is-collapsed .sidebar-footer {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.sidebar-container.is-collapsed .collapse-button {
+  justify-self: center;
 }
 
 .sidebar-logo {
@@ -195,6 +236,9 @@
 }
 
 .collapse-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   justify-self: end;
   width: 34px;
   height: 34px;
@@ -203,7 +247,7 @@
   color: #22527e;
   background: #ffffff;
   cursor: pointer;
-  font-size: 24px;
+  font-size: 18px;
   line-height: 1;
 }
 
@@ -2801,6 +2845,39 @@
     min-height: auto;
     border-right: 0;
     border-bottom: 1px solid #dbe7f7;
+  }
+
+  .sidebar-container.is-collapsed {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .sidebar-container.is-collapsed .sidebar-logo {
+    justify-content: flex-start;
+    padding: 0 16px;
+  }
+
+  .sidebar-container.is-collapsed .sidebar-logo strong,
+  .sidebar-container.is-collapsed .sidebar-nav-item > span {
+    display: inline;
+  }
+
+  .sidebar-container.is-collapsed .sidebar-nav {
+    padding: 10px 14px;
+  }
+
+  .sidebar-container.is-collapsed .sidebar-nav-item {
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 14px;
+  }
+
+  .sidebar-container.is-collapsed .sidebar-group-arrow {
+    display: block;
+  }
+
+  .sidebar-container.is-collapsed .sidebar-sub-nav {
+    display: grid;
   }
 
   .sidebar-nav {

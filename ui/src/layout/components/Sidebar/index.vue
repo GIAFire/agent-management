@@ -7,6 +7,8 @@ import {
   ChatLineSquare,
   Connection,
   Collection,
+  Expand,
+  Fold,
   Grid,
   MagicStick,
   Operation,
@@ -15,6 +17,19 @@ import {
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
+const SIDEBAR_COLLAPSED_KEY = 'agentScope:sidebar-collapsed'
+
+const readCollapsedPreference = () => {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    return window.localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
 
 const navItems = [
   { title: '总览', path: '/overview', icon: Grid },
@@ -40,6 +55,21 @@ const navItems = [
 
 const activePath = computed(() => route.meta.activeMenu || route.path)
 const openGroups = ref(new Set())
+const isCollapsed = ref(readCollapsedPreference())
+
+const setCollapsed = (collapsed) => {
+  isCollapsed.value = collapsed
+
+  try {
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(collapsed))
+  } catch {
+    // The sidebar still works when browser storage is unavailable.
+  }
+}
+
+const toggleSidebar = () => {
+  setCollapsed(!isCollapsed.value)
+}
 
 const isActive = (item) => {
   const matches = item.match || [item.path]
@@ -50,6 +80,13 @@ const isOpen = (item) => openGroups.value.has(item.path)
 
 const toggleGroup = (item) => {
   const next = new Set(openGroups.value)
+  if (isCollapsed.value) {
+    next.add(item.path)
+    openGroups.value = next
+    setCollapsed(false)
+    return
+  }
+
   if (next.has(item.path)) {
     next.delete(item.path)
   } else {
@@ -72,8 +109,13 @@ watch(
 </script>
 
 <template>
-  <aside class="sidebar-container">
-    <RouterLink class="sidebar-logo" to="/overview">
+  <aside class="sidebar-container" :class="{ 'is-collapsed': isCollapsed }">
+    <RouterLink
+      class="sidebar-logo"
+      to="/overview"
+      :aria-label="isCollapsed ? 'AgentOS 总览' : undefined"
+      :title="isCollapsed ? 'AgentOS 总览' : undefined"
+    >
       <div class="logo-symbol" aria-hidden="true">
         <span />
         <span />
@@ -89,7 +131,9 @@ watch(
             class="sidebar-nav-item sidebar-nav-parent"
             :class="{ active: isActive(item) }"
             type="button"
-            :aria-expanded="isOpen(item)"
+            :aria-expanded="!isCollapsed && isOpen(item)"
+            :aria-label="isCollapsed ? item.title : undefined"
+            :title="isCollapsed ? item.title : undefined"
             @click="toggleGroup(item)"
           >
             <el-icon>
@@ -115,6 +159,8 @@ watch(
           class="sidebar-nav-item"
           :class="{ active: isActive(item) }"
           :to="item.path"
+          :aria-label="isCollapsed ? item.title : undefined"
+          :title="isCollapsed ? item.title : undefined"
         >
           <el-icon>
             <component :is="item.icon" />
@@ -125,12 +171,17 @@ watch(
     </nav>
 
     <div class="sidebar-footer">
-      <div class="status-pill">
-        <span />
-        全部服务运行正常
-      </div>
-      <button class="collapse-button" type="button" aria-label="收起侧栏">
-        &lt;&lt;
+      <button
+        class="collapse-button"
+        type="button"
+        :aria-label="isCollapsed ? '展开侧栏' : '收起侧栏'"
+        :title="isCollapsed ? '展开侧栏' : '收起侧栏'"
+        @click="toggleSidebar"
+      >
+        <el-icon>
+          <Expand v-if="isCollapsed" />
+          <Fold v-else />
+        </el-icon>
       </button>
     </div>
   </aside>
