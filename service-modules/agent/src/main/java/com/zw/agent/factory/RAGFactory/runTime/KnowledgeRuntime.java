@@ -1,5 +1,6 @@
 package com.zw.agent.factory.RAGFactory.runTime;
 
+import com.zw.agent.factory.RAGFactory.vector.VectorStoreSession;
 import io.agentscope.core.rag.knowledge.SimpleKnowledge;
 import io.agentscope.core.rag.model.RetrieveConfig;
 import lombok.AllArgsConstructor;
@@ -17,6 +18,7 @@ public class KnowledgeRuntime implements AutoCloseable {
     private int resultLimit;
     private SimpleKnowledge knowledge;
     private RetrieveConfig retrieveConfig;
+    private VectorStoreSession vectorStoreSession;
 
     @Override
     public void close() {
@@ -24,7 +26,11 @@ public class KnowledgeRuntime implements AutoCloseable {
             return;
         }
         closeIfNeeded(knowledge.getEmbeddingModel());
-        closeIfNeeded(knowledge.getEmbeddingStore());
+        if (vectorStoreSession != null) {
+            vectorStoreSession.close();
+        } else {
+            closeIfNeeded(knowledge.getEmbeddingStore());
+        }
     }
 
     private static void closeIfNeeded(Object resource) {

@@ -123,7 +123,7 @@ const canSubmitIndex = (row) => {
   const status = String(row?.parseStatus || '').toUpperCase()
   return (
     isKnowledgeBaseActive.value &&
-    ['UPLOADED', 'FAILED'].includes(status)
+    ['UPLOADED', 'FAILED', 'READY'].includes(status)
   )
 }
 
@@ -314,7 +314,7 @@ const decodeDelimiterInput = (rawValue) => {
 
 const openIndexDialog = async (row) => {
   if (!canSubmitIndex(row)) {
-    ElMessage.warning('仅已上传或处理失败的文档可以提交切片入库')
+    ElMessage.warning('仅已上传、已就绪或处理失败的文档可以提交切片入库')
     return
   }
   indexDocument.value = row
@@ -638,7 +638,7 @@ watch(knowledgeBaseId, async (nextKnowledgeBaseId, previousKnowledgeBaseId) => {
               :disabled="!canSubmitIndex(row)"
               @click="openIndexDialog(row)"
             >
-              切片入库
+              {{ String(row.parseStatus).toUpperCase() === 'READY' ? '重新入库' : '切片入库' }}
             </el-button>
             <el-button
               link

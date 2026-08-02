@@ -1,6 +1,7 @@
 package com.zw.agent.factory.toolkitFactory;
 
 import com.zw.agent.entity.DTO.AgentBindToolDTO;
+import com.zw.agent.factory.RAGFactory.VectorStoreFactory;
 import com.zw.agent.factory.RAGFactory.runTime.KnowledgeRuntimeFactory;
 import com.zw.agent.mapper.AiKnowledgeChunkMapper;
 import com.zw.agent.service.AiAgentToolService;
@@ -31,6 +32,7 @@ public class TenantToolkitFactory {
     private final ApplicationContext applicationContext;
     private final KnowledgeRuntimeFactory knowledgeRuntimeFactory;
     private final AiKnowledgeChunkMapper knowledgeChunkMapper;
+    private final VectorStoreFactory vectorStoreFactory;
 
     public Toolkit buildToolkit(Long agentId, Long agentConfigId, UserInfo userInfo) {
         Toolkit toolkit = new Toolkit();
@@ -40,16 +42,22 @@ public class TenantToolkitFactory {
                 agentConfigId,
                 userInfo.getTenantId()
         );
-        toolkit.registerTool(
-                new AgentKnowledgeSearchTool(
-                        agentId,
-                        agentConfigId,
-                        userInfo.getTenantId(),
-                        knowledgeBaseService,
-                        knowledgeRuntimeFactory,
-                        knowledgeChunkMapper
-                )
-        );
+        if (vectorStoreFactory.isConfigured()) {
+            toolkit.registerTool(
+                    new AgentKnowledgeSearchTool(
+                            agentId,
+                            agentConfigId,
+                            userInfo.getTenantId(),
+                            knowledgeBaseService,
+                            knowledgeRuntimeFactory,
+                            knowledgeChunkMapper
+                    )
+            );
+        } else {
+            log.warn(
+                    "Knowledge search tool is not registered because vector store is not configured"
+            );
+        }
 
         Set<String> registeredClasses = new LinkedHashSet<>();
         for (AgentBindToolDTO toolInfo : toolList) {

@@ -100,7 +100,7 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
     private String providerMetaJson;
 
     /**
-     * 后端类型:如openai、百炼、RAGFlow、Dify
+     * 创建知识库时使用的全局向量存储类型，仅用于诊断，不参与路由。
      */
     @TableField("backend_store_type")
     private String backendStoreType;
@@ -149,7 +149,7 @@ public class AiKnowledgeBaseEntity extends BaseEntity {
     private Integer embeddingDimension;
 
     /**
-     * 距离度量：COSINE/IP/L2/BM25/HYBRID
+     * 距离度量，当前固定为 COSINE。
      */
     @TableField("metric_type")
     private String metricType;

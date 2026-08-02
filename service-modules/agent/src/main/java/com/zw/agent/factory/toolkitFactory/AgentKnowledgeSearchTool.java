@@ -22,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
@@ -87,7 +88,7 @@ public final class AgentKnowledgeSearchTool {
             return "当前智能体没有绑定可用的知识库。";
         }
 
-        List<KnowledgeHit> hits = Flux.fromIterable(knowledgeBases)
+        List<KnowledgeRetrieval> retrievals = Flux.fromIterable(knowledgeBases)
                 .flatMapSequential(
                         knowledgeBase -> retrieveKnowledgeBase(
                                 knowledgeBase,
@@ -98,23 +99,39 @@ public final class AgentKnowledgeSearchTool {
                 .collectList()
                 .block();
 
+        List<KnowledgeRetrieval> completed = retrievals == null
+                ? List.of()
+                : retrievals;
+        boolean anySucceeded = completed.stream()
+                .anyMatch(KnowledgeRetrieval::successful);
+        if (!anySucceeded) {
+            return "知识检索服务暂不可用，请稍后重试。";
+        }
+        List<KnowledgeHit> hits = completed.stream()
+                .filter(KnowledgeRetrieval::successful)
+                .flatMap(result -> result.hits().stream())
+                .toList();
+
         List<KnowledgeHit> finalHits = mergeRoundRobin(
-                hits == null ? List.of() : hits,
+                hits,
                 normalizeLimit(limit, knowledgeBases)
         );
         return formatResult(finalHits);
     }
 
-    private Flux<KnowledgeHit> retrieveKnowledgeBase(
+    private Mono<KnowledgeRetrieval> retrieveKnowledgeBase(
             AiKnowledgeBaseEntity knowledgeBase,
             String query
     ) {
-        return Flux.using(
+        return Mono.using(
                         () -> runtimeFactory.create(knowledgeBase),
                         runtime -> runtime.getKnowledge()
                                 .retrieve(query, runtime.getRetrieveConfig())
-                                .map(documents -> readyHits(runtime, documents))
-                                .flatMapMany(Flux::fromIterable),
+                                .map(
+                                        documents -> KnowledgeRetrieval.success(
+                                                readyHits(runtime, documents)
+                                        )
+                                ),
                         KnowledgeRuntime::close
                 )
                 .subscribeOn(Schedulers.boundedElastic())
@@ -125,7 +142,7 @@ public final class AgentKnowledgeSearchTool {
                             knowledgeBase.getId(),
                             error.getClass().getSimpleName()
                     );
-                    return Flux.empty();
+                    return Mono.just(KnowledgeRetrieval.failed());
                 });
     }
 
@@ -138,9 +155,7 @@ public final class AgentKnowledgeSearchTool {
         if (rawScore == null) {
             return null;
         }
-        double similarity = "L2".equalsIgnoreCase(runtime.getMetricType())
-                ? 1D / (1D + Math.max(0D, rawScore))
-                : rawScore;
+        double similarity = rawScore;
         if (similarity < runtime.getScoreThreshold()) {
             return null;
         }
@@ -305,5 +320,19 @@ public final class AgentKnowledgeSearchTool {
             Double score,
             String content
     ) {
+    }
+
+    private record KnowledgeRetrieval(
+            boolean successful,
+            List<KnowledgeHit> hits
+    ) {
+
+        private static KnowledgeRetrieval success(List<KnowledgeHit> hits) {
+            return new KnowledgeRetrieval(true, hits);
+        }
+
+        private static KnowledgeRetrieval failed() {
+            return new KnowledgeRetrieval(false, List.of());
+        }
     }
 }

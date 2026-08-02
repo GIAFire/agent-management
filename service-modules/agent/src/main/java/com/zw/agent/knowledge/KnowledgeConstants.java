@@ -38,7 +38,7 @@ public final class KnowledgeConstants {
             Set.of("PDF", "DOC", "DOCX", "TXT", "MD");
 
     public static final Set<String> SUPPORTED_METRICS =
-            Set.of("COSINE", "IP", "L2");
+            Set.of("COSINE");
 
     private KnowledgeConstants() {
     }

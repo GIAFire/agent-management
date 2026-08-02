@@ -14,7 +14,8 @@ import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.zw.agent.entity.AiKnowledgeChunkEntity;
 import com.zw.agent.entity.AiKnowledgeDocumentEntity;
 import com.zw.agent.factory.RAGFactory.EmbeddingModelFactory;
-import com.zw.agent.factory.RAGFactory.MilvusStoreFactory;
+import com.zw.agent.factory.RAGFactory.VectorStoreFactory;
+import com.zw.agent.factory.RAGFactory.vector.VectorStoreSession;
 import com.zw.agent.knowledge.KnowledgeOperationException;
 import com.zw.agent.knowledge.processing.KnowledgeChunker.ChunkPiece;
 import com.zw.agent.knowledge.storage.KnowledgeSourceStorage;
@@ -30,7 +31,6 @@ import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.rag.knowledge.SimpleKnowledge;
 import io.agentscope.core.rag.model.Document;
 import io.agentscope.core.rag.model.DocumentMetadata;
-import io.agentscope.core.rag.store.MilvusStore;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -69,7 +69,7 @@ public class KnowledgeDocumentProcessingService {
     private final KnowledgeChunker chunker;
     private final KnowledgeSourceStorage sourceStorage;
     private final EmbeddingModelFactory embeddingModelFactory;
-    private final MilvusStoreFactory milvusStoreFactory;
+    private final VectorStoreFactory vectorStoreFactory;
     private final KnowledgeProperties properties;
     private final TransactionTemplate transactionTemplate;
 
@@ -177,8 +177,8 @@ public class KnowledgeDocumentProcessingService {
         chunkService.saveBatch(chunks, 500);
 
         heartbeat(document, workerId, DOCUMENT_EMBEDDING);
-        try (MilvusStore store = milvusStoreFactory.create(knowledgeBase)) {
-            store.delete(String.valueOf(document.getId()))
+        try (VectorStoreSession session = vectorStoreFactory.create(knowledgeBase)) {
+            session.deleteDocument(String.valueOf(document.getId()))
                     .block(Duration.ofMinutes(2));
 
             EmbeddingModel embeddingModel =
@@ -186,7 +186,7 @@ public class KnowledgeDocumentProcessingService {
             try {
                 SimpleKnowledge knowledge = SimpleKnowledge.builder()
                         .embeddingModel(embeddingModel)
-                        .embeddingStore(store)
+                        .embeddingStore(session.store())
                         .build();
                 int batchSize = Math.max(
                         1,
@@ -230,8 +230,8 @@ public class KnowledgeDocumentProcessingService {
                 requireKnowledgeBase(document.getKnowledgeBaseId());
 
         heartbeat(document, workerId, DOCUMENT_DELETING);
-        try (MilvusStore store = milvusStoreFactory.create(knowledgeBase)) {
-            store.delete(String.valueOf(document.getId()))
+        try (VectorStoreSession session = vectorStoreFactory.create(knowledgeBase)) {
+            session.deleteDocument(String.valueOf(document.getId()))
                     .block(Duration.ofMinutes(2));
         }
 
@@ -392,8 +392,8 @@ public class KnowledgeDocumentProcessingService {
             AiKnowledgeBaseEntity knowledgeBase =
                     knowledgeBaseService.getById(document.getKnowledgeBaseId());
             if (knowledgeBase != null) {
-                try (MilvusStore store = milvusStoreFactory.create(knowledgeBase)) {
-                    store.delete(String.valueOf(document.getId()))
+                try (VectorStoreSession session = vectorStoreFactory.create(knowledgeBase)) {
+                    session.deleteDocument(String.valueOf(document.getId()))
                             .block(Duration.ofMinutes(2));
                 }
             }

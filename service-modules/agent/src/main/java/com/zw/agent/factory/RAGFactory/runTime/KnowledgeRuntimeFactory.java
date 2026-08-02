@@ -2,12 +2,11 @@ package com.zw.agent.factory.RAGFactory.runTime;
 
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.zw.agent.factory.RAGFactory.EmbeddingModelFactory;
-import com.zw.agent.factory.RAGFactory.MilvusStoreFactory;
+import com.zw.agent.factory.RAGFactory.VectorStoreFactory;
+import com.zw.agent.factory.RAGFactory.vector.VectorStoreSession;
 import io.agentscope.core.embedding.EmbeddingModel;
 import io.agentscope.core.rag.knowledge.SimpleKnowledge;
 import io.agentscope.core.rag.model.RetrieveConfig;
-import io.agentscope.core.rag.store.MilvusStore;
-import io.agentscope.core.rag.store.VDBStoreBase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -16,13 +15,13 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class KnowledgeRuntimeFactory {
 
-    private final MilvusStoreFactory milvusStoreFactory;
+    private final VectorStoreFactory vectorStoreFactory;
     private final EmbeddingModelFactory embeddingModelFactory;
 
     public KnowledgeRuntime create(AiKnowledgeBaseEntity knowledgeBase) {
         validate(knowledgeBase);
-        VDBStoreBase milvusStore =
-                milvusStoreFactory.create(knowledgeBase);
+        VectorStoreSession vectorStoreSession =
+                vectorStoreFactory.create(knowledgeBase);
         try {
             EmbeddingModel embeddingModel =
                     embeddingModelFactory.create(knowledgeBase);
@@ -30,7 +29,7 @@ public class KnowledgeRuntimeFactory {
             SimpleKnowledge simpleKnowledge =
                     SimpleKnowledge.builder()
                             .embeddingModel(embeddingModel)
-                            .embeddingStore(milvusStore)
+                            .embeddingStore(vectorStoreSession.store())
                             .build();
 
             RetrieveConfig retrieveConfig =
@@ -57,9 +56,11 @@ public class KnowledgeRuntimeFactory {
                     ),
                     defaultValue(knowledgeBase.getTopK(), 5),
                     simpleKnowledge,
-                    retrieveConfig
+                    retrieveConfig,
+                    vectorStoreSession
             );
         } catch (RuntimeException error) {
+            vectorStoreSession.close();
             throw error;
         }
     }

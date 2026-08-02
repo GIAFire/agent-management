@@ -35,7 +35,8 @@ import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.zw.agent.entity.AiKnowledgeChunkEntity;
 import com.zw.agent.entity.AiKnowledgeDocumentEntity;
 import com.zw.agent.factory.RAGFactory.EmbeddingModelFactory;
-import com.zw.agent.factory.RAGFactory.MilvusStoreFactory;
+import com.zw.agent.factory.RAGFactory.VectorStoreFactory;
+import com.zw.agent.factory.RAGFactory.vector.VectorStoreSession;
 import com.zw.agent.constant.enumeration.ApiType;
 import com.zw.agent.knowledge.KnowledgeOperationException;
 import com.zw.agent.knowledge.dto.KnowledgeBaseCreateRequest;
@@ -63,7 +64,6 @@ import com.zw.common.context.UserInfo;
 import com.zw.common.support.EntityDefaults;
 import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.embedding.EmbeddingModel;
-import io.agentscope.core.rag.store.MilvusStore;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -96,7 +96,7 @@ public class KnowledgeManagementService {
     private final AiKnowledgeChunkMapper chunkMapper;
     private final AiKnowledgeDocumentMapper knowledgeDocumentMapper;
     private final EmbeddingModelFactory embeddingModelFactory;
-    private final MilvusStoreFactory milvusStoreFactory;
+    private final VectorStoreFactory vectorStoreFactory;
     private final KnowledgeUploadValidator uploadValidator;
     private final KnowledgeSourceStorage sourceStorage;
     private final TransactionTemplate transactionTemplate;
@@ -198,7 +198,7 @@ public class KnowledgeManagementService {
                 .setDescription(trimToNull(request.getDescription()))
                 .setRerankEnabled((byte) 0)
                 .setStatus(ENABLED)
-                .setBackendStoreType("MILVUS")
+                .setBackendStoreType(vectorStoreFactory.selectedTypeName())
                 .setApiType(ApiType.OPENAI)
                 .setModelUrl(request.getModelUrl().trim())
                 .setApiKey(request.getApiKey().trim())
@@ -213,7 +213,7 @@ public class KnowledgeManagementService {
         validateEmbeddingConnection(entity);
         boolean collectionCreated = false;
         try {
-            try (MilvusStore ignored = milvusStoreFactory.create(entity)) {
+            try (VectorStoreSession ignored = vectorStoreFactory.create(entity)) {
                 collectionCreated = true;
             }
             knowledgeBaseService.save(entity);
@@ -221,7 +221,7 @@ public class KnowledgeManagementService {
         } catch (RuntimeException error) {
             if (collectionCreated) {
                 try {
-                    milvusStoreFactory.dropCollection(entity);
+                    vectorStoreFactory.deleteCollection(entity);
                 } catch (RuntimeException cleanupError) {
                     error.addSuppressed(cleanupError);
                 }
@@ -351,7 +351,7 @@ public class KnowledgeManagementService {
             }
         }
         try {
-            milvusStoreFactory.dropCollection(deletion.knowledgeBase());
+            vectorStoreFactory.deleteCollection(deletion.knowledgeBase());
         } catch (RuntimeException error) {
             log.error(
                     "Failed to delete vector collection after database deletion, knowledgeBaseId={}",
@@ -462,9 +462,10 @@ public class KnowledgeManagementService {
                 requireDocumentForUpdate(documentId);
         ensureDocumentBelongsToKnowledgeBase(document, knowledgeBase.getId());
         if (!DOCUMENT_UPLOADED.equals(document.getParseStatus())
-                && !DOCUMENT_FAILED.equals(document.getParseStatus())) {
+                && !DOCUMENT_FAILED.equals(document.getParseStatus())
+                && !DOCUMENT_READY.equals(document.getParseStatus())) {
             throw new KnowledgeOperationException(
-                    "只有已上传或切片入库失败的文档可以重新提交"
+                    "只有已上传、已就绪或切片入库失败的文档可以重新提交"
             );
         }
         ChunkConfig config = validateChunkConfig(request);
@@ -905,7 +906,7 @@ public class KnowledgeManagementService {
                 : "COSINE";
         if (!SUPPORTED_METRICS.contains(metric)) {
             throw new KnowledgeOperationException(
-                    "距离度量只支持 COSINE、IP、L2"
+                    "距离度量只支持 COSINE"
             );
         }
         return metric;

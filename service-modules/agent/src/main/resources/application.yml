@@ -46,23 +46,31 @@ spring:
           #   password: root
 
 rag:
-  store:  # pgvector | milvus | qdrant | elasticsearch ，向量存储类型
+  store:
+    type: elasticsearch  # milvus | elasticsearch | pgvector | qdrant
+    collection-prefix: zhiran_rag
+    elasticsearch:
+      url: http://127.0.0.1:9200
+      username:
+      password:
+      disable-ssl-verification: false
     milvus:
       host: http://localhost:19530
-      username: root  # Milvus 用户名，自建部署留空
-      password:    # Milvus 密码，自建部署留空
-      token:          # Milvus SaaS 认证 token，与用户名/密码二选一
-      database: default  # 默认库名
-#    elasticsearch:
-#      uris: http://127.0.0.1:9200
-#      username:
-#      password:
-#      api-key:
-#      index-prefix: apboa_rag
-#      connect-timeout: 5000
-#      socket-timeout: 60000
-#    pgvector:
-#    qdrant:
+      database: default
+      username: root
+      password:
+      token:
+      connect-timeout: 10s
+    pgvector:
+      jdbc-url:
+      username:
+      password:
+      schema: public
+      connection-timeout: 30s
+    qdrant:
+      location:
+      api-key:
+      check-compatibility: true
 
 agent:
   skill:

@@ -73,9 +73,6 @@ const formRules = computed(() => ({
   embeddingDimension: [
     { required: true, message: '请输入向量维度', trigger: 'change' }
   ],
-  metricType: [
-    { required: true, message: '请选择度量方式', trigger: 'change' }
-  ],
   topK: [
     { required: true, message: '请输入 TopK', trigger: 'change' }
   ],
@@ -213,7 +210,7 @@ const buildPayload = () => {
   } else {
     payload.embeddingModelName = form.embeddingModelName.trim()
     payload.embeddingDimension = Number(form.embeddingDimension)
-    payload.metricType = form.metricType
+    payload.metricType = 'COSINE'
   }
   return payload
 }
@@ -487,12 +484,8 @@ onMounted(async () => {
               controls-position="right"
             />
           </el-form-item>
-          <el-form-item label="度量方式" prop="metricType">
-            <el-select v-model="form.metricType" :disabled="isEdit">
-              <el-option label="COSINE（推荐）" value="COSINE" />
-              <el-option label="IP" value="IP" />
-              <el-option label="L2" value="L2" />
-            </el-select>
+          <el-form-item label="度量方式">
+            <el-input model-value="COSINE" disabled />
           </el-form-item>
         </div>
 
