@@ -1,21 +1,17 @@
 package com.zw.agent.mapper;
 
-import com.zw.agent.entity.AiKnowledgeDocumentEntity;
+import com.baomidou.mybatisplus.annotation.InterceptorIgnore;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.zw.agent.entity.AiKnowledgeDocumentEntity;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
-/**
- * <p>
- * 知识库文档表：记录平台文档与外部RAG/向量库文档的映射关系 Mapper 接口
- * </p>
- *
- * @author 智纬
- * @since 2026-07-06
- */
 @Mapper
-public interface AiKnowledgeDocumentMapper extends BaseMapper<AiKnowledgeDocumentEntity> {
+public interface AiKnowledgeDocumentMapper
+        extends BaseMapper<AiKnowledgeDocumentEntity> {
 
     @Select("""
             SELECT *
@@ -26,5 +22,91 @@ public interface AiKnowledgeDocumentMapper extends BaseMapper<AiKnowledgeDocumen
             """)
     AiKnowledgeDocumentEntity selectByIdForUpdate(
             @Param("documentId") Long documentId
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    List<AiKnowledgeDocumentEntity> findPendingRecoveryCandidates(
+            @Param("limit") int limit
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int claimIndex(
+            @Param("documentId") Long documentId,
+            @Param("workerId") String workerId,
+            @Param("leaseUntil") LocalDateTime leaseUntil,
+            @Param("now") LocalDateTime now
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int claimDelete(
+            @Param("documentId") Long documentId,
+            @Param("workerId") String workerId,
+            @Param("leaseUntil") LocalDateTime leaseUntil,
+            @Param("now") LocalDateTime now
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    AiKnowledgeDocumentEntity selectWorkerDocument(
+            @Param("documentId") Long documentId
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    List<AiKnowledgeDocumentEntity> findExpiredRecoveryCandidates(
+            @Param("now") LocalDateTime now,
+            @Param("limit") int limit
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int reclaimExpired(
+            @Param("documentId") Long documentId,
+            @Param("workerId") String workerId,
+            @Param("leaseUntil") LocalDateTime leaseUntil,
+            @Param("now") LocalDateTime now
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int heartbeat(
+            @Param("documentId") Long documentId,
+            @Param("tenantId") Long tenantId,
+            @Param("workerId") String workerId,
+            @Param("parseStatus") String parseStatus,
+            @Param("leaseUntil") LocalDateTime leaseUntil,
+            @Param("now") LocalDateTime now
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int completeIndexOwned(
+            @Param("documentId") Long documentId,
+            @Param("tenantId") Long tenantId,
+            @Param("workerId") String workerId,
+            @Param("chunkCount") int chunkCount,
+            @Param("tokenCount") int tokenCount,
+            @Param("now") LocalDateTime now
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int completeDeleteOwned(
+            @Param("documentId") Long documentId,
+            @Param("tenantId") Long tenantId,
+            @Param("workerId") String workerId,
+            @Param("now") LocalDateTime now
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int failIndexOwned(
+            @Param("documentId") Long documentId,
+            @Param("tenantId") Long tenantId,
+            @Param("workerId") String workerId,
+            @Param("message") String message,
+            @Param("now") LocalDateTime now
+    );
+
+    @InterceptorIgnore(tenantLine = "true")
+    int failDeleteOwned(
+            @Param("documentId") Long documentId,
+            @Param("tenantId") Long tenantId,
+            @Param("workerId") String workerId,
+            @Param("message") String message,
+            @Param("now") LocalDateTime now
     );
 }

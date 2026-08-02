@@ -18,9 +18,7 @@ import {
   deleteKnowledgeBase,
   getKnowledgeBase,
   getKnowledgeMetrics,
-  listRecentKnowledgeFailures,
   listKnowledgeBases,
-  resubmitKnowledgeTask,
   updateKnowledgeBase
 } from '@/axios/knowledge'
 
@@ -33,7 +31,6 @@ const dialogMode = ref('create')
 const rows = ref([])
 const total = ref(0)
 const metrics = ref({})
-const recentFailures = ref([])
 const current = ref(1)
 const size = ref(8)
 const query = reactive({
@@ -117,18 +114,7 @@ const knowledgeMetricCards = computed(() => [
 ])
 
 const loadKnowledgeOverview = async () => {
-  const [metricResult, failureResult] = await Promise.all([
-    getKnowledgeMetrics(),
-    listRecentKnowledgeFailures(5)
-  ])
-  metrics.value = metricResult || {}
-  recentFailures.value = Array.isArray(failureResult) ? failureResult : []
-}
-
-const retryRecentFailure = async task => {
-  await resubmitKnowledgeTask(task.id)
-  ElMessage.success('任务已重新提交')
-  await loadKnowledgeOverview()
+  metrics.value = await getKnowledgeMetrics() || {}
 }
 
 const resetForm = () => {
@@ -259,7 +245,7 @@ const toggleStatus = async (row) => {
   const action = nextStatus === 1 ? '启用' : '停用'
   try {
     await ElMessageBox.confirm(
-      `${action}知识库“${row.knowledgeName}”吗？${nextStatus === 0 ? '停用后将停止上传、任务和检索。' : ''}`,
+      `${action}知识库“${row.knowledgeName}”吗？${nextStatus === 0 ? '停用后将停止上传、后台处理和检索。' : ''}`,
       `${action}确认`,
       {
         type: 'warning',
@@ -428,23 +414,6 @@ onMounted(async () => {
       />
     </main>
 
-    <aside class="knowledge-side-column management-side-column">
-      <section class="knowledge-side-panel management-side-card">
-        <header><div><h3>处理异常</h3><p>最近失败的知识任务</p></div></header>
-        <article v-for="task in recentFailures" :key="task.id" class="failure-task">
-          <div class="failure-task-title">
-            <span><el-icon><Document /></el-icon></span>
-            <div><b>{{ task.documentName || task.knowledgeBaseName }}</b><small>{{ task.knowledgeBaseName }}</small></div>
-          </div>
-          <p :title="task.errorMessage">{{ task.errorMessage || '任务执行失败' }}</p>
-          <div class="failure-task-meta">
-            <span>{{ task.stage || task.taskType }} · {{ task.finishedAt ? String(task.finishedAt).replace('T', ' ') : '-' }}</span>
-            <el-button v-if="task.retryable" link type="danger" @click="retryRecentFailure(task)">重新提交</el-button>
-          </div>
-        </article>
-        <el-empty v-if="!recentFailures.length" description="暂无处理异常" :image-size="64" />
-      </section>
-    </aside>
     </div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="720px" destroy-on-close>
@@ -581,44 +550,10 @@ onMounted(async () => {
 
 .knowledge-content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 18px;
 }
-
-.knowledge-main,
-.knowledge-side-column { min-width: 0; }
-.knowledge-main { display: grid; gap: 18px; }
-
-.knowledge-side-panel {
-  overflow: hidden;
-  border: 1px solid #dce8f5;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 10px 28px rgba(48, 94, 151, 0.06);
-}
-
-.knowledge-side-panel > header {
-  padding: 18px;
-  border-bottom: 1px solid #e8eff7;
-}
-
-.knowledge-side-panel h3,
-.knowledge-side-panel p { margin: 0; }
-.knowledge-side-panel h3 { color: #0a2547; font-size: 16px; }
-.knowledge-side-panel header p { margin-top: 4px; color: #71849e; font-size: 12px; }
-
-.failure-task { padding: 15px 0; border-bottom: 1px solid #edf2f7; }
-.failure-task:last-of-type { border-bottom: 0; }
-.failure-task-title { display: grid; grid-template-columns: 34px minmax(0, 1fr); align-items: center; gap: 10px; }
-.failure-task-title > span { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 10px; color: #d94b4b; background: #fff0f0; }
-.failure-task-title b,
-.failure-task-title small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.failure-task-title b { color: #17324d; font-size: 13px; }
-.failure-task-title small { margin-top: 3px; color: #8293a8; font-size: 11px; }
-.failure-task > p { overflow: hidden; margin: 10px 0 6px; color: #bd3e3e; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.failure-task-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.failure-task-meta > span { overflow: hidden; color: #8b99aa; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
 
 .knowledge-list {
   display: grid;

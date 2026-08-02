@@ -20,15 +20,8 @@ public final class KnowledgeConstants {
     public static final String DOCUMENT_READY = "READY";
     public static final String DOCUMENT_FAILED = "FAILED";
     public static final String DOCUMENT_DELETING = "DELETING";
+    public static final String DOCUMENT_DELETE_FAILED = "DELETE_FAILED";
     public static final String DOCUMENT_DELETED = "DELETED";
-
-    public static final String TASK_INDEX_DOCUMENT = "INDEX_DOCUMENT";
-    public static final String TASK_DELETE_DOCUMENT = "DELETE_DOCUMENT";
-
-    public static final String TASK_PENDING = "PENDING";
-    public static final String TASK_RUNNING = "RUNNING";
-    public static final String TASK_SUCCEEDED = "SUCCEEDED";
-    public static final String TASK_FAILED = "FAILED";
 
     public static final String CHUNK_CHARACTER = "CHARACTER";
     public static final String CHUNK_PARAGRAPH = "PARAGRAPH";

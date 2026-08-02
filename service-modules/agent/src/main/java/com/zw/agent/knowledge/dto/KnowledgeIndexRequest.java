@@ -3,7 +3,7 @@ package com.zw.agent.knowledge.dto;
 import lombok.Data;
 
 @Data
-public class KnowledgeIndexTaskRequest {
+public class KnowledgeIndexRequest {
 
     private String chunkStrategy;
 

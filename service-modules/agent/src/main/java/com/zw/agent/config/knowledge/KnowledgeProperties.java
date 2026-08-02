@@ -12,7 +12,7 @@ public class KnowledgeProperties {
 
     private Source source = new Source();
 
-    private Tasks tasks = new Tasks();
+    private Processing processing = new Processing();
 
     @Data
     public static class Source {
@@ -23,15 +23,17 @@ public class KnowledgeProperties {
     }
 
     @Data
-    public static class Tasks {
+    public static class Processing {
 
-        private Duration pollInterval = Duration.ofSeconds(2);
+        private boolean enabled = true;
 
         private Duration leaseDuration = Duration.ofMinutes(30);
 
         private int concurrency = 2;
 
-        private int claimBatchSize = 4;
+        private int queueCapacity = 20;
+
+        private int recoveryBatchSize = 4;
 
         private int embeddingBatchSize = 20;
     }

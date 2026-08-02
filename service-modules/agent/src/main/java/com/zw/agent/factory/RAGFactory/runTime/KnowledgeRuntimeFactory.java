@@ -7,6 +7,7 @@ import io.agentscope.core.embedding.EmbeddingModel;
 import io.agentscope.core.rag.knowledge.SimpleKnowledge;
 import io.agentscope.core.rag.model.RetrieveConfig;
 import io.agentscope.core.rag.store.MilvusStore;
+import io.agentscope.core.rag.store.VDBStoreBase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -20,7 +21,7 @@ public class KnowledgeRuntimeFactory {
 
     public KnowledgeRuntime create(AiKnowledgeBaseEntity knowledgeBase) {
         validate(knowledgeBase);
-        MilvusStore milvusStore =
+        VDBStoreBase milvusStore =
                 milvusStoreFactory.create(knowledgeBase);
         try {
             EmbeddingModel embeddingModel =
@@ -59,7 +60,6 @@ public class KnowledgeRuntimeFactory {
                     retrieveConfig
             );
         } catch (RuntimeException error) {
-            milvusStore.close();
             throw error;
         }
     }

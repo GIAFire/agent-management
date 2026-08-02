@@ -1,5 +1,169 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.zw.agent.mapper.AiKnowledgeDocumentMapper">
 
+    <select id="findPendingRecoveryCandidates"
+            resultType="com.zw.agent.entity.AiKnowledgeDocumentEntity">
+        SELECT *
+        FROM ai_knowledge_document
+        WHERE deleted = 0
+          AND lease_owner IS NULL
+          AND (
+              (status = 1 AND parse_status = 'PENDING')
+              OR (status = 2 AND parse_status = 'DELETING')
+          )
+        ORDER BY updated_at ASC, id ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="claimIndex">
+        UPDATE ai_knowledge_document
+        SET parse_status = 'PARSING',
+            lease_owner = #{workerId},
+            lease_until = #{leaseUntil},
+            error_message = NULL,
+            updated_at = #{now},
+            version = COALESCE(version, 0) + 1
+        WHERE id = #{documentId}
+          AND deleted = 0
+          AND status = 1
+          AND parse_status = 'PENDING'
+          AND lease_owner IS NULL
+    </update>
+
+    <update id="claimDelete">
+        UPDATE ai_knowledge_document
+        SET lease_owner = #{workerId},
+            lease_until = #{leaseUntil},
+            error_message = NULL,
+            updated_at = #{now},
+            version = COALESCE(version, 0) + 1
+        WHERE id = #{documentId}
+          AND deleted = 0
+          AND status = 2
+          AND parse_status = 'DELETING'
+          AND lease_owner IS NULL
+    </update>
+
+    <select id="selectWorkerDocument"
+            resultType="com.zw.agent.entity.AiKnowledgeDocumentEntity">
+        SELECT *
+        FROM ai_knowledge_document
+        WHERE id = #{documentId}
+          AND deleted = 0
+    </select>
+
+    <select id="findExpiredRecoveryCandidates"
+            resultType="com.zw.agent.entity.AiKnowledgeDocumentEntity">
+        SELECT *
+        FROM ai_knowledge_document
+        WHERE deleted = 0
+          AND lease_until IS NOT NULL
+          AND lease_until &lt; #{now}
+          AND (
+              (status = 1 AND parse_status IN ('PARSING', 'CHUNKING', 'EMBEDDING', 'INDEXING'))
+              OR (status = 2 AND parse_status = 'DELETING')
+          )
+        ORDER BY lease_until ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="reclaimExpired">
+        UPDATE ai_knowledge_document
+        SET lease_owner = #{workerId},
+            lease_until = #{leaseUntil},
+            updated_at = #{now},
+            version = COALESCE(version, 0) + 1
+        WHERE id = #{documentId}
+          AND deleted = 0
+          AND lease_until IS NOT NULL
+          AND lease_until &lt; #{now}
+          AND (
+              (status = 1 AND parse_status IN ('PARSING', 'CHUNKING', 'EMBEDDING', 'INDEXING'))
+              OR (status = 2 AND parse_status = 'DELETING')
+          )
+    </update>
+
+    <update id="heartbeat">
+        UPDATE ai_knowledge_document
+        SET parse_status = #{parseStatus},
+            lease_until = #{leaseUntil},
+            updated_at = #{now},
+            version = COALESCE(version, 0) + 1
+        WHERE id = #{documentId}
+          AND tenant_id = #{tenantId}
+          AND deleted = 0
+          AND lease_owner = #{workerId}
+    </update>
+
+    <update id="completeIndexOwned">
+        UPDATE ai_knowledge_document
+        SET parse_status = 'READY',
+            status = 1,
+            chunk_count = #{chunkCount},
+            token_count = #{tokenCount},
+            error_message = NULL,
+            lease_owner = NULL,
+            lease_until = NULL,
+            updated_at = #{now},
+            version = COALESCE(version, 0) + 1
+        WHERE id = #{documentId}
+          AND tenant_id = #{tenantId}
+          AND deleted = 0
+          AND status = 1
+          AND lease_owner = #{workerId}
+    </update>
+
+    <update id="completeDeleteOwned">
+        UPDATE ai_knowledge_document
+        SET parse_status = 'DELETED',
+            status = 2,
+            deleted = 1,
+            error_message = NULL,
+            lease_owner = NULL,
+            lease_until = NULL,
+            updated_at = #{now},
+            version = COALESCE(version, 0) + 1
+        WHERE id = #{documentId}
+          AND tenant_id = #{tenantId}
+          AND deleted = 0
+          AND status = 2
+          AND parse_status = 'DELETING'
+          AND lease_owner = #{workerId}
+    </update>
+
+    <update id="failIndexOwned">
+        UPDATE ai_knowledge_document
+        SET parse_status = 'FAILED',
+            status = 1,
+            chunk_count = 0,
+            token_count = 0,
+            error_message = #{message},
+            lease_owner = NULL,
+            lease_until = NULL,
+            updated_at = #{now},
+            version = COALESCE(version, 0) + 1
+        WHERE id = #{documentId}
+          AND tenant_id = #{tenantId}
+          AND deleted = 0
+          AND status = 1
+          AND lease_owner = #{workerId}
+    </update>
+
+    <update id="failDeleteOwned">
+        UPDATE ai_knowledge_document
+        SET parse_status = 'DELETE_FAILED',
+            status = 2,
+            error_message = #{message},
+            lease_owner = NULL,
+            lease_until = NULL,
+            updated_at = #{now},
+            version = COALESCE(version, 0) + 1
+        WHERE id = #{documentId}
+          AND tenant_id = #{tenantId}
+          AND deleted = 0
+          AND status = 2
+          AND lease_owner = #{workerId}
+    </update>
 </mapper>

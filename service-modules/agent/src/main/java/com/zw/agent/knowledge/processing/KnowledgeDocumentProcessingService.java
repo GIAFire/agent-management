@@ -1,41 +1,32 @@
-package com.zw.agent.knowledge.task;
+package com.zw.agent.knowledge.processing;
 
 import static com.zw.agent.knowledge.KnowledgeConstants.DELETING;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_CHUNKING;
-import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_DELETED;
+import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_DELETING;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_EMBEDDING;
-import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_FAILED;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_INDEXING;
 import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_PARSING;
-import static com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_READY;
 import static com.zw.agent.knowledge.KnowledgeConstants.ENABLED;
-import static com.zw.agent.knowledge.KnowledgeConstants.TASK_DELETE_DOCUMENT;
-import static com.zw.agent.knowledge.KnowledgeConstants.TASK_INDEX_DOCUMENT;
-import static com.zw.agent.knowledge.KnowledgeConstants.TASK_RUNNING;
 
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
 import com.zw.agent.config.knowledge.KnowledgeProperties;
 import com.zw.agent.entity.AiKnowledgeBaseEntity;
 import com.zw.agent.entity.AiKnowledgeChunkEntity;
 import com.zw.agent.entity.AiKnowledgeDocumentEntity;
-import com.zw.agent.entity.AiKnowledgeTaskEntity;
 import com.zw.agent.factory.RAGFactory.EmbeddingModelFactory;
 import com.zw.agent.factory.RAGFactory.MilvusStoreFactory;
 import com.zw.agent.knowledge.KnowledgeOperationException;
-import com.zw.agent.knowledge.processing.KnowledgeChunker;
 import com.zw.agent.knowledge.processing.KnowledgeChunker.ChunkPiece;
-import com.zw.agent.knowledge.processing.KnowledgeDocumentParser;
 import com.zw.agent.knowledge.storage.KnowledgeSourceStorage;
-import com.zw.agent.mapper.AiKnowledgeTaskMapper;
 import com.zw.agent.mapper.AiKnowledgeChunkMapper;
+import com.zw.agent.mapper.AiKnowledgeDocumentMapper;
 import com.zw.agent.service.AiKnowledgeBaseService;
 import com.zw.agent.service.AiKnowledgeChunkService;
-import com.zw.agent.service.AiKnowledgeDocumentService;
 import com.zw.common.context.UserContext;
 import com.zw.common.context.UserInfo;
 import com.zw.common.support.EntityDefaults;
-import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.embedding.EmbeddingModel;
+import io.agentscope.core.message.TextBlock;
 import io.agentscope.core.rag.knowledge.SimpleKnowledge;
 import io.agentscope.core.rag.model.Document;
 import io.agentscope.core.rag.model.DocumentMetadata;
@@ -65,15 +56,14 @@ import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
-public class KnowledgeTaskExecutionService {
+public class KnowledgeDocumentProcessingService {
 
     private static final Logger log =
-            LoggerFactory.getLogger(KnowledgeTaskExecutionService.class);
+            LoggerFactory.getLogger(KnowledgeDocumentProcessingService.class);
 
-    private final AiKnowledgeTaskMapper taskMapper;
+    private final AiKnowledgeDocumentMapper documentMapper;
     private final AiKnowledgeChunkMapper chunkMapper;
     private final AiKnowledgeBaseService knowledgeBaseService;
-    private final AiKnowledgeDocumentService documentService;
     private final AiKnowledgeChunkService chunkService;
     private final KnowledgeDocumentParser documentParser;
     private final KnowledgeChunker chunker;
@@ -83,115 +73,111 @@ public class KnowledgeTaskExecutionService {
     private final KnowledgeProperties properties;
     private final TransactionTemplate transactionTemplate;
 
-    public void execute(Long taskId, String workerId) {
-        AiKnowledgeTaskEntity task = taskMapper.selectWorkerTask(taskId);
-        if (task == null
-                || !TASK_RUNNING.equals(task.getStatus())
-                || !workerId.equals(task.getLeaseOwner())) {
+    public void execute(Long documentId, String workerId) {
+        AiKnowledgeDocumentEntity document =
+                documentMapper.selectWorkerDocument(documentId);
+        if (document == null
+                || !workerId.equals(document.getLeaseOwner())) {
             return;
         }
-        UserInfo workerUser = workerUser(task);
-        UserContext.runAs(workerUser, () -> executeAsTenant(task, workerId));
+        UserContext.runAs(
+                workerUser(document),
+                () -> executeAsTenant(document, workerId)
+        );
     }
 
-    public void cleanExpiredTask(
-            AiKnowledgeTaskEntity task,
+    public void cleanExpiredDocument(
+            AiKnowledgeDocumentEntity document,
             String recoveryOwner
     ) {
         UserContext.runAs(
-                workerUser(task),
-                () -> failTask(
-                        task,
+                workerUser(document),
+                () -> failProcessing(
+                        document,
                         recoveryOwner,
                         new KnowledgeOperationException(
-                                "服务在任务执行期间中断，任务未自动重试"
+                                "服务在知识文档处理期间中断，请手动重试"
                         )
                 )
         );
     }
 
     public void rejectBeforeExecution(
-            AiKnowledgeTaskEntity task,
+            AiKnowledgeDocumentEntity document,
             String workerId
     ) {
         UserContext.runAs(
-                workerUser(task),
-                () -> failTask(
-                        task,
+                workerUser(document),
+                () -> failProcessing(
+                        document,
                         workerId,
                         new KnowledgeOperationException(
-                                "知识任务执行队列已满，请手动重新提交"
+                                "知识文档处理队列已满，请手动重试"
                         )
                 )
         );
     }
 
-    private void executeAsTenant(AiKnowledgeTaskEntity task, String workerId) {
+    private void executeAsTenant(
+            AiKnowledgeDocumentEntity document,
+            String workerId
+    ) {
         try {
-            switch (task.getTaskType()) {
-                case TASK_INDEX_DOCUMENT -> executeIndexTask(task, workerId);
-                case TASK_DELETE_DOCUMENT ->
-                        executeDeleteDocumentTask(task, workerId);
-                default -> throw new KnowledgeOperationException(
-                        "不支持的知识任务类型：" + task.getTaskType()
-                );
+            if (isDeleteOperation(document)) {
+                executeDelete(document, workerId);
+            } else {
+                executeIndex(document, workerId);
             }
-        } catch (LostKnowledgeTaskLeaseException lostLease) {
-            log.warn("Knowledge task stopped after losing lease, taskId={}", task.getId());
+        } catch (LostKnowledgeDocumentLeaseException lostLease) {
+            log.warn(
+                    "Knowledge document processing stopped after losing lease, documentId={}",
+                    document.getId()
+            );
         } catch (Throwable error) {
-            failTask(task, workerId, error);
+            failProcessing(document, workerId, error);
         }
     }
 
-    private void executeIndexTask(
-            AiKnowledgeTaskEntity task,
+    private void executeIndex(
+            AiKnowledgeDocumentEntity document,
             String workerId
     ) {
         AiKnowledgeBaseEntity knowledgeBase =
-                requireKnowledgeBase(task.getKnowledgeBaseId());
-        AiKnowledgeDocumentEntity document =
-                requireDocument(task.getDocumentId());
+                requireKnowledgeBase(document.getKnowledgeBaseId());
 
-        heartbeat(task, workerId, "PARSING", 5, 0, 0);
-        updateDocumentStatus(document, DOCUMENT_PARSING, null);
+        heartbeat(document, workerId, DOCUMENT_PARSING);
         Path sourcePath = sourceStorage.resolve(document.getSourceUri());
         String extractedText = runWithLeaseHeartbeat(
-                task,
+                document,
                 workerId,
-                "PARSING",
-                5,
-                0,
-                0,
+                DOCUMENT_PARSING,
                 () -> documentParser.extractText(
                         sourcePath,
                         document.getDocumentType()
                 )
         );
 
-        heartbeat(task, workerId, "CHUNKING", 20, 0, 0);
-        updateDocumentStatus(document, DOCUMENT_CHUNKING, null);
+        heartbeat(document, workerId, DOCUMENT_CHUNKING);
         List<ChunkPiece> pieces = chunker.split(
                 extractedText,
-                task.getChunkStrategy(),
-                task.getChunkSize(),
-                task.getChunkOverlap(),
-                task.getChunkDelimiter()
+                document.getChunkStrategy(),
+                document.getChunkSize(),
+                document.getChunkOverlap(),
+                document.getChunkDelimiter()
         );
         List<AiKnowledgeChunkEntity> chunks =
-                createChunkEntities(task, document, knowledgeBase, pieces);
+                createChunkEntities(document, knowledgeBase, pieces);
         int totalTokens = chunks.stream()
                 .map(AiKnowledgeChunkEntity::getTokenCount)
                 .filter(Objects::nonNull)
                 .mapToInt(Integer::intValue)
                 .sum();
 
-        heartbeat(task, workerId, "SAVING", 30, 0, chunks.size());
         removeDocumentChunks(document.getId());
         chunkService.saveBatch(chunks, 500);
 
-        updateDocumentStatus(document, DOCUMENT_EMBEDDING, null);
+        heartbeat(document, workerId, DOCUMENT_EMBEDDING);
         try (MilvusStore store = milvusStoreFactory.create(knowledgeBase)) {
-            // 重提失败索引时先移除可能残留的部分向量。
             store.delete(String.valueOf(document.getId()))
                     .block(Duration.ofMinutes(2));
 
@@ -204,18 +190,11 @@ public class KnowledgeTaskExecutionService {
                         .build();
                 int batchSize = Math.max(
                         1,
-                        properties.getTasks().getEmbeddingBatchSize()
+                        properties.getProcessing().getEmbeddingBatchSize()
                 );
                 for (int from = 0; from < chunks.size(); from += batchSize) {
                     int to = Math.min(from + batchSize, chunks.size());
-                    heartbeat(
-                            task,
-                            workerId,
-                            "EMBEDDING",
-                            35 + (from * 55 / chunks.size()),
-                            from,
-                            chunks.size()
-                    );
+                    heartbeat(document, workerId, DOCUMENT_EMBEDDING);
                     knowledge.addDocuments(
                                     toVectorDocuments(
                                             chunks.subList(from, to),
@@ -223,91 +202,47 @@ public class KnowledgeTaskExecutionService {
                                     )
                             )
                             .block(Duration.ofMinutes(10));
-                    heartbeat(
-                            task,
-                            workerId,
-                            "EMBEDDING",
-                            35 + (to * 55 / chunks.size()),
-                            to,
-                            chunks.size()
-                    );
                 }
             } finally {
                 closeIfNeeded(embeddingModel);
             }
         }
 
-        heartbeat(
-                task,
-                workerId,
-                "INDEXING",
-                95,
-                chunks.size(),
-                chunks.size()
-        );
-        updateDocumentStatus(document, DOCUMENT_INDEXING, null);
-        heartbeat(
-                task,
-                workerId,
-                "SAVING",
-                98,
-                chunks.size(),
-                chunks.size()
-        );
-
+        heartbeat(document, workerId, DOCUMENT_INDEXING);
         transactionTemplate.executeWithoutResult(status -> {
-            document.setChunkStrategy(task.getChunkStrategy())
-                    .setChunkSize(task.getChunkSize())
-                    .setChunkOverlap(task.getChunkOverlap())
-                    .setChunkDelimiter(task.getChunkDelimiter())
-                    .setParseStatus(DOCUMENT_READY)
-                    .setStatus(ENABLED)
-                    .setChunkCount(chunks.size())
-                    .setTokenCount(totalTokens)
-                    .setErrorMessage(null);
-            EntityDefaults.update(document);
-            documentService.updateById(document);
-            int completed = taskMapper.completeOwned(
-                    task.getId(),
-                    task.getTenantId(),
+            int completed = documentMapper.completeIndexOwned(
+                    document.getId(),
+                    document.getTenantId(),
                     workerId,
                     chunks.size(),
                     totalTokens,
-                    "{\"documentId\":" + document.getId()
-                            + ",\"chunkCount\":" + chunks.size() + "}",
                     LocalDateTime.now()
             );
-            ensureOwned(task.getId(), completed);
+            ensureOwned(document.getId(), completed);
         });
     }
 
-    private void executeDeleteDocumentTask(
-            AiKnowledgeTaskEntity task,
+    private void executeDelete(
+            AiKnowledgeDocumentEntity document,
             String workerId
     ) {
         AiKnowledgeBaseEntity knowledgeBase =
-                requireKnowledgeBase(task.getKnowledgeBaseId());
-        AiKnowledgeDocumentEntity document =
-                requireDocument(task.getDocumentId());
+                requireKnowledgeBase(document.getKnowledgeBaseId());
 
-        heartbeat(task, workerId, "DELETING_VECTORS", 15, 0, 3);
+        heartbeat(document, workerId, DOCUMENT_DELETING);
         try (MilvusStore store = milvusStoreFactory.create(knowledgeBase)) {
             store.delete(String.valueOf(document.getId()))
                     .block(Duration.ofMinutes(2));
         }
 
-        heartbeat(task, workerId, "DELETING_CHUNKS", 50, 1, 3);
+        heartbeat(document, workerId, DOCUMENT_DELETING);
         removeDocumentChunks(document.getId());
 
-        heartbeat(task, workerId, "DELETING_SOURCE", 75, 2, 3);
         try {
             runWithLeaseHeartbeat(
-                    task,
+                    document,
                     workerId,
-                    "DELETING_SOURCE",
-                    75,
-                    2,
-                    3,
+                    DOCUMENT_DELETING,
                     () -> {
                         sourceStorage.delete(document.getSourceUri());
                         return null;
@@ -317,27 +252,19 @@ public class KnowledgeTaskExecutionService {
             throw new KnowledgeOperationException("删除知识源文件失败", error);
         }
 
-        heartbeat(task, workerId, "SAVING", 95, 3, 3);
+        heartbeat(document, workerId, DOCUMENT_DELETING);
         transactionTemplate.executeWithoutResult(status -> {
-            document.setParseStatus(DOCUMENT_DELETED).setStatus(DELETING);
-            EntityDefaults.update(document);
-            documentService.updateById(document);
-            documentService.removeById(document.getId());
-            int completed = taskMapper.completeOwned(
-                    task.getId(),
-                    task.getTenantId(),
+            int completed = documentMapper.completeDeleteOwned(
+                    document.getId(),
+                    document.getTenantId(),
                     workerId,
-                    0,
-                    0,
-                    "{\"documentId\":" + document.getId() + "}",
                     LocalDateTime.now()
             );
-            ensureOwned(task.getId(), completed);
+            ensureOwned(document.getId(), completed);
         });
     }
 
     private List<AiKnowledgeChunkEntity> createChunkEntities(
-            AiKnowledgeTaskEntity task,
             AiKnowledgeDocumentEntity document,
             AiKnowledgeBaseEntity knowledgeBase,
             List<ChunkPiece> pieces
@@ -353,7 +280,6 @@ public class KnowledgeTaskExecutionService {
                     .setId(IdWorker.getId())
                     .setKnowledgeBaseId(knowledgeBase.getId())
                     .setDocumentId(document.getId())
-                    .setKnowledgeTaskId(task.getId())
                     .setChunkIndex(index)
                     .setChunkUid(chunkUid)
                     .setExternalChunkId(String.valueOf(index))
@@ -365,7 +291,7 @@ public class KnowledgeTaskExecutionService {
                     .setTokenCount(estimateTokens(piece.content()))
                     .setEmbeddingDimension(knowledgeBase.getEmbeddingDimension())
                     .setStatus(ENABLED);
-            chunk.setTenantId(task.getTenantId());
+            chunk.setTenantId(document.getTenantId());
             Document vectorDocument = toVectorDocument(chunk, document);
             chunk.setVectorId(vectorDocument.getId());
             EntityDefaults.create(chunk);
@@ -392,132 +318,98 @@ public class KnowledgeTaskExecutionService {
                 String.valueOf(document.getId()),
                 String.valueOf(chunk.getChunkIndex()),
                 Map.of(
-                        "knowledgeBaseId",
-                        document.getKnowledgeBaseId(),
-                        "documentId",
-                        document.getId(),
-                        "documentName",
-                        document.getDocumentName(),
-                        "chunkId",
-                        chunk.getId(),
-                        "chunkIndex",
-                        chunk.getChunkIndex()
+                        "knowledgeBaseId", document.getKnowledgeBaseId(),
+                        "documentId", document.getId(),
+                        "documentName", document.getDocumentName(),
+                        "chunkId", chunk.getId(),
+                        "chunkIndex", chunk.getChunkIndex()
                 )
         );
         return new Document(metadata);
     }
 
-    private void failTask(
-            AiKnowledgeTaskEntity task,
+    private void failProcessing(
+            AiKnowledgeDocumentEntity document,
             String workerId,
             Throwable error
     ) {
-        String reason = failureReason(task, error);
+        boolean deleting = isDeleteOperation(document);
+        String reason = failureReason(document, error);
         log.warn(
-                "Knowledge task failed, taskId={}, taskType={}, errorType={}",
-                task.getId(),
-                task.getTaskType(),
+                "Knowledge document processing failed, documentId={}, operation={}, errorType={}",
+                document.getId(),
+                deleting ? "DELETE" : "INDEX",
                 error.getClass().getSimpleName()
         );
 
         try {
             heartbeat(
-                    task,
+                    document,
                     workerId,
-                    "CLEANING_UP",
-                    task.getProgress() == null ? 1 : task.getProgress(),
-                    task.getCompletedUnits() == null
-                            ? 0
-                            : task.getCompletedUnits(),
-                    task.getTotalUnits() == null ? 0 : task.getTotalUnits()
+                    deleting ? DOCUMENT_DELETING : document.getParseStatus()
             );
-        } catch (LostKnowledgeTaskLeaseException ignored) {
+        } catch (LostKnowledgeDocumentLeaseException ignored) {
             log.warn(
-                    "Knowledge task cleanup skipped because lease was lost, taskId={}",
-                    task.getId()
+                    "Knowledge document cleanup skipped because lease was lost, documentId={}",
+                    document.getId()
             );
             return;
         }
 
-        if (TASK_INDEX_DOCUMENT.equals(task.getTaskType())) {
-            cleanupIndexArtifacts(task);
+        if (!deleting) {
+            cleanupIndexArtifacts(document);
         }
         try {
             transactionTemplate.executeWithoutResult(status -> {
-                int failed = taskMapper.failOwned(
-                        task.getId(),
-                        task.getTenantId(),
-                        workerId,
-                        reason,
-                        LocalDateTime.now()
-                );
-                ensureOwned(task.getId(), failed);
-                if (TASK_INDEX_DOCUMENT.equals(task.getTaskType())) {
-                    AiKnowledgeDocumentEntity document =
-                            documentService.getById(task.getDocumentId());
-                    if (document != null) {
-                        document.setParseStatus(DOCUMENT_FAILED)
-                                .setStatus(ENABLED)
-                                .setChunkCount(0)
-                                .setTokenCount(0)
-                                .setErrorMessage(reason);
-                        EntityDefaults.update(document);
-                        documentService.updateById(document);
-                    }
-                } else if (TASK_DELETE_DOCUMENT.equals(task.getTaskType())) {
-                    markDocumentDeleteFailed(task, reason);
-                }
-                // 删除知识库失败时保持 status=DELETING，等待用户手动重提。
+                LocalDateTime now = LocalDateTime.now();
+                int failed = deleting
+                        ? documentMapper.failDeleteOwned(
+                                document.getId(),
+                                document.getTenantId(),
+                                workerId,
+                                reason,
+                                now
+                        )
+                        : documentMapper.failIndexOwned(
+                                document.getId(),
+                                document.getTenantId(),
+                                workerId,
+                                reason,
+                                now
+                        );
+                ensureOwned(document.getId(), failed);
             });
-        } catch (LostKnowledgeTaskLeaseException ignored) {
+        } catch (LostKnowledgeDocumentLeaseException ignored) {
             log.warn(
-                    "Knowledge task failure was not recorded because lease was lost, taskId={}",
-                    task.getId()
+                    "Knowledge document failure was not recorded because lease was lost, documentId={}",
+                    document.getId()
             );
         }
     }
 
-    private void markDocumentDeleteFailed(
-            AiKnowledgeTaskEntity task,
-            String reason
-    ) {
-        AiKnowledgeDocumentEntity document =
-                documentService.getById(task.getDocumentId());
-        if (document == null) {
-            return;
-        }
-        document.setParseStatus(
-                        com.zw.agent.knowledge.KnowledgeConstants.DOCUMENT_DELETING
-                )
-                .setStatus(DELETING)
-                .setErrorMessage(reason);
-        EntityDefaults.update(document);
-        documentService.updateById(document);
-    }
-
-    private void cleanupIndexArtifacts(AiKnowledgeTaskEntity task) {
+    private void cleanupIndexArtifacts(AiKnowledgeDocumentEntity document) {
         try {
             AiKnowledgeBaseEntity knowledgeBase =
-                    knowledgeBaseService.getById(task.getKnowledgeBaseId());
+                    knowledgeBaseService.getById(document.getKnowledgeBaseId());
             if (knowledgeBase != null) {
                 try (MilvusStore store = milvusStoreFactory.create(knowledgeBase)) {
-                    store.delete(String.valueOf(task.getDocumentId()))
+                    store.delete(String.valueOf(document.getId()))
                             .block(Duration.ofMinutes(2));
                 }
             }
         } catch (Throwable cleanupError) {
             log.warn(
-                    "Failed to clean vector artifacts, taskId={}, errorType={}",
-                    task.getId(),
+                    "Failed to clean vector artifacts, documentId={}, errorType={}",
+                    document.getId(),
                     cleanupError.getClass().getSimpleName()
             );
         }
         try {
-            removeDocumentChunks(task.getDocumentId());
+            removeDocumentChunks(document.getId());
         } catch (Throwable cleanupError) {
             log.warn(
-                    "Failed to clean chunk artifacts, taskId={}, errorType={}",
-                    task.getId(),
+                    "Failed to clean chunk artifacts, documentId={}, errorType={}",
+                    document.getId(),
                     cleanupError.getClass().getSimpleName()
             );
         }
@@ -528,46 +420,38 @@ public class KnowledgeTaskExecutionService {
                 ? null
                 : UserContext.get().getTenantId();
         if (tenantId == null) {
-            throw new KnowledgeOperationException("知识任务缺少租户上下文");
+            throw new KnowledgeOperationException("知识文档处理缺少租户上下文");
         }
         chunkMapper.physicalDeleteByDocument(tenantId, documentId);
     }
 
     private void heartbeat(
-            AiKnowledgeTaskEntity task,
+            AiKnowledgeDocumentEntity document,
             String workerId,
-            String stage,
-            int progress,
-            int completedUnits,
-            int totalUnits
+            String parseStatus
     ) {
         LocalDateTime now = LocalDateTime.now();
-        int updated = taskMapper.heartbeat(
-                task.getId(),
-                task.getTenantId(),
+        int updated = documentMapper.heartbeat(
+                document.getId(),
+                document.getTenantId(),
                 workerId,
-                stage,
-                Math.max(0, Math.min(99, progress)),
-                completedUnits,
-                totalUnits,
-                now.plus(properties.getTasks().getLeaseDuration()),
+                parseStatus,
+                now.plus(properties.getProcessing().getLeaseDuration()),
                 now
         );
-        ensureOwned(task.getId(), updated);
+        ensureOwned(document.getId(), updated);
+        document.setParseStatus(parseStatus);
     }
 
     private <T> T runWithLeaseHeartbeat(
-            AiKnowledgeTaskEntity task,
+            AiKnowledgeDocumentEntity document,
             String workerId,
-            String stage,
-            int progress,
-            int completedUnits,
-            int totalUnits,
+            String parseStatus,
             Callable<T> operation
     ) {
         FutureTask<T> future = new FutureTask<>(operation);
         Thread.ofVirtual()
-                .name("knowledge-blocking-" + task.getId())
+                .name("knowledge-blocking-" + document.getId())
                 .start(future);
         try {
             while (true) {
@@ -577,20 +461,13 @@ public class KnowledgeTaskExecutionService {
                             TimeUnit.MILLISECONDS
                     );
                 } catch (TimeoutException ignored) {
-                    heartbeat(
-                            task,
-                            workerId,
-                            stage,
-                            progress,
-                            completedUnits,
-                            totalUnits
-                    );
+                    heartbeat(document, workerId, parseStatus);
                 }
             }
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
             throw new KnowledgeOperationException(
-                    "知识任务执行被中断",
+                    "知识文档处理被中断",
                     error
             );
         } catch (ExecutionException error) {
@@ -602,7 +479,7 @@ public class KnowledgeTaskExecutionService {
                 throw fatalError;
             }
             throw new KnowledgeOperationException(
-                    "知识任务执行失败",
+                    "知识文档处理失败",
                     cause
             );
         } finally {
@@ -613,23 +490,13 @@ public class KnowledgeTaskExecutionService {
     }
 
     private long leaseHeartbeatIntervalMillis() {
-        long leaseMillis = properties.getTasks()
+        long leaseMillis = properties.getProcessing()
                 .getLeaseDuration()
                 .toMillis();
         return Math.max(
                 50L,
                 Math.min(Duration.ofSeconds(30).toMillis(), leaseMillis / 3L)
         );
-    }
-
-    private void updateDocumentStatus(
-            AiKnowledgeDocumentEntity document,
-            String parseStatus,
-            String errorMessage
-    ) {
-        document.setParseStatus(parseStatus).setErrorMessage(errorMessage);
-        EntityDefaults.update(document);
-        documentService.updateById(document);
     }
 
     private AiKnowledgeBaseEntity requireKnowledgeBase(Long knowledgeBaseId) {
@@ -640,16 +507,8 @@ public class KnowledgeTaskExecutionService {
         return entity;
     }
 
-    private AiKnowledgeDocumentEntity requireDocument(Long documentId) {
-        AiKnowledgeDocumentEntity entity = documentService.getById(documentId);
-        if (entity == null) {
-            throw new KnowledgeOperationException("知识文档不存在");
-        }
-        return entity;
-    }
-
     private String failureReason(
-            AiKnowledgeTaskEntity task,
+            AiKnowledgeDocumentEntity document,
             Throwable error
     ) {
         Throwable root = error;
@@ -658,9 +517,9 @@ public class KnowledgeTaskExecutionService {
         }
         String message = StringUtils.hasText(root.getMessage())
                 ? root.getMessage()
-                : "任务执行失败";
+                : "知识文档处理失败";
         AiKnowledgeBaseEntity knowledgeBase =
-                knowledgeBaseService.getById(task.getKnowledgeBaseId());
+                knowledgeBaseService.getById(document.getKnowledgeBaseId());
         if (knowledgeBase != null && StringUtils.hasText(knowledgeBase.getApiKey())) {
             message = message.replace(knowledgeBase.getApiKey(), "***");
         }
@@ -670,18 +529,25 @@ public class KnowledgeTaskExecutionService {
         return message;
     }
 
-    private static UserInfo workerUser(AiKnowledgeTaskEntity task) {
+    private static boolean isDeleteOperation(
+            AiKnowledgeDocumentEntity document
+    ) {
+        return Objects.equals(document.getStatus(), DELETING)
+                && DOCUMENT_DELETING.equals(document.getParseStatus());
+    }
+
+    private static UserInfo workerUser(AiKnowledgeDocumentEntity document) {
         UserInfo user = new UserInfo();
-        user.setTenantId(task.getTenantId());
-        user.setUserId(task.getCreatedBy() == null ? 0L : task.getCreatedBy());
-        user.setUserName("knowledge-task-worker");
+        user.setTenantId(document.getTenantId());
+        user.setUserId(document.getCreatedBy() == null ? 0L : document.getCreatedBy());
+        user.setUserName("knowledge-document-worker");
         user.setStatus((byte) 1);
         return user;
     }
 
-    private static void ensureOwned(Long taskId, int affectedRows) {
+    private static void ensureOwned(Long documentId, int affectedRows) {
         if (affectedRows != 1) {
-            throw new LostKnowledgeTaskLeaseException(taskId);
+            throw new LostKnowledgeDocumentLeaseException(documentId);
         }
     }
 
@@ -705,7 +571,7 @@ public class KnowledgeTaskExecutionService {
             try {
                 closeable.close();
             } catch (Exception ignored) {
-                // 主操作结果优先，连接池关闭失败不会改写任务结果。
+                // 主操作结果优先，连接池关闭失败不会改写处理结果。
             }
         }
     }

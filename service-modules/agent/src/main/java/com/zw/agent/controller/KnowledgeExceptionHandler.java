@@ -12,7 +12,6 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
         AiKnowledgeBaseController.class,
         AiKnowledgeDocumentController.class,
         AiKnowledgeChunkController.class,
-        AiKnowledgeTaskController.class,
         AiKnowledgeAgentBindingController.class
 })
 public class KnowledgeExceptionHandler {

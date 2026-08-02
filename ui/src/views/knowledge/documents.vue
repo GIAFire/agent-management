@@ -1,12 +1,11 @@
 <script setup>
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ArrowLeft,
   Delete,
   Document,
-  Files,
   Refresh,
   Search,
   Tickets,
@@ -14,21 +13,17 @@ import {
   View
 } from '@element-plus/icons-vue'
 import {
-  createDocumentIndexTask,
   deleteKnowledgeDocument,
   getKnowledgeBase,
-  getKnowledgeTask,
-  listDocumentTasks,
   listKnowledgeChunks,
   listKnowledgeDocuments,
-  resubmitKnowledgeTask,
+  submitDocumentIndex,
   uploadKnowledgeDocument
 } from '@/axios/knowledge'
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024
 const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'txt', 'md']
 const ACTIVE_DOCUMENT_STATUSES = ['PENDING', 'PROCESSING', 'PARSING', 'CHUNKING', 'EMBEDDING', 'INDEXING', 'DELETING']
-const ACTIVE_TASK_STATUSES = ['PENDING', 'RUNNING']
 
 const route = useRoute()
 const router = useRouter()
@@ -39,9 +34,6 @@ const rows = ref([])
 const total = ref(0)
 const current = ref(1)
 const size = ref(10)
-const alive = ref(true)
-const taskPollers = new Map()
-const activeDocumentTasks = reactive({})
 let routeGeneration = 0
 
 const query = reactive({
@@ -64,14 +56,6 @@ const indexForm = reactive({
   chunkOverlap: 100,
   chunkDelimiter: '\\n\\n'
 })
-
-const taskDrawerVisible = ref(false)
-const taskDocument = ref(null)
-const taskLoading = ref(false)
-const taskRows = ref([])
-const taskTotal = ref(0)
-const taskCurrent = ref(1)
-const taskSize = ref(10)
 
 const chunkDrawerVisible = ref(false)
 const chunkDocument = ref(null)
@@ -105,45 +89,10 @@ const parseStatusMeta = (status) => {
     READY: { text: '已就绪', type: 'success' },
     FAILED: { text: '处理失败', type: 'danger' },
     DELETING: { text: '删除中', type: 'warning' },
+    DELETE_FAILED: { text: '删除失败', type: 'danger' },
     DELETED: { text: '已删除', type: 'info' }
   }
   return map[value] || { text: value, type: 'info' }
-}
-
-const taskStatusMeta = (status) => {
-  const value = String(status || '').toUpperCase()
-  const map = {
-    PENDING: { text: '等待执行', type: 'info' },
-    RUNNING: { text: '执行中', type: 'warning' },
-    SUCCEEDED: { text: '执行成功', type: 'success' },
-    FAILED: { text: '执行失败', type: 'danger' }
-  }
-  return map[value] || { text: value || '-', type: 'info' }
-}
-
-const taskTypeText = (type) => {
-  const map = {
-    INDEX_DOCUMENT: '切片入库',
-    DELETE_DOCUMENT: '删除文档'
-  }
-  return map[String(type || '').toUpperCase()] || type || '-'
-}
-
-const stageText = (stage) => {
-  const map = {
-    PENDING: '等待执行',
-    READING: '读取文档',
-    PARSING: '解析文档',
-    CHUNKING: '生成切片',
-    EMBEDDING: '生成向量',
-    INDEXING: '写入向量库',
-    SAVING: '保存切片',
-    DELETING_VECTORS: '清理向量',
-    DELETING_CHUNKS: '清理切片',
-    DELETING_SOURCE: '清理源文件',
-    FINISHED: '已完成'
-  }
-  return map[String(stage || '').toUpperCase()] || stage || '-'
 }
 
 const strategyText = (strategy) => {
@@ -174,7 +123,6 @@ const canSubmitIndex = (row) => {
   const status = String(row?.parseStatus || '').toUpperCase()
   return (
     isKnowledgeBaseActive.value &&
-    !activeDocumentTasks[String(row?.id)] &&
     ['UPLOADED', 'FAILED'].includes(status)
   )
 }
@@ -183,7 +131,6 @@ const canDeleteDocument = (row) => {
   const status = String(row?.parseStatus || '').toUpperCase()
   return (
     isKnowledgeBaseActive.value &&
-    !activeDocumentTasks[String(row?.id)] &&
     !ACTIVE_DOCUMENT_STATUSES.includes(status)
   )
 }
@@ -197,24 +144,6 @@ const loadKnowledgeBase = async (generation = routeGeneration) => {
   ) {
     knowledgeBase.value = data
   }
-}
-
-const hydrateRunningTasks = async (documents, generation = routeGeneration) => {
-  const activeDocuments = documents.filter((row) =>
-    ACTIVE_DOCUMENT_STATUSES.includes(String(row.parseStatus || '').toUpperCase())
-  )
-  await Promise.all(activeDocuments.map(async (row) => {
-    try {
-      const data = await listDocumentTasks(row.id, { current: 1, size: 1 })
-      if (generation !== routeGeneration) return
-      const latestTask = normalizePage(data).records[0]
-      if (latestTask && ACTIVE_TASK_STATUSES.includes(String(latestTask.status || '').toUpperCase())) {
-        scheduleTaskPoll(latestTask.id, row.id)
-      }
-    } catch {
-      // The main document request already reports errors; task hydration is best effort.
-    }
-  }))
 }
 
 const loadDocuments = async (generation = routeGeneration) => {
@@ -241,7 +170,6 @@ const loadDocuments = async (generation = routeGeneration) => {
       await loadDocuments(generation)
       return
     }
-    await hydrateRunningTasks(rows.value, generation)
   } finally {
     if (generation === routeGeneration) {
       loading.value = false
@@ -331,7 +259,7 @@ const submitUpload = async () => {
     await uploadKnowledgeDocument(targetKnowledgeBaseId, selectedFile.value)
     if (generation !== routeGeneration) return
     uploadDialogVisible.value = false
-    ElMessage.success('文档上传成功，请提交切片入库任务')
+    ElMessage.success('文档上传成功，请提交切片入库')
     await loadDocuments()
   } finally {
     uploading.value = false
@@ -386,7 +314,7 @@ const decodeDelimiterInput = (rawValue) => {
 
 const openIndexDialog = async (row) => {
   if (!canSubmitIndex(row)) {
-    ElMessage.warning('仅已上传或处理失败的文档可以提交切片任务')
+    ElMessage.warning('仅已上传或处理失败的文档可以提交切片入库')
     return
   }
   indexDocument.value = row
@@ -426,7 +354,16 @@ const validateChunkForm = () => {
   return true
 }
 
-const submitIndexTask = async () => {
+const replaceDocumentRow = (document) => {
+  const index = rows.value.findIndex(
+    (row) => String(row.id) === String(document?.id)
+  )
+  if (index >= 0) {
+    rows.value.splice(index, 1, document)
+  }
+}
+
+const submitIndex = async () => {
   if (!validateChunkForm()) return
   const generation = routeGeneration
   const documentId = indexDocument.value?.id
@@ -442,25 +379,27 @@ const submitIndexTask = async () => {
       payload.chunkSize = Number(indexForm.chunkSize)
       payload.chunkOverlap = Number(indexForm.chunkOverlap)
     }
-    const task = await createDocumentIndexTask(documentId, payload)
+    const document = await submitDocumentIndex(documentId, payload)
     if (generation !== routeGeneration) return
+    replaceDocumentRow(document)
     indexDialogVisible.value = false
-    ElMessage.success('切片入库任务已提交')
-    scheduleTaskPoll(task.id, documentId)
-    await loadDocuments(generation)
+    ElMessage.success('切片入库已提交，请稍后刷新状态')
   } finally {
     indexing.value = false
   }
 }
 
 const handleDeleteDocument = async (row) => {
+  const retryDelete = String(row.parseStatus).toUpperCase() === 'DELETE_FAILED'
   try {
     await ElMessageBox.confirm(
-      `删除文档“${row.documentName}”吗？系统将异步清理其向量、切片和源文件，完成后同名文件才可重新上传。`,
-      '删除文档',
+      retryDelete
+        ? `重新删除文档“${row.documentName}”吗？系统将继续清理残留数据。`
+        : `删除文档“${row.documentName}”吗？系统将异步清理其向量、切片和源文件，完成后同名文件才可重新上传。`,
+      retryDelete ? '重试删除' : '删除文档',
       {
         type: 'warning',
-        confirmButtonText: '确认删除',
+        confirmButtonText: retryDelete ? '重试删除' : '确认删除',
         cancelButtonText: '取消'
       }
     )
@@ -469,171 +408,14 @@ const handleDeleteDocument = async (row) => {
   }
 
   const generation = routeGeneration
-  const task = await deleteKnowledgeDocument(row.id)
+  const document = await deleteKnowledgeDocument(row.id)
   if (generation !== routeGeneration) return
-  ElMessage.success('文档删除任务已提交')
-  scheduleTaskPoll(task.id, row.id)
-  await loadDocuments()
-}
-
-const stopTaskPoller = (key) => {
-  const poller = taskPollers.get(key)
-  if (poller?.timerId) {
-    window.clearTimeout(poller.timerId)
-  }
-  taskPollers.delete(key)
-  if (
-    poller?.documentId &&
-    activeDocumentTasks[String(poller.documentId)] === key
-  ) {
-    delete activeDocumentTasks[String(poller.documentId)]
-  }
-}
-
-const clearTaskPollers = () => {
-  taskPollers.forEach((poller) => {
-    if (poller.timerId) {
-      window.clearTimeout(poller.timerId)
-    }
-  })
-  taskPollers.clear()
-  Object.keys(activeDocumentTasks).forEach((documentId) => {
-    delete activeDocumentTasks[documentId]
-  })
-}
-
-const scheduleTaskPoll = (taskId, documentId) => {
-  const key = String(taskId)
-  if (!taskId || taskPollers.has(key)) return
-  const generation = routeGeneration
-  const poller = {
-    timerId: null,
-    consecutiveFailures: 0,
-    documentId: String(documentId)
-  }
-  taskPollers.set(key, poller)
-  activeDocumentTasks[String(documentId)] = key
-
-  const scheduleNext = (delay) => {
-    if (
-      !alive.value ||
-      generation !== routeGeneration ||
-      !taskPollers.has(key)
-    ) {
-      return
-    }
-    poller.timerId = window.setTimeout(poll, delay)
-  }
-
-  const poll = async () => {
-    if (
-      !alive.value ||
-      generation !== routeGeneration ||
-      !taskPollers.has(key)
-    ) {
-      stopTaskPoller(key)
-      return
-    }
-    poller.timerId = null
-    try {
-      const task = await getKnowledgeTask(taskId, { skipErrorMessage: true })
-      if (
-        generation !== routeGeneration ||
-        !taskPollers.has(key)
-      ) {
-        return
-      }
-      poller.consecutiveFailures = 0
-      const index = taskRows.value.findIndex((item) => String(item.id) === key)
-      if (index >= 0) {
-        taskRows.value.splice(index, 1, task)
-      }
-
-      const status = String(task?.status || '').toUpperCase()
-      if (status === 'SUCCEEDED') {
-        stopTaskPoller(key)
-        ElMessage.success(`${taskTypeText(task.taskType)}任务执行成功`)
-        await loadDocuments(generation)
-        if (taskDrawerVisible.value && String(taskDocument.value?.id) === String(documentId)) {
-          await loadTasks()
-        }
-        return
-      }
-      if (status === 'FAILED') {
-        stopTaskPoller(key)
-        ElMessage.error(task.errorMessage || `${taskTypeText(task.taskType)}任务执行失败`)
-        await loadDocuments(generation)
-        if (taskDrawerVisible.value && String(taskDocument.value?.id) === String(documentId)) {
-          await loadTasks()
-        }
-        return
-      }
-    } catch (error) {
-      const statusCode = Number(error?.response?.status || 0)
-      const taskMissing = String(error?.message || '').includes('知识任务不存在')
-      if ([401, 403, 404].includes(statusCode) || taskMissing) {
-        stopTaskPoller(key)
-        return
-      }
-      poller.consecutiveFailures += 1
-      const retryDelay = Math.min(
-        2500 * (2 ** Math.min(poller.consecutiveFailures - 1, 4)),
-        30000
-      )
-      scheduleNext(retryDelay)
-      return
-    }
-
-    scheduleNext(2500)
-  }
-  poll()
-}
-
-const openTaskDrawer = async (row) => {
-  taskDocument.value = row
-  taskCurrent.value = 1
-  taskDrawerVisible.value = true
-  await loadTasks()
-}
-
-const loadTasks = async () => {
-  if (!taskDocument.value?.id) return
-  const generation = routeGeneration
-  const documentId = String(taskDocument.value.id)
-  taskLoading.value = true
-  try {
-    const data = await listDocumentTasks(documentId, {
-      current: taskCurrent.value,
-      size: taskSize.value
-    })
-    if (
-      generation !== routeGeneration ||
-      documentId !== String(taskDocument.value?.id || '')
-    ) {
-      return
-    }
-    const page = normalizePage(data)
-    taskRows.value = page.records
-    taskTotal.value = page.total
-    taskRows.value.forEach((task) => {
-      if (ACTIVE_TASK_STATUSES.includes(String(task.status || '').toUpperCase())) {
-        scheduleTaskPoll(task.id, task.documentId || taskDocument.value.id)
-      }
-    })
-  } finally {
-    if (generation === routeGeneration) {
-      taskLoading.value = false
-    }
-  }
-}
-
-const retryTask = async (task) => {
-  const generation = routeGeneration
-  const newTask = await resubmitKnowledgeTask(task.id)
-  if (generation !== routeGeneration) return
-  ElMessage.success('任务已重新提交，原失败记录将保留')
-  scheduleTaskPoll(newTask.id, newTask.documentId || task.documentId)
-  await Promise.all([loadTasks(), loadDocuments()])
+  replaceDocumentRow(document)
+  ElMessage.success(
+    retryDelete
+      ? '已重新提交删除，请稍后刷新状态'
+      : '已提交删除，请稍后刷新状态'
+  )
 }
 
 const openChunkDrawer = async (row) => {
@@ -669,18 +451,12 @@ const loadChunks = async () => {
   }
 }
 
-const handleTaskSizeChange = () => {
-  taskCurrent.value = 1
-  loadTasks()
-}
-
 const handleChunkSizeChange = () => {
   chunkCurrent.value = 1
   loadChunks()
 }
 
 const resetRouteState = () => {
-  clearTaskPollers()
   knowledgeBase.value = null
   rows.value = []
   total.value = 0
@@ -705,14 +481,6 @@ const resetRouteState = () => {
     chunkDelimiter: '\\n\\n'
   })
 
-  taskDrawerVisible.value = false
-  taskDocument.value = null
-  taskRows.value = []
-  taskTotal.value = 0
-  taskCurrent.value = 1
-  taskSize.value = 10
-  taskLoading.value = false
-
   chunkDrawerVisible.value = false
   chunkDocument.value = null
   chunkRows.value = []
@@ -736,11 +504,6 @@ watch(knowledgeBaseId, async (nextKnowledgeBaseId, previousKnowledgeBaseId) => {
   }
 })
 
-onBeforeUnmount(() => {
-  alive.value = false
-  routeGeneration += 1
-  clearTaskPollers()
-})
 </script>
 
 <template>
@@ -750,7 +513,7 @@ onBeforeUnmount(() => {
       <div class="hero-copy">
         <span class="hero-kicker">KNOWLEDGE DOCUMENTS</span>
         <h2>{{ knowledgeBase?.knowledgeName || '知识库文档' }}</h2>
-        <p>{{ knowledgeBase?.description || '上传源文档，并显式提交切片入库任务。' }}</p>
+        <p>{{ knowledgeBase?.description || '上传源文档，并显式提交切片入库。' }}</p>
         <div class="base-meta" v-if="knowledgeBase">
           <el-tag :type="isKnowledgeBaseActive ? 'success' : 'info'">
             {{ isKnowledgeBaseActive ? '已启用' : '不可操作' }}
@@ -761,7 +524,7 @@ onBeforeUnmount(() => {
         </div>
       </div>
       <div class="hero-actions">
-        <el-button :icon="Refresh" @click="reloadPage">刷新</el-button>
+        <el-button :icon="Refresh" @click="reloadPage">刷新状态</el-button>
         <el-button
           type="primary"
           :icon="UploadFilled"
@@ -775,7 +538,7 @@ onBeforeUnmount(() => {
 
     <el-alert
       v-if="!isKnowledgeBaseActive"
-      title="知识库已停用或正在删除，当前仅允许查看已有文档、任务和切片。"
+      title="知识库已停用或正在删除，当前仅允许查看已有文档和切片。"
       type="warning"
       :closable="false"
       show-icon
@@ -802,6 +565,7 @@ onBeforeUnmount(() => {
             <el-option label="已就绪" value="READY" />
             <el-option label="处理失败" value="FAILED" />
             <el-option label="删除中" value="DELETING" />
+            <el-option label="删除失败" value="DELETE_FAILED" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -815,7 +579,7 @@ onBeforeUnmount(() => {
       <div class="table-toolbar">
         <div class="table-title">
           <h2>文档列表</h2>
-          <span>共 {{ total }} 个文档；上传后需单独提交切片入库任务</span>
+          <span>共 {{ total }} 个文档；处理状态仅在手动刷新时更新</span>
         </div>
       </div>
 
@@ -865,7 +629,7 @@ onBeforeUnmount(() => {
         <el-table-column label="上传时间" min-width="170">
           <template #default="{ row }">{{ formatTime(row) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="310" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button
               link
@@ -876,7 +640,6 @@ onBeforeUnmount(() => {
             >
               切片入库
             </el-button>
-            <el-button link type="primary" :icon="Files" @click="openTaskDrawer(row)">任务</el-button>
             <el-button
               link
               type="primary"
@@ -893,7 +656,7 @@ onBeforeUnmount(() => {
               :disabled="!canDeleteDocument(row)"
               @click="handleDeleteDocument(row)"
             >
-              删除
+              {{ String(row.parseStatus).toUpperCase() === 'DELETE_FAILED' ? '重试删除' : '删除' }}
             </el-button>
           </template>
         </el-table-column>
@@ -950,12 +713,12 @@ onBeforeUnmount(() => {
       </template>
     </el-dialog>
 
-    <el-dialog v-model="indexDialogVisible" title="提交切片入库任务" width="650px" destroy-on-close>
+    <el-dialog v-model="indexDialogVisible" title="提交切片入库" width="650px" destroy-on-close>
       <div class="selected-document">
         <el-icon><Document /></el-icon>
         <span>
           <strong>{{ indexDocument?.documentName }}</strong>
-          <small>本次提交会快照到任务；执行成功后才保存为文档当前配置。</small>
+          <small>提交后由后台处理，点击“刷新状态”查看最新结果。</small>
         </span>
       </div>
       <el-form ref="indexFormRef" :model="indexForm" label-position="top" class="index-form">
@@ -999,12 +762,12 @@ onBeforeUnmount(() => {
             placeholder="例如：\n\n、\t、###"
           />
           <span class="field-help">
-            按字面值切分，支持 \n、\r、\t、\\ 转义；标识不会写入切片，空片段会被忽略。单片超过 4000 字符则任务失败。
+            按字面值切分，支持 \n、\r、\t、\\ 转义；标识不会写入切片，空片段会被忽略。单片超过 4000 字符则处理失败。
           </span>
         </el-form-item>
 
         <el-alert
-          title="提交后不会自动重试。失败原因会直接展示，你可以从任务记录中手动重新提交。"
+          title="提交后不会自动重试。失败原因会显示在文档状态上，你可以重新提交切片入库。"
           type="info"
           :closable="false"
           show-icon
@@ -1012,78 +775,9 @@ onBeforeUnmount(() => {
       </el-form>
       <template #footer>
         <el-button @click="indexDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="indexing" @click="submitIndexTask">提交任务</el-button>
+        <el-button type="primary" :loading="indexing" @click="submitIndex">开始处理</el-button>
       </template>
     </el-dialog>
-
-    <el-drawer v-model="taskDrawerVisible" size="760px" destroy-on-close>
-      <template #header>
-        <div class="drawer-heading">
-          <strong>任务记录</strong>
-          <span>{{ taskDocument?.documentName }}</span>
-        </div>
-      </template>
-      <el-table v-loading="taskLoading" :data="taskRows" stripe>
-        <el-table-column label="任务" min-width="135">
-          <template #default="{ row }">
-            <div class="task-name">
-              <strong>{{ taskTypeText(row.taskType) }}</strong>
-              <span>#{{ row.id }}</span>
-            </div>
-          </template>
-        </el-table-column>
-        <el-table-column label="状态" width="105">
-          <template #default="{ row }">
-            <el-tag :type="taskStatusMeta(row.status).type">{{ taskStatusMeta(row.status).text }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="进度" min-width="160">
-          <template #default="{ row }">
-            <el-progress
-              :percentage="Number(row.progress || 0)"
-              :status="String(row.status).toUpperCase() === 'FAILED' ? 'exception' : (String(row.status).toUpperCase() === 'SUCCEEDED' ? 'success' : undefined)"
-              :stroke-width="7"
-            />
-            <small class="stage-text">{{ stageText(row.stage) }}</small>
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" min-width="165">
-          <template #default="{ row }">{{ formatTime(row) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="95" fixed="right">
-          <template #default="{ row }">
-            <el-button
-              v-if="String(row.status).toUpperCase() === 'FAILED'"
-              link
-              type="danger"
-              :disabled="!isKnowledgeBaseActive"
-              @click="retryTask(row)"
-            >
-              重新提交
-            </el-button>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <template #empty><el-empty description="暂无任务记录" /></template>
-      </el-table>
-
-      <div v-for="task in taskRows.filter((item) => item.errorMessage)" :key="`error-${task.id}`" class="task-error">
-        <strong>{{ taskTypeText(task.taskType) }}失败原因</strong>
-        <p>{{ task.errorMessage }}</p>
-      </div>
-
-      <div class="drawer-pagination">
-        <el-pagination
-          v-model:current-page="taskCurrent"
-          v-model:page-size="taskSize"
-          :total="taskTotal"
-          :page-sizes="[10, 20, 50]"
-          layout="total, sizes, prev, pager, next"
-          @current-change="loadTasks"
-          @size-change="handleTaskSizeChange"
-        />
-      </div>
-    </el-drawer>
 
     <el-drawer v-model="chunkDrawerVisible" size="850px" destroy-on-close>
       <template #header>
@@ -1289,43 +983,6 @@ onBeforeUnmount(() => {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.task-name strong,
-.task-name span {
-  display: block;
-}
-
-.task-name strong {
-  color: #173653;
-  font-size: 13px;
-}
-
-.task-name span,
-.stage-text {
-  margin-top: 4px;
-  color: #7a8da7;
-  font-size: 11px;
-}
-
-.task-error {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border: 1px solid #ffd6d6;
-  border-radius: 9px;
-  color: #a73535;
-  background: #fff6f6;
-}
-
-.task-error strong {
-  font-size: 13px;
-}
-
-.task-error p {
-  margin: 6px 0 0;
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre-wrap;
 }
 
 .drawer-pagination {

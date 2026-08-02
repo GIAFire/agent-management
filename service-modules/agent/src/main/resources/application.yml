@@ -61,6 +61,8 @@ rag:
 #      index-prefix: apboa_rag
 #      connect-timeout: 5000
 #      socket-timeout: 60000
+#    pgvector:
+#    qdrant:
 
 agent:
   skill:
@@ -72,11 +74,12 @@ knowledge:
     # 多实例部署时必须配置为所有实例可读写的共享挂载目录。
     root: ./knowledge-uploads
     max-file-size: 50MB
-  tasks:
-    poll-interval: 2s
+  processing:
+    enabled: true
     lease-duration: 30m
     concurrency: 2
-    claim-batch-size: 4
+    queue-capacity: 20
+    recovery-batch-size: 4
     embedding-batch-size: 20
 
 mybatis-plus:

@@ -2,8 +2,7 @@ package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.zw.agent.knowledge.dto.KnowledgeDocumentResponse;
-import com.zw.agent.knowledge.dto.KnowledgeIndexTaskRequest;
-import com.zw.agent.knowledge.dto.KnowledgeTaskResponse;
+import com.zw.agent.knowledge.dto.KnowledgeIndexRequest;
 import com.zw.agent.knowledge.service.KnowledgeManagementService;
 import com.zw.common.entity.Result;
 import lombok.RequiredArgsConstructor;
@@ -57,34 +56,19 @@ public class AiKnowledgeDocumentController {
     }
 
     @DeleteMapping("/knowledgeDocuments/{documentId}")
-    public Result<KnowledgeTaskResponse> delete(
+    public Result<KnowledgeDocumentResponse> delete(
             @PathVariable Long documentId
     ) {
         return Result.ok(managementService.deleteDocument(documentId));
     }
 
-    @PostMapping("/knowledgeDocuments/{documentId}/indexTasks")
-    public Result<KnowledgeTaskResponse> createIndexTask(
+    @PostMapping("/knowledgeDocuments/{documentId}/index")
+    public Result<KnowledgeDocumentResponse> submitIndex(
             @PathVariable Long documentId,
-            @RequestBody KnowledgeIndexTaskRequest request
+            @RequestBody KnowledgeIndexRequest request
     ) {
         return Result.ok(
-                managementService.createIndexTask(documentId, request)
-        );
-    }
-
-    @GetMapping("/knowledgeDocuments/{documentId}/tasks")
-    public Result<IPage<KnowledgeTaskResponse>> tasks(
-            @PathVariable Long documentId,
-            @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "10") long size
-    ) {
-        return Result.ok(
-                managementService.pageDocumentTasks(
-                        documentId,
-                        current,
-                        size
-                )
+                managementService.submitIndex(documentId, request)
         );
     }
 }

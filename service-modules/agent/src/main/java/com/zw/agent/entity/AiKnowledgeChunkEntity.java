@@ -42,12 +42,6 @@ public class AiKnowledgeChunkEntity extends BaseEntity {
     private Long documentId;
 
     /**
-     * 生成该切片的知识任务ID。
-     */
-    @TableField("knowledge_task_id")
-    private Long knowledgeTaskId;
-
-    /**
      * 切片序号，从0或1开始
      */
     @TableField("chunk_index")

@@ -8,10 +8,6 @@ export const listKnowledgeBases = (params) => {
 
 export const getKnowledgeMetrics = () => get(`${baseUrl}/knowledgeBases/metrics`)
 
-export const listRecentKnowledgeFailures = (size = 5) => (
-  get(`${baseUrl}/knowledgeTasks/recent-failures`, { size })
-)
-
 export const getKnowledgeBase = (knowledgeBaseId) => {
   return get(`${baseUrl}/knowledgeBases/${stringifyId(knowledgeBaseId)}`)
 }
@@ -70,22 +66,6 @@ export const listKnowledgeChunks = (documentId, params) => {
   return get(`${baseUrl}/knowledgeDocuments/${stringifyId(documentId)}/chunks`, params)
 }
 
-export const createDocumentIndexTask = (documentId, data) => {
-  return post(`${baseUrl}/knowledgeDocuments/${stringifyId(documentId)}/indexTasks`, data)
-}
-
-export const listDocumentTasks = (documentId, params) => {
-  return get(`${baseUrl}/knowledgeDocuments/${stringifyId(documentId)}/tasks`, params)
-}
-
-export const getKnowledgeTask = (taskId, options = {}) => {
-  return request({
-    url: `${baseUrl}/knowledgeTasks/${stringifyId(taskId)}`,
-    method: 'get',
-    skipErrorMessage: options.skipErrorMessage === true
-  })
-}
-
-export const resubmitKnowledgeTask = (taskId) => {
-  return post(`${baseUrl}/knowledgeTasks/${stringifyId(taskId)}/resubmit`)
+export const submitDocumentIndex = (documentId, data) => {
+  return post(`${baseUrl}/knowledgeDocuments/${stringifyId(documentId)}/index`, data)
 }

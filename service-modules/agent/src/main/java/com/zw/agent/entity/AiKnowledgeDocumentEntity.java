@@ -1,10 +1,12 @@
 package com.zw.agent.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.zw.common.entity.BaseEntity;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -122,8 +124,20 @@ public class AiKnowledgeDocumentEntity extends BaseEntity {
     /**
      * 处理失败原因
      */
-    @TableField("error_message")
+    @TableField(value = "error_message", updateStrategy = FieldStrategy.ALWAYS)
     private String errorMessage;
+
+    /**
+     * 当前后台处理的租约所有者。
+     */
+    @TableField(value = "lease_owner", updateStrategy = FieldStrategy.ALWAYS)
+    private String leaseOwner;
+
+    /**
+     * 当前后台处理租约的到期时间。
+     */
+    @TableField(value = "lease_until", updateStrategy = FieldStrategy.ALWAYS)
+    private LocalDateTime leaseUntil;
 
     /**
      * 文档最近一次提交索引任务时确认的切片策略。
@@ -134,19 +148,19 @@ public class AiKnowledgeDocumentEntity extends BaseEntity {
     /**
      * CHARACTER/PARAGRAPH 策略的目标切片字符数。
      */
-    @TableField("chunk_size")
+    @TableField(value = "chunk_size", updateStrategy = FieldStrategy.ALWAYS)
     private Integer chunkSize;
 
     /**
      * CHARACTER/PARAGRAPH 策略的重叠字符数。
      */
-    @TableField("chunk_overlap")
+    @TableField(value = "chunk_overlap", updateStrategy = FieldStrategy.ALWAYS)
     private Integer chunkOverlap;
 
     /**
      * DELIMITER 策略使用的字面分隔符（已完成转义解析）。
      */
-    @TableField("chunk_delimiter")
+    @TableField(value = "chunk_delimiter", updateStrategy = FieldStrategy.ALWAYS)
     private String chunkDelimiter;
 
     /**
