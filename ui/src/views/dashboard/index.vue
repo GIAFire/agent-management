@@ -190,18 +190,10 @@ onMounted(loadAgents)
       <article class="panel flow-panel">
         <div class="panel-header">
           <div>
-            <h3>实时运行流</h3>
-            <p>最近 Agent 运行事件</p>
+            <h3>对话历史</h3>
+            <p>最近对话历史</p>
           </div>
           <el-button link type="primary">查看全部 <el-icon><ArrowRight /></el-icon></el-button>
-        </div>
-        <div class="flow-list">
-          <div v-for="event in flowEvents" :key="`${event.name}-${event.time}`" class="flow-row">
-            <span class="flow-dot" :class="event.tone" />
-            <strong>{{ event.name }}</strong>
-            <time>{{ event.time }}</time>
-            <em :class="event.tone">{{ event.status }}</em>
-          </div>
         </div>
       </article>
 
