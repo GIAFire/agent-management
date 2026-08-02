@@ -1,63 +1,91 @@
 package com.zw.agent.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zw.agent.entity.AiAgentSysPromptEntity;
-import com.zw.agent.service.AiAgentSysPromptService;
+import com.zw.agent.entity.DTO.SysPromptAnalyticsResponse;
+import com.zw.agent.entity.DTO.SysPromptDetailResponse;
+import com.zw.agent.entity.DTO.SysPromptListItemResponse;
+import com.zw.agent.entity.DTO.SysPromptMetricsResponse;
+import com.zw.agent.entity.DTO.SysPromptOptionResponse;
+import com.zw.agent.entity.DTO.SysPromptSaveRequest;
+import com.zw.agent.service.SysPromptManagementService;
 import com.zw.common.entity.Result;
-import com.zw.common.support.EntityDefaults;
-import lombok.AllArgsConstructor;
-import org.springframework.web.bind.annotation.*;
-
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.function.Supplier;
+import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-/**
- * <p>
- * Agent 定义表：保存一个可视化 Agent 的基础身份信息 前端控制器
- * </p>
- *
- * @author 智纬
- * @since 2026-07-12
- */
-@AllArgsConstructor
 @RestController
 @RequestMapping("/sysPrompt")
+@RequiredArgsConstructor
 public class AiAgentSysPromptController {
 
-    private final AiAgentSysPromptService sysPromptService;
+    private final SysPromptManagementService managementService;
 
-    @GetMapping("/list")
-    public Result<List<AiAgentSysPromptEntity>> list() {
+    @GetMapping("/metrics")
+    public Result<SysPromptMetricsResponse> metrics() {
+        return handle(managementService::metrics);
+    }
 
-        return Result.ok(sysPromptService.list());
+    @GetMapping("/analytics")
+    public Result<SysPromptAnalyticsResponse> analytics(
+            @RequestParam(defaultValue = "5") int limit
+    ) {
+        return handle(() -> managementService.analytics(limit));
     }
 
     @GetMapping("/page")
-    public Result<IPage<AiAgentSysPromptEntity>> page(
+    public Result<IPage<SysPromptListItemResponse>> page(
             @RequestParam(defaultValue = "1") long current,
-            @RequestParam(defaultValue = "10") long size
+            @RequestParam(defaultValue = "8") long size,
+            @RequestParam(required = false) String keyword
     ) {
-        return Result.ok(sysPromptService.page(new Page<>(current, size)));
+        return handle(() -> managementService.page(current, size, keyword));
+    }
+
+    @GetMapping("/list")
+    public Result<List<SysPromptOptionResponse>> list() {
+        return handle(managementService::listOptions);
     }
 
     @GetMapping("/{id}")
-    public Result<AiAgentSysPromptEntity> getById(@PathVariable Long id) {
-        return Result.ok(sysPromptService.getById(id));
+    public Result<SysPromptDetailResponse> detail(
+            @PathVariable Long id
+    ) {
+        return Result.ok(managementService.detail(id));
     }
 
     @PostMapping("/create")
-    public Result<Boolean> create(@RequestBody AiAgentSysPromptEntity entity) {
-        return Result.ok(sysPromptService.save(entity));
+    public Result<SysPromptDetailResponse> create(
+            @RequestBody SysPromptSaveRequest request
+    ) {
+        return handle(() -> managementService.create(request));
     }
 
     @PostMapping("/update")
-    public Result<Boolean> update(@RequestBody AiAgentSysPromptEntity entity) {
-        return Result.ok(sysPromptService.updateById(EntityDefaults.update(entity)));
+    public Result<SysPromptDetailResponse> update(
+            @RequestBody SysPromptSaveRequest request
+    ) {
+        return handle(() -> managementService.update(request));
     }
 
-    @GetMapping("/delete/{id}")
+    @DeleteMapping("/{id}")
     public Result<Boolean> delete(@PathVariable Long id) {
-        return Result.ok(sysPromptService.removeById(id));
+        return handle(() -> managementService.delete(id));
     }
 
+    private <T> Result<T> handle(Supplier<T> supplier) {
+        try {
+            return Result.ok(supplier.get());
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return Result.fail(exception.getMessage());
+        }
+    }
 }

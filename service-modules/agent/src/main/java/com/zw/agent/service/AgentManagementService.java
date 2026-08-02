@@ -282,8 +282,7 @@ public class AgentManagementService {
                 .eq(AiAgentSysPromptEntity::getTenantId, tenantId)
                 .eq(AiAgentSysPromptEntity::getId, config.getSysPromptId()));
         boolean promptAvailable = prompt != null
-                && Integer.valueOf(0).equals(prompt.getDeleted())
-                && Byte.valueOf((byte) 1).equals(prompt.getStatus());
+                && Integer.valueOf(0).equals(prompt.getDeleted());
 
         return AgentDetailResponse.builder()
                 .id(agent.getId())
@@ -299,8 +298,8 @@ public class AgentManagementService {
                 .protocol(model == null || model.getProtocol() == null
                         ? null : model.getProtocol().getCode())
                 .modelName(model == null ? null : model.getModelName())
-                .sysPromptId(config.getSysPromptId())
-                .sysPromptName(prompt == null ? null : prompt.getPromptName())
+                .sysPromptId(promptAvailable ? config.getSysPromptId() : null)
+                .sysPromptName(promptAvailable ? prompt.getPromptName() : null)
                 .sysPrompt(promptAvailable ? prompt.getSysPrompt() : null)
                 .systemPromptAvailable(promptAvailable)
                 .maxIters(config.getMaxIters())
@@ -1071,10 +1070,9 @@ public class AgentManagementService {
                 new LambdaQueryWrapper<AiAgentSysPromptEntity>()
                         .eq(AiAgentSysPromptEntity::getTenantId, tenantId)
                         .eq(AiAgentSysPromptEntity::getDeleted, 0)
-                        .eq(AiAgentSysPromptEntity::getStatus, (byte) 1)
                         .eq(AiAgentSysPromptEntity::getId, promptId));
         if (count != 1) {
-            throw new IllegalArgumentException("所选系统提示词不存在、已停用或已删除");
+            throw new IllegalArgumentException("所选系统提示词不存在或已删除");
         }
     }
 

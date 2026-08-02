@@ -272,7 +272,7 @@ const loadOptions = async () => {
     ])
     optionRows.models = (models || []).filter(item => Number(item.status ?? 1) === 1)
     optionRows.prompts = (prompts || []).filter(
-      item => Number(item.status ?? 1) === 1 && Number(item.deleted ?? 0) === 0
+      item => Number(item.deleted ?? 0) === 0
     )
     optionRows.tools = (tools || []).filter(
       item => item.enabled !== false && Number(item.deleted ?? 0) === 0

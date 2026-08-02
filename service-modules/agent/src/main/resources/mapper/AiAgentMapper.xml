@@ -63,7 +63,6 @@
         LEFT JOIN ai_agent_sys_prompt prompt
             ON prompt.id = ac.sys_prompt_id
             AND prompt.tenant_id = #{tenantId}
-            AND prompt.status = 1
             AND prompt.deleted = 0
         WHERE agent.id = #{agentId}
           AND agent.tenant_id = #{tenantId}

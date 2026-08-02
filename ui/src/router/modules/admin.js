@@ -55,6 +55,16 @@ export const adminRoutes = [
             }
           },
           {
+            path: 'prompt',
+            name: 'PromptManage',
+            component: () => import('@/views/prompt/index.vue'),
+            meta: {
+              title: '系统提示词',
+              icon: 'ChatLineSquare',
+              description: '集中维护智能体可选择的系统提示词。内容变更会直接应用于后续运行。'
+            }
+          },
+          {
             path: 'knowledge',
             name: 'KnowledgeManage',
             component: () => import('@/views/knowledge/index.vue'),

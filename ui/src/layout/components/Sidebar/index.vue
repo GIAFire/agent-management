@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import {
   Box,
   Briefcase,
+  ChatLineSquare,
   Connection,
   Collection,
   Grid,
@@ -23,6 +24,7 @@ const navItems = [
   { title: '工具', path: '/agent/tool', icon: Tools },
   { title: '技能', path: '/agent/skill', icon: MagicStick, match: ['/agent/skill', '/agent/skill-package'] },
   { title: '模型', path: '/agent/model', icon: Box },
+  { title: '系统提示词', path: '/agent/prompt', icon: ChatLineSquare },
   {
     title: '系统管理',
     path: '/user/manage',
