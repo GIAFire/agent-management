@@ -43,7 +43,7 @@ const trendDays = ref(7)
 
 const query = reactive({
   current: 1,
-  size: 6,
+  size: 8,
   keyword: '',
   status: ''
 })
@@ -540,7 +540,7 @@ onMounted(loadDashboard)
           v-model:page-size="query.size"
           class="pagination management-pagination"
           layout="total, prev, pager, next, sizes"
-          :page-sizes="[6, 12, 24, 48]"
+          :page-sizes="[8, 16, 32]"
           :total="total"
           @current-change="loadPage"
           @size-change="search"

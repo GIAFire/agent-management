@@ -37,7 +37,7 @@ const metricData = ref(null)
 const localAgentOptions = ref([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(6)
+const pageSize = ref(8)
 
 const queryParams = reactive({
   keyword: '',
@@ -556,7 +556,7 @@ onMounted(loadDashboard)
             class="management-pagination"
             background
             layout="prev, pager, next, sizes"
-            :page-sizes="[6, 12, 24]"
+            :page-sizes="[8, 16, 32]"
             :total="total"
           />
         </div>

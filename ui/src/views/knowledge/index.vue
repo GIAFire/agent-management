@@ -35,7 +35,7 @@ const total = ref(0)
 const metrics = ref({})
 const recentFailures = ref([])
 const current = ref(1)
-const size = ref(12)
+const size = ref(8)
 const query = reactive({
   keyword: '',
   status: ''
@@ -421,7 +421,7 @@ onMounted(async () => {
         v-model:page-size="size"
         class="management-pagination"
         :total="total"
-        :page-sizes="[12, 24, 48]"
+        :page-sizes="[8, 16, 32]"
         layout="total, prev, pager, next, sizes"
         @current-change="loadRows"
         @size-change="handleSearch"
