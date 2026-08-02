@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import {
@@ -12,10 +12,11 @@ import {
   Monitor,
   More,
   Odometer,
+  Search,
   TrendCharts,
   VideoPlay
 } from '@element-plus/icons-vue'
-import { getRunOverview } from '@/axios/overview'
+import { getInteractionHistory, getRunOverview } from '@/axios/overview'
 import { getUser } from '@/utils/auth'
 
 const router = useRouter()
@@ -24,11 +25,12 @@ const loadError = ref('')
 const rangeMode = ref('近7天')
 const customRange = ref([])
 let requestSequence = 0
+let historyRequestSequence = 0
 
 const emptyOverview = () => ({
   metrics: {},
   trend: { points: [], summary: {} },
-  recentRuns: [],
+  recentInteractions: [],
   quickAgents: []
 })
 
@@ -190,10 +192,42 @@ const formatAxisDate = value => value ? String(value).slice(5) : '--'
 
 const trendSummary = computed(() => overview.value.trend?.summary || {})
 
-const recentRuns = computed(() => (overview.value.recentRuns || []).map(run => ({
-  ...run,
-  ...runStatus(run.status)
-})))
+const normalizeInteraction = interaction => {
+  const status = String(interaction.status || '').toUpperCase()
+  const userMessage = String(interaction.userMessage || '').trim() || '（空消息）'
+  const assistantMessage = String(interaction.assistantMessage || '').trim()
+  const fallbackReplies = {
+    FAILED: '回复失败',
+    CANCELLED: '回复已取消',
+    RUNNING: '正在回复…',
+    WAITING_USER_CONFIRM: '等待用户确认',
+    WAITING_EXTERNAL_EXECUTION: '等待外部执行'
+  }
+  const replyTone = status.startsWith('WAITING_') ? 'running' : status.toLowerCase()
+
+  return {
+    ...interaction,
+    userMessage,
+    assistantPreview: assistantMessage || fallbackReplies[status] || '暂无回复',
+    replyTone: assistantMessage ? '' : replyTone,
+    agentInitial: String(interaction.agentName || '智').slice(0, 1)
+  }
+}
+
+const recentInteractions = computed(() => (
+  overview.value.recentInteractions || []
+).map(normalizeInteraction))
+
+const interactionHistoryVisible = ref(false)
+const interactionHistoryKeyword = ref('')
+const interactionHistory = reactive({
+  loading: false,
+  records: [],
+  total: 0,
+  current: 1,
+  size: 10
+})
+const interactionHistoryRows = computed(() => interactionHistory.records.map(normalizeInteraction))
 
 const quickAgents = computed(() => (overview.value.quickAgents || []).map((agent, index) => ({
   ...agent,
@@ -201,20 +235,7 @@ const quickAgents = computed(() => (overview.value.quickAgents || []).map((agent
   tone: quickTones[index % quickTones.length]
 })))
 
-function runStatus(status) {
-  const statuses = {
-    RUNNING: { statusLabel: '运行中', tone: 'running' },
-    SUCCESS: { statusLabel: '成功', tone: 'success' },
-    FAILED: { statusLabel: '失败', tone: 'danger' },
-    CANCELLED: { statusLabel: '已取消', tone: 'cancelled' }
-  }
-  return statuses[String(status || '').toUpperCase()] || {
-    statusLabel: status || '未知',
-    tone: 'cancelled'
-  }
-}
-
-const formatRunTime = value => {
+const formatInteractionTime = value => {
   if (!value) return '--'
   const normalized = String(value).replace(' ', 'T')
   const date = new Date(normalized)
@@ -288,15 +309,63 @@ const handleCreateAgent = () => {
 
 const openAgentManagement = () => router.push('/agent/manage')
 
-const openRecentRun = run => {
-  if (!run.agentId || run.agentName === '已删除智能体') {
-    ElMessage.info('该智能体已删除，无法打开运行记录')
+const openRecentInteraction = interaction => {
+  if (!interaction.agentAvailable || !interaction.agentId) {
+    ElMessage.info('该智能体已删除，无法打开原会话')
+    return
+  }
+  if (!interaction.sessionId) {
+    ElMessage.info('原会话不存在，无法打开')
     return
   }
   router.push({
-    path: '/agent/manage',
-    query: { runAgentId: String(run.agentId), runAgentName: run.agentName }
+    name: 'AgentChat',
+    params: { agentId: String(interaction.agentId) },
+    query: {
+      agentName: interaction.agentName,
+      agentKey: interaction.agentCode || '',
+      sessionId: String(interaction.sessionId)
+    }
   })
+}
+
+const loadInteractionHistory = async () => {
+  const sequence = ++historyRequestSequence
+  interactionHistory.loading = true
+  try {
+    const page = await getInteractionHistory({
+      current: interactionHistory.current,
+      size: interactionHistory.size,
+      keyword: interactionHistoryKeyword.value.trim() || undefined
+    })
+    if (sequence !== historyRequestSequence) return
+    interactionHistory.records = Array.isArray(page?.records) ? page.records : []
+    interactionHistory.total = Number(page?.total || 0)
+  } catch (error) {
+    if (sequence !== historyRequestSequence) return
+    interactionHistory.records = []
+    interactionHistory.total = 0
+    ElMessage.error(error?.message || '历史对话加载失败')
+  } finally {
+    if (sequence === historyRequestSequence) interactionHistory.loading = false
+  }
+}
+
+const openInteractionHistory = () => {
+  interactionHistoryKeyword.value = ''
+  interactionHistory.current = 1
+  interactionHistoryVisible.value = true
+  loadInteractionHistory()
+}
+
+const searchInteractionHistory = () => {
+  interactionHistory.current = 1
+  loadInteractionHistory()
+}
+
+const handleInteractionHistorySizeChange = () => {
+  interactionHistory.current = 1
+  loadInteractionHistory()
 }
 
 const startQuickAgent = agent => {
@@ -456,28 +525,46 @@ onMounted(loadOverview)
       <article class="panel flow-panel">
         <div class="panel-header">
           <div>
-            <h3>近期运行</h3>
-            <p>最新 7 次智能体运行</p>
+            <h3>近期对话</h3>
+            <p>最近 7 次与智能体的交互</p>
           </div>
-          <el-button link type="primary" @click="openAgentManagement">
-            查看全部 <el-icon><ArrowRight /></el-icon>
-          </el-button>
         </div>
-        <div v-if="recentRuns.length" class="flow-list">
+        <div v-if="recentInteractions.length" class="conversation-list">
           <button
-            v-for="run in recentRuns"
-            :key="run.id"
+            v-for="interaction in recentInteractions"
+            :key="interaction.runId"
             type="button"
-            class="flow-row flow-row-button"
-            @click="openRecentRun(run)"
+            class="conversation-row"
+            :disabled="!interaction.agentAvailable"
+            :aria-label="interaction.agentAvailable
+              ? `打开与${interaction.agentName}的原会话`
+              : `${interaction.agentName}的历史对话不可打开`"
+            @click="openRecentInteraction(interaction)"
           >
-            <i class="flow-dot" :class="run.tone" />
-            <strong>{{ run.agentName }}</strong>
-            <time>{{ formatRunTime(run.startedAt) }}</time>
-            <em :class="run.tone">{{ run.statusLabel }}</em>
+            <span class="conversation-avatar" aria-hidden="true">
+              {{ interaction.agentInitial }}
+            </span>
+            <span class="conversation-copy">
+              <span class="conversation-meta">
+                <strong>{{ interaction.agentName }}</strong>
+                <time>{{ formatInteractionTime(interaction.startedAt) }}</time>
+              </span>
+              <span class="conversation-snippet">
+                <b>用户</b>
+                <span :title="interaction.userMessage">{{ interaction.userMessage }}</span>
+              </span>
+              <span class="conversation-snippet assistant" :class="interaction.replyTone">
+                <b>智能体</b>
+                <span :title="interaction.assistantPreview">{{ interaction.assistantPreview }}</span>
+              </span>
+            </span>
           </button>
         </div>
-        <el-empty v-else description="暂无运行记录" :image-size="64" />
+        <el-empty v-else description="暂无近期对话" :image-size="64" />
+        <el-button class="more-conversations" text bg type="primary" @click="openInteractionHistory">
+          查看更多
+          <el-icon><ArrowRight /></el-icon>
+        </el-button>
       </article>
 
       <article class="panel quick-panel">
@@ -524,5 +611,80 @@ onMounted(loadOverview)
         </el-button>
       </article>
     </div>
+
+    <el-dialog
+      v-model="interactionHistoryVisible"
+      class="conversation-history-dialog"
+      title="历史对话"
+      width="min(920px, calc(100vw - 32px))"
+      align-center
+      append-to-body
+      destroy-on-close
+    >
+      <div class="conversation-history-toolbar">
+        <el-input
+          v-model="interactionHistoryKeyword"
+          :prefix-icon="Search"
+          clearable
+          placeholder="查询用户消息、智能体回复或智能体名称"
+          @keyup.enter="searchInteractionHistory"
+          @clear="searchInteractionHistory"
+        />
+        <el-button type="primary" :icon="Search" @click="searchInteractionHistory">
+          查询
+        </el-button>
+      </div>
+
+      <div v-loading="interactionHistory.loading" class="conversation-history-body">
+        <div v-if="interactionHistoryRows.length" class="conversation-list conversation-history-list">
+          <button
+            v-for="interaction in interactionHistoryRows"
+            :key="interaction.runId"
+            type="button"
+            class="conversation-row conversation-history-row"
+            :disabled="!interaction.agentAvailable"
+            :aria-label="interaction.agentAvailable
+              ? `打开与${interaction.agentName}的原会话`
+              : `${interaction.agentName}的历史对话不可打开`"
+            @click="openRecentInteraction(interaction)"
+          >
+            <span class="conversation-avatar" aria-hidden="true">
+              {{ interaction.agentInitial }}
+            </span>
+            <span class="conversation-copy">
+              <span class="conversation-meta">
+                <strong>{{ interaction.agentName }}</strong>
+                <time>{{ formatInteractionTime(interaction.startedAt) }}</time>
+              </span>
+              <span class="conversation-snippet">
+                <b>用户</b>
+                <span :title="interaction.userMessage">{{ interaction.userMessage }}</span>
+              </span>
+              <span class="conversation-snippet assistant" :class="interaction.replyTone">
+                <b>智能体</b>
+                <span :title="interaction.assistantPreview">{{ interaction.assistantPreview }}</span>
+              </span>
+            </span>
+          </button>
+        </div>
+        <el-empty
+          v-else-if="!interactionHistory.loading"
+          description="暂无符合条件的历史对话"
+          :image-size="72"
+        />
+      </div>
+
+      <el-pagination
+        v-model:current-page="interactionHistory.current"
+        v-model:page-size="interactionHistory.size"
+        class="conversation-history-pagination"
+        :page-sizes="[10, 20, 50]"
+        :total="interactionHistory.total"
+        layout="total, sizes, prev, pager, next"
+        background
+        @current-change="loadInteractionHistory"
+        @size-change="handleInteractionHistorySizeChange"
+      />
+    </el-dialog>
   </section>
 </template>

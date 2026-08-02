@@ -41,6 +41,7 @@ public class AiAgentSessionController {
             @RequestParam(defaultValue = "1") long current,
             @RequestParam(defaultValue = "10") long size,
             @RequestParam(required = false) Long agentId,
+            @RequestParam(required = false) Long sessionId,
             @RequestParam(required = false) String keyword
     ) {
         UserInfo userInfo = UserContext.get();
@@ -49,6 +50,9 @@ public class AiAgentSessionController {
                 .eq(AiAgentSessionEntity::getUserId, userInfo.getUserId());
         if (agentId != null) {
             query.eq(AiAgentSessionEntity::getAgentId, agentId);
+        }
+        if (sessionId != null) {
+            query.eq(AiAgentSessionEntity::getId, sessionId);
         }
         if (StringUtils.hasText(keyword)) {
             query.like(AiAgentSessionEntity::getTitle, keyword.trim());

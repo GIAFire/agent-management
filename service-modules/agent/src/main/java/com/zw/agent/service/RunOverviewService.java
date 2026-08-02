@@ -1,12 +1,14 @@
 package com.zw.agent.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zw.agent.entity.AiAgentEntity;
 import com.zw.agent.entity.AiAgentRunLogEntity;
 import com.zw.agent.entity.DTO.AgentRecentRunResponse;
 import com.zw.agent.entity.DTO.AgentRunSummary;
 import com.zw.agent.entity.DTO.RunOverviewQuickAgentRow;
+import com.zw.agent.entity.DTO.RunOverviewRecentInteractionRow;
 import com.zw.agent.entity.DTO.RunOverviewResponse;
 import com.zw.agent.entity.DTO.RunOverviewTrendRow;
 import com.zw.agent.mapper.AiAgentMapper;
@@ -35,6 +37,7 @@ public class RunOverviewService {
     private static final int DEFAULT_TREND_DAYS = 7;
     private static final int MAX_TREND_DAYS = 90;
     private static final int RECENT_RUN_LIMIT = 7;
+    private static final int RECENT_INTERACTION_LIMIT = 7;
     private static final int QUICK_AGENT_LIMIT = 5;
 
     private final AiAgentMapper agentMapper;
@@ -45,14 +48,55 @@ public class RunOverviewService {
         LocalDateTime now = LocalDateTime.now();
         LocalDate today = now.toLocalDate();
         DateRange range = resolveRange(requestedStart, requestedEnd, today);
-        Long tenantId = tenantId();
+        UserInfo user = currentUser();
+        Long tenantId = user.getTenantId();
 
         RunOverviewResponse.Metrics metrics = metrics(tenantId, now);
         RunOverviewResponse.Trend trend = trend(tenantId, range, now);
         List<AgentRecentRunResponse> recentRuns = recentRuns(tenantId);
+        List<RunOverviewResponse.RecentInteraction> recentInteractions =
+                recentInteractions(tenantId, user.getUserId());
         List<RunOverviewResponse.QuickAgent> quickAgents = quickAgents(tenantId, now);
 
-        return new RunOverviewResponse(metrics, trend, recentRuns, quickAgents);
+        return new RunOverviewResponse(
+                metrics,
+                trend,
+                recentRuns,
+                recentInteractions,
+                quickAgents
+        );
+    }
+
+    public IPage<RunOverviewResponse.RecentInteraction> pageRecentInteractions(
+            long current,
+            long size,
+            String keyword
+    ) {
+        UserInfo user = currentUser();
+        long safeCurrent = Math.max(1L, current);
+        int safeSize = (int) Math.min(50L, Math.max(1L, size));
+        String safeKeyword = normalizeKeyword(keyword);
+        long total = overviewMapper.countRecentInteractions(
+                user.getTenantId(),
+                user.getUserId(),
+                safeKeyword
+        );
+        Page<RunOverviewResponse.RecentInteraction> page =
+                new Page<>(safeCurrent, safeSize, total);
+        if (total == 0L) {
+            page.setRecords(List.of());
+            return page;
+        }
+        long offset = (safeCurrent - 1L) * safeSize;
+        List<RunOverviewRecentInteractionRow> rows = overviewMapper.selectRecentInteractionsPage(
+                user.getTenantId(),
+                user.getUserId(),
+                safeKeyword,
+                offset,
+                safeSize
+        );
+        page.setRecords(toRecentInteractions(rows));
+        return page;
     }
 
     private RunOverviewResponse.Metrics metrics(Long tenantId, LocalDateTime now) {
@@ -200,6 +244,50 @@ public class RunOverviewService {
                 .toList();
     }
 
+    private List<RunOverviewResponse.RecentInteraction> recentInteractions(
+            Long tenantId,
+            Long userId
+    ) {
+        List<RunOverviewRecentInteractionRow> rows = overviewMapper.selectRecentInteractions(
+                tenantId,
+                userId,
+                RECENT_INTERACTION_LIMIT
+        );
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return toRecentInteractions(rows);
+    }
+
+    private List<RunOverviewResponse.RecentInteraction> toRecentInteractions(
+            List<RunOverviewRecentInteractionRow> rows
+    ) {
+        if (rows == null || rows.isEmpty()) {
+            return List.of();
+        }
+        return rows.stream().map(this::toRecentInteraction).toList();
+    }
+
+    private RunOverviewResponse.RecentInteraction toRecentInteraction(
+            RunOverviewRecentInteractionRow row
+    ) {
+        boolean agentAvailable = row.getAgentId() != null
+                && row.getAgentName() != null
+                && !row.getAgentName().isBlank();
+        return new RunOverviewResponse.RecentInteraction(
+                row.getRunId(),
+                row.getSessionId(),
+                row.getAgentId(),
+                row.getAgentCode(),
+                agentAvailable ? row.getAgentName() : "已删除智能体",
+                row.getUserMessage(),
+                row.getAssistantMessage(),
+                row.getStatus(),
+                row.getStartedAt(),
+                agentAvailable
+        );
+    }
+
     private RunOverviewResponse.QuickAgent toQuickAgent(RunOverviewQuickAgentRow row) {
         return new RunOverviewResponse.QuickAgent(
                 row.getId(),
@@ -295,12 +383,20 @@ public class RunOverviewService {
                 .eq(AiAgentEntity::getDeleted, 0);
     }
 
-    private Long tenantId() {
+    private UserInfo currentUser() {
         UserInfo user = UserContext.get();
-        if (user == null || user.getTenantId() == null) {
-            throw new IllegalStateException("缺少认证租户上下文");
+        if (user == null || user.getTenantId() == null || user.getUserId() == null) {
+            throw new IllegalStateException("缺少认证用户上下文");
         }
-        return user.getTenantId();
+        return user;
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return null;
+        }
+        String value = keyword.trim();
+        return value.length() > 100 ? value.substring(0, 100) : value;
     }
 
     private record DateRange(LocalDate startDate, LocalDate endDate) {

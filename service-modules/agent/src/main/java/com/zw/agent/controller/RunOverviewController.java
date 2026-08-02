@@ -1,5 +1,6 @@
 package com.zw.agent.controller;
 
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.zw.agent.entity.DTO.RunOverviewResponse;
 import com.zw.agent.service.RunOverviewService;
 import com.zw.common.entity.Result;
@@ -27,6 +28,15 @@ public class RunOverviewController {
             @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
     ) {
         return handle(() -> overviewService.overview(startDate, endDate));
+    }
+
+    @GetMapping("/interactions/page")
+    public Result<IPage<RunOverviewResponse.RecentInteraction>> interactionPage(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String keyword
+    ) {
+        return handle(() -> overviewService.pageRecentInteractions(current, size, keyword));
     }
 
     private <T> Result<T> handle(Supplier<T> supplier) {

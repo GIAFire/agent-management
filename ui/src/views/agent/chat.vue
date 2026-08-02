@@ -2137,6 +2137,11 @@ const normalizeSessionId = (value) => {
   return value === undefined || value === null ? '' : String(value)
 }
 
+const routeSessionId = () => {
+  const value = route.query.sessionId
+  return normalizeSessionId(Array.isArray(value) ? value[0] : value)
+}
+
 const createMessagePaging = () => ({
   current: 0,
   size: MESSAGE_PAGE_SIZE,
@@ -2891,10 +2896,31 @@ const loadSessions = async ({ reset = false } = {}) => {
     sessionPaging.finished = page.current >= page.pages || sessions.value.length >= page.total || nextSessions.length < page.size
 
     if (reset) {
-      const firstSession = sessions.value[0] || null
-      activeSessionId.value = firstSession?.id || ''
-      if (firstSession) {
-        await loadSessionMessages(firstSession, { reset: true, scrollToLatest: true })
+      const requestedSessionId = routeSessionId()
+      let requestedSession = sessions.value.find((session) => session.id === requestedSessionId)
+      if (requestedSessionId && !requestedSession) {
+        const requestedPage = normalizePageResult(await pageAgentSessions({
+          current: 1,
+          size: 1,
+          agentId: agentId.value,
+          sessionId: requestedSessionId
+        }))
+        const requestedRecord = requestedPage.records.find((record) => (
+          normalizeSessionId(record.id) === requestedSessionId
+        ))
+        if (requestedRecord) {
+          requestedSession = buildLocalSession(requestedRecord)
+          sessions.value.unshift(requestedSession)
+        }
+      }
+      if (requestedSessionId && !requestedSession) {
+        ElMessage.warning('原会话不存在或无权访问')
+        return
+      }
+      const initialSession = requestedSession || sessions.value[0] || null
+      activeSessionId.value = initialSession?.id || ''
+      if (initialSession) {
+        await loadSessionMessages(initialSession, { reset: true, scrollToLatest: true })
       }
     }
   } catch (error) {
@@ -3373,7 +3399,7 @@ const sendMessage = async () => {
 }
 
 watch(
-  () => route.params.agentId,
+  [() => route.params.agentId, () => route.query.sessionId],
   async () => {
     stopStream()
     planDrawerOpen.value = false

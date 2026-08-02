@@ -378,6 +378,11 @@
   padding: 0px 30px 0px 30px;
 }
 
+.dashboard-page {
+  box-sizing: border-box;
+  padding-bottom: 24px;
+}
+
 .page-hero {
   display: flex;
   align-items: flex-end;
@@ -474,7 +479,7 @@
 
 .metric-card {
   display: flex;
-  min-height: 132px;
+  min-height: 112px;
   align-items: center;
   gap: 18px;
   padding: 22px;
@@ -795,6 +800,148 @@
   background: #eef2f7;
 }
 
+.conversation-list {
+  display: grid;
+  margin-top: 14px;
+}
+
+.conversation-row {
+  display: grid;
+  width: 100%;
+  min-height: 67px;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 9px 4px;
+  border: 0;
+  border-bottom: 1px solid #e3edf8;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.conversation-row:hover:not(:disabled) {
+  background: #f7faff;
+}
+
+.conversation-row:disabled {
+  cursor: default;
+  opacity: 0.62;
+}
+
+.conversation-avatar {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 9px;
+  color: #1266ff;
+  background: #eef5ff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.conversation-copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.conversation-meta {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.conversation-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #0a2547;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-meta time {
+  flex: 0 0 auto;
+  color: #7890aa;
+  font-size: 11px;
+}
+
+.conversation-snippet {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 5px;
+  color: #53677f;
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.conversation-snippet b {
+  color: #7890aa;
+  font-weight: 750;
+}
+
+.conversation-snippet > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conversation-snippet.assistant {
+  color: #315a8f;
+}
+
+.conversation-snippet.assistant.failed,
+.conversation-snippet.assistant.cancelled {
+  color: #d44f5c;
+}
+
+.conversation-snippet.assistant.running {
+  color: #087f99;
+}
+
+.more-conversations {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.conversation-history-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.conversation-history-toolbar .el-input {
+  flex: 1;
+}
+
+.conversation-history-body {
+  min-height: 240px;
+}
+
+.conversation-history-list {
+  max-height: min(58vh, 560px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.conversation-history-row {
+  min-height: 72px;
+  padding: 10px 8px;
+}
+
+.conversation-history-pagination {
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+
 .quick-row {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr) 32px 32px;
@@ -826,6 +973,76 @@
 .more-agents {
   width: 100%;
   margin-top: 18px;
+}
+
+@media (min-width: 1281px) {
+  .dashboard-page {
+    display: flex;
+    height: calc(100vh - 75px);
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .dashboard-page > .overview-error,
+  .dashboard-page > .overview-hero,
+  .dashboard-page > .stats-grid {
+    flex: 0 0 auto;
+  }
+
+  .dashboard-grid {
+    min-height: 0;
+    flex: 1;
+    align-items: stretch;
+  }
+
+  .dashboard-grid > .panel {
+    min-height: 0;
+  }
+
+  .trend-panel,
+  .flow-panel,
+  .quick-panel {
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .trend-panel .line-chart {
+    display: flex;
+    min-height: 0;
+    flex: 1;
+    flex-direction: column;
+  }
+
+  .trend-panel .line-chart svg {
+    height: auto;
+    min-height: 120px;
+    flex: 1;
+  }
+
+  .trend-panel .chart-axis,
+  .trend-panel .trend-summary,
+  .flow-panel .more-conversations,
+  .quick-panel .more-agents {
+    flex: 0 0 auto;
+  }
+
+  .flow-panel > .conversation-list,
+  .quick-panel > .quick-list {
+    min-height: 0;
+    flex: 1;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .flow-panel > .el-empty,
+  .quick-panel > .el-empty {
+    min-height: 0;
+    flex: 1;
+  }
 }
 
 .agent-stat-card {
@@ -2730,6 +2947,17 @@
 
   .flow-row em {
     display: none;
+  }
+
+  .conversation-history-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .conversation-history-pagination {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
   }
 
   .insight-card {
