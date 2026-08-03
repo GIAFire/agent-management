@@ -35,11 +35,11 @@ const navItems = [
   { title: '总览', path: '/overview', icon: Grid },
   { title: '智能体', path: '/agent/manage', icon: Briefcase },
   { title: '子智能体', path: '/agent/subagent', icon: Connection },
-  { title: '知识库', path: '/agent/knowledge', icon: Collection },
-  { title: '工具', path: '/agent/tool', icon: Tools },
-  { title: '技能', path: '/agent/skill', icon: MagicStick, match: ['/agent/skill', '/agent/skill-package'] },
   { title: '模型', path: '/agent/model', icon: Box },
   { title: '系统提示词', path: '/agent/prompt', icon: ChatLineSquare },
+  { title: '知识库', path: '/agent/knowledge', icon: Collection },
+  { title: '技能', path: '/agent/skill', icon: MagicStick, match: ['/agent/skill', '/agent/skill-package'] },
+  { title: '工具', path: '/agent/tool', icon: Tools },
   {
     title: '系统管理',
     path: '/user/manage',
@@ -121,7 +121,7 @@ watch(
         <span />
         <span />
       </div>
-      <strong>Agent<span>OS</span></strong>
+      <strong>zhiran<span>AI</span></strong>
     </RouterLink>
 
     <nav class="sidebar-nav" aria-label="主导航">

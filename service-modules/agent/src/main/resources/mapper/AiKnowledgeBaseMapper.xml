@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zw.agent.mapper.AiKnowledgeBaseMapper">
+<mapper namespace="com.zhiran.agent.mapper.AiKnowledgeBaseMapper">
 
-    <select id="getAgentBindKnowledge" resultType="com.zw.agent.entity.AiKnowledgeBaseEntity">
+    <select id="getAgentBindKnowledge" resultType="com.zhiran.agent.entity.AiKnowledgeBaseEntity">
         SELECT
         kb.id,
         kb.user_id,

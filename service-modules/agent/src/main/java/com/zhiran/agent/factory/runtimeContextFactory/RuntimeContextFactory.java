@@ -1,0 +1,43 @@
+package com.zhiran.agent.factory.runtimeContextFactory;
+
+import com.zhiran.agent.entity.DTO.AgentConfigDTO;
+import com.zhiran.agent.runtime.AgentCallContext;
+import com.zhiran.agent.runtime.AgentRuntimeKeys;
+import com.zhiran.agent.service.AiToolRolePermissionService;
+import com.zhiran.common.context.UserInfo;
+import io.agentscope.core.agent.RuntimeContext;
+import io.agentscope.core.permission.PermissionContextState;
+import io.agentscope.core.permission.PermissionRule;
+import io.agentscope.core.state.AgentState;
+import io.agentscope.harness.agent.memory.compaction.CompactionConfig;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.util.List;
+import java.util.Map;
+
+@Slf4j
+@RequiredArgsConstructor
+@Component
+public class RuntimeContextFactory {
+
+
+    public RuntimeContext buildRuntimeContext(AgentConfigDTO config,
+                                               UserInfo userInfo,
+                                               Long sessionId,
+                                               Long runId) {
+
+        RuntimeContext.Builder builder = RuntimeContext.builder()
+                .userId(String.valueOf(userInfo.getUserId()))
+                .sessionId(String.valueOf(sessionId));
+        AgentCallContext agentCallContext = new AgentCallContext();
+        agentCallContext.setAgentConfig(config);
+        agentCallContext.setUserInfo(userInfo);
+        agentCallContext.setSessionId(sessionId);
+        agentCallContext.setRunId(runId);
+        builder.put(AgentCallContext.class, agentCallContext);
+
+        return builder.build();
+    }
+}

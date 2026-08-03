@@ -52,7 +52,7 @@ const handleLogin = async () => {
       <div class="brand-lockup">
         <span class="brand-symbol"><i /></span>
         <div>
-          <strong>AgentOS</strong>
+          <strong>zhiran-AgentOS</strong>
           <small>AI AGENT PLATFORM</small>
         </div>
       </div>
@@ -98,7 +98,7 @@ const handleLogin = async () => {
           <span class="form-logo"><i /></span>
           <div>
             <h2>欢迎回来</h2>
-            <p>登录 AgentOS，开始构建你的智能体</p>
+            <p>登录 zhiran-AgentOS，开始构建你的智能体</p>
           </div>
         </div>
         <el-form-item label="用户名" prop="userName">
@@ -133,7 +133,7 @@ const handleLogin = async () => {
           size="large"
           type="primary"
         >
-          登录 AgentOS <el-icon><ArrowRight /></el-icon>
+          登录 zhiran-AgentOS <el-icon><ArrowRight /></el-icon>
         </el-button>
         <div class="secure-note">
           <span><el-icon><Lock /></el-icon> 全链路加密</span>

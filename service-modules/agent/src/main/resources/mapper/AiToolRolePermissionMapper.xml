@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zw.agent.mapper.AiToolRolePermissionMapper">
+<mapper namespace="com.zhiran.agent.mapper.AiToolRolePermissionMapper">
 
     <select id="getToolPermissionByUserId" resultType="map" parameterType="Long">
         SELECT DISTINCT
@@ -14,7 +14,7 @@
             u.id = #{userId}
     </select>
 
-    <select id="permissionListByRoleId" resultType="com.zw.agent.entity.AiToolRolePermissionEntity">
+    <select id="permissionListByRoleId" resultType="com.zhiran.agent.entity.AiToolRolePermissionEntity">
         SELECT
             *
         FROM ai_tool_role_permission

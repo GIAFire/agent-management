@@ -9,8 +9,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.zw</groupId>
-        <artifactId>agentScope</artifactId>
+        <groupId>com.zhiran</groupId>
+        <artifactId>zhiran-agentos</artifactId>
         <version>1.0.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
@@ -29,25 +29,25 @@
 
         <!-- 平台公共模块 -->
         <dependency>
-            <groupId>com.zw</groupId>
+            <groupId>com.zhiran</groupId>
             <artifactId>common-core</artifactId>
             <version>1.0.0</version>
         </dependency>
 
         <dependency>
-            <groupId>com.zw</groupId>
+            <groupId>com.zhiran</groupId>
             <artifactId>common-log</artifactId>
             <version>1.0.0</version>
         </dependency>
 
         <dependency>
-            <groupId>com.zw</groupId>
+            <groupId>com.zhiran</groupId>
             <artifactId>common-redis</artifactId>
             <version>1.0.0</version>
         </dependency>
 
         <dependency>
-            <groupId>com.zw</groupId>
+            <groupId>com.zhiran</groupId>
             <artifactId>common-security</artifactId>
             <version>1.0.0</version>
         </dependency>

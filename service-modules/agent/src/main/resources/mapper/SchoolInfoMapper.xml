@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zw.agent.mapper.SchoolInfoMapper">
+<mapper namespace="com.zhiran.agent.mapper.SchoolInfoMapper">
 
     <!-- 通用查询映射结果 -->
-    <resultMap id="BaseResultMap" type="com.zw.agent.entity.SchoolInfoEntity">
+    <resultMap id="BaseResultMap" type="com.zhiran.agent.entity.SchoolInfoEntity">
         <id column="id" property="id" />
         <result column="ding_id" property="dingId" />
         <result column="school_type" property="schoolType" />

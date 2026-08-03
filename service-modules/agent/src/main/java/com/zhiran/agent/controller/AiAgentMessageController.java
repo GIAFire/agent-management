@@ -1,0 +1,74 @@
+package com.zhiran.agent.controller;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.zhiran.agent.entity.AiAgentMessageEntity;
+import com.zhiran.agent.service.AiAgentMessageService;
+import com.zhiran.common.context.UserContext;
+import com.zhiran.common.context.UserInfo;
+import com.zhiran.common.entity.Result;
+import java.util.List;
+import lombok.AllArgsConstructor;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * <p>
+ * Agent 消息表：保存用户输入、Agent 回复、工具消息等完整上下文 前端控制器
+ * </p>
+ *
+ * @author 
+ * @since 2026-06-20
+ */
+@RestController
+@RequestMapping("/agentMessage")
+@AllArgsConstructor
+public class AiAgentMessageController {
+    private final AiAgentMessageService aiAgentMessageService;
+
+    @GetMapping("/list")
+    public Result<List<AiAgentMessageEntity>> list() {
+        return Result.ok(aiAgentMessageService.list());
+    }
+
+    @GetMapping("/page")
+    public Result<IPage<AiAgentMessageEntity>> page(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) Long sessionId
+    ) {
+        UserInfo userInfo = UserContext.get();
+        LambdaQueryWrapper<AiAgentMessageEntity> query = new LambdaQueryWrapper<>();
+        query.eq(AiAgentMessageEntity::getTenantId, userInfo.getTenantId());
+        if (sessionId != null) {
+            query.eq(AiAgentMessageEntity::getSessionId, sessionId);
+        }
+        query.and(wrapper -> wrapper.eq(AiAgentMessageEntity::getDeleted, 0)
+                        .or()
+                        .isNull(AiAgentMessageEntity::getDeleted))
+                .orderByDesc(AiAgentMessageEntity::getSeq)
+                .orderByDesc(AiAgentMessageEntity::getCreatedAt);
+        return Result.ok(aiAgentMessageService.page(new Page<>(current, size), query));
+    }
+
+    @GetMapping("/{id}")
+    public Result<AiAgentMessageEntity> getById(@PathVariable Long id) {
+        return Result.ok(aiAgentMessageService.getById(id));
+    }
+
+    @PostMapping("/create")
+    public Result<Boolean> create(@RequestBody AiAgentMessageEntity entity) {
+        return Result.ok(aiAgentMessageService.save(entity));
+    }
+
+    @PostMapping("/update")
+    public Result<Boolean> update(@RequestBody AiAgentMessageEntity entity) {
+        return Result.ok(aiAgentMessageService.updateById(entity));
+    }
+
+    @GetMapping("/delete/{id}")
+    public Result<Boolean> delete(@PathVariable Long id) {
+        return Result.ok(aiAgentMessageService.removeById(id));
+    }
+
+}

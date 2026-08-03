@@ -85,7 +85,7 @@ knowledge:
     embedding-batch-size: 20
 
 mybatis-plus:
-  type-handlers-package: com.zw.agent.factory.stateStoreFactory
+  type-handlers-package: com.zhiran.agent.factory.stateStoreFactory
   # 全局配置
   global-config:
     db-config:
@@ -95,7 +95,7 @@ mybatis-plus:
       logic-delete-value: 1         # 逻辑已删除值（默认1）
       logic-not-delete-value: 0     # 逻辑未删除值（默认0）
   # 搜索指定包别名
-  type-aliases-package: com.zw.agent.mapper
+  type-aliases-package: com.zhiran.agent.mapper
   # 配置mapper的扫描，找到所有的mapper.xml映射文件
   mapper-locations: classpath:mapper/*.xml
   # MyBatis配置

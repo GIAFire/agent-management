@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zw.agent.mapper.AiAgentStateLogMapper">
+<mapper namespace="com.zhiran.agent.mapper.AiAgentStateLogMapper">
     <update id="updateByRuntimeKey">
         UPDATE ai_agent_state_log
         SET state_size_bytes = #{stateSizeBytes},
@@ -15,7 +15,7 @@
         AND session_id = #{sessionId}
     </update>
 
-    <select id="selectByRuntimeKey" resultType="com.zw.agent.entity.AiAgentStateLogEntity">
+    <select id="selectByRuntimeKey" resultType="com.zhiran.agent.entity.AiAgentStateLogEntity">
         SELECT *
         FROM ai_agent_state_log
         WHERE

@@ -27,11 +27,6 @@ const logout = () => {
       <p v-if="description" class="navbar-description">{{ description }}</p>
     </div>
     <div class="navbar-actions">
-      <el-button class="env-button">
-        <span class="env-dot" />
-        生产环境
-        <el-icon><ArrowDown /></el-icon>
-      </el-button>
       <div class="global-search">
         <el-icon><Search /></el-icon>
         <span>搜索知识库、文档、任务...</span>

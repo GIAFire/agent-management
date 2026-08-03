@@ -62,7 +62,7 @@
     </appender>
 
     <!-- 接口调用日志 -->
-    <logger name="com.zw.common.filter.ApiLogFilter" level="INFO"/>
+    <logger name="com.zhiran.common.filter.ApiLogFilter" level="INFO"/>
 
     <!-- 控制台输出：SQL 日志，只输出 msg -->
     <appender name="SQL_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -73,7 +73,7 @@
     </appender>
 
     <!-- MyBatis Mapper SQL 日志 -->
-    <logger name="com.zw.agent.mapper" level="INFO" additivity="false">
+    <logger name="com.zhiran.agent.mapper" level="INFO" additivity="false">
         <appender-ref ref="SQL_CONSOLE"/>
     </logger>
 

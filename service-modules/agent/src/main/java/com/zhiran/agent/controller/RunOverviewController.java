@@ -1,0 +1,49 @@
+package com.zhiran.agent.controller;
+
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.zhiran.agent.entity.DTO.RunOverviewResponse;
+import com.zhiran.agent.service.RunOverviewService;
+import com.zhiran.common.entity.Result;
+import java.time.LocalDate;
+import java.util.function.Supplier;
+import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/overview")
+@RequiredArgsConstructor
+public class RunOverviewController {
+
+    private final RunOverviewService overviewService;
+
+    @GetMapping
+    public Result<RunOverviewResponse> overview(
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate
+    ) {
+        return handle(() -> overviewService.overview(startDate, endDate));
+    }
+
+    @GetMapping("/interactions/page")
+    public Result<IPage<RunOverviewResponse.RecentInteraction>> interactionPage(
+            @RequestParam(defaultValue = "1") long current,
+            @RequestParam(defaultValue = "10") long size,
+            @RequestParam(required = false) String keyword
+    ) {
+        return handle(() -> overviewService.pageRecentInteractions(current, size, keyword));
+    }
+
+    private <T> Result<T> handle(Supplier<T> supplier) {
+        try {
+            return Result.ok(supplier.get());
+        } catch (IllegalArgumentException | IllegalStateException exception) {
+            return Result.fail(exception.getMessage());
+        }
+    }
+}

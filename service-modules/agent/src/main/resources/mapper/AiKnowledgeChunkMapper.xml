@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zw.agent.mapper.AiKnowledgeChunkMapper">
+<mapper namespace="com.zhiran.agent.mapper.AiKnowledgeChunkMapper">
 
     <select id="selectReadyChunks"
-            resultType="com.zw.agent.entity.AiKnowledgeChunkEntity">
+            resultType="com.zhiran.agent.entity.AiKnowledgeChunkEntity">
         SELECT chunk.id,
                chunk.content
         FROM ai_knowledge_chunk chunk

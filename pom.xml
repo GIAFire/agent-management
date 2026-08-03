@@ -8,12 +8,12 @@
         <version>4.0.6</version>
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
-    <groupId>com.zw</groupId>
-    <artifactId>agentScope</artifactId>
+    <groupId>com.zhiran</groupId>
+    <artifactId>zhiran-agentos</artifactId>
     <version>1.0.0</version>
     <packaging>pom</packaging>
-    <name>agentScope</name>
-    <description>agentScope</description>
+    <name>zhiranAgentos</name>
+    <description>zhiranAgentos</description>
 
     <modules>
         <module>auth</module>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zw.agent.mapper.AiAgentPlanTaskMapper">
+<mapper namespace="com.zhiran.agent.mapper.AiAgentPlanTaskMapper">
 
     <!--
         todo_write 是全量替换任务列表，这里必须使用物理删除。

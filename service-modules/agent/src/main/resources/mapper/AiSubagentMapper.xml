@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zw.agent.mapper.AiSubagentMapper">
+<mapper namespace="com.zhiran.agent.mapper.AiSubagentMapper">
 
-    <resultMap id="SubagentHeaderResultMap" type="com.zw.agent.entity.DTO.SubagentHeaderDTO">
+    <resultMap id="SubagentHeaderResultMap" type="com.zhiran.agent.entity.DTO.SubagentHeaderDTO">
         <id property="id" column="id"/>
         <result property="subagentCode" column="subagent_code"/>
         <result property="subagentName" column="subagent_name"/>
@@ -13,7 +13,7 @@
         <result property="protocolType" column="protocol_type"/>
         <result property="enabled" column="enabled"/>
         <result property="remark" column="remark"/>
-        <collection property="headerEntityList" ofType="com.zw.agent.entity.AiHttpHeaderEntity">
+        <collection property="headerEntityList" ofType="com.zhiran.agent.entity.AiHttpHeaderEntity">
             <id property="id" column="header_id"/>
             <result property="headerName" column="header_name"/>
             <result property="headerValue" column="header_value"/>

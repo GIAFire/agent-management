@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.zw.agent.mapper.AiSkillInfoMapper">
+<mapper namespace="com.zhiran.agent.mapper.AiSkillInfoMapper">
 
     <!-- 通用查询映射结果 -->
-    <resultMap id="BaseResultMap" type="com.zw.agent.entity.AiSkillInfoEntity">
+    <resultMap id="BaseResultMap" type="com.zhiran.agent.entity.AiSkillInfoEntity">
         <id column="id" property="id" />
         <result column="name" property="name" />
         <result column="description" property="description" />
@@ -15,7 +15,7 @@
         <result column="status" property="status" />
     </resultMap>
 
-    <resultMap id="SkillFileMap" type="com.zw.agent.entity.DTO.SkillFileDTO">
+    <resultMap id="SkillFileMap" type="com.zhiran.agent.entity.DTO.SkillFileDTO">
         <id column="id" property="id" />
         <result column="name" property="name" />
         <result column="description" property="description" />
@@ -26,7 +26,7 @@
         <result column="requires_sandbox" property="requiresSandbox" />
         <result column="tags_json" property="tagsJson" />
         <result column="status" property="status" />
-        <collection property="skillFileList" ofType="com.zw.agent.entity.DTO.FileDTO">
+        <collection property="skillFileList" ofType="com.zhiran.agent.entity.DTO.FileDTO">
             <id property="id" column="file_id"/>
             <result property="skillId" column="skill_id"/>
             <result property="fileRole" column="file_role"/>
