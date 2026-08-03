@@ -4,7 +4,7 @@
 
 ### 取名知然 AgentOS。知其然，更要知其所以然。
 
-一站式连接模型、知识、技能、工具与业务流程，构建可协作、可治理、可观测的企业级 AI Agent。
+基于AgentScope2.0开发，一站式连接模型、知识、技能、工具与业务流程，构建可协作、可治理、可观测的企业级 AI Agent。
 
 [![Version](https://img.shields.io/badge/version-1.0.0-2f7cf6.svg)](#)
 [![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
