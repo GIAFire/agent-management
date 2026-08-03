@@ -13,11 +13,11 @@ spring:
       username: nacos
       password: nacos
       discovery:
-        namespace: 418ac824-016b-4eff-bbde-82b7ce26305d
+        namespace: public
         import-check:
           enabled: false
       config:
-        namespace: 418ac824-016b-4eff-bbde-82b7ce26305d
+        namespace: public
     gateway:
       server:
         webflux:

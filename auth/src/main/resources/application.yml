@@ -11,11 +11,11 @@ spring:
       username: nacos
       password: nacos
       discovery:
-        namespace: 418ac824-016b-4eff-bbde-82b7ce26305d
+        namespace: public
         import-check:
           enabled: false
       config:
-        namespace: 418ac824-016b-4eff-bbde-82b7ce26305d
+        namespace: public
   config:
     import:
       - optional:nacos:auth.yml?group=DEFAULT_GROUP&refreshEnabled=true
@@ -32,9 +32,9 @@ spring:
         # 主库数据源
         master:
           driver-class-name: com.mysql.cj.jdbc.Driver
-          url: jdbc:mysql://${FE_IP}:3306/test_qms?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+          url: jdbc:mysql://localhost:3306/zhiran_agentos?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
           username: root
-          password: ${FE185PWD}
+          password: root
           # 从库数据源
           # slave:
           #   driver-class-name: com.mysql.cj.jdbc.Driver
