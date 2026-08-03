@@ -17,11 +17,11 @@
 
 </div>
 
-![zhiran-AgentOS 登录页](./docs/readme/登录页.jpg)
+![zhiran-AgentOS 登录页](./docs/readme/首页.jpg)
 
 ## 项目简介
 
-**zhiran-AgentOS** 是一套基于 AgentScope Java 与 Spring Cloud 构建的企业级智能体管理平台，覆盖智能体从资源准备、可视化配置、在线调试到生产运行与审计分析的完整生命周期。
+**zhiran-AgentOS** 是一套基于 AgentScope2.0 Java 与 Spring Cloud 构建的企业级智能体管理平台，覆盖智能体从资源准备、可视化配置、在线调试到生产运行与审计分析的完整生命周期。
 
 当 Agent 从演示走向真实业务，团队需要管理的不再只是一个模型 API，而是一整套持续演进的运行系统：模型连接、系统提示词、企业知识、技能说明、可执行工具、子智能体协作、权限策略、状态持久化与运行日志。zhiran-AgentOS 将这些能力沉淀为可独立治理、又能灵活组合的平台资源。
 
