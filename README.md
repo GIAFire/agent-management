@@ -27,6 +27,103 @@
 
 > **一句话总结：** 用可视化方式组装 Agent，用平台化方式治理能力，用可观测方式保障运行。
 
+## 快速开始
+
+### 环境要求
+
+| 组件 | 建议版本 | 用途            |
+| --- | --- |---------------|
+| JDK | 21 | 后端运行环境        |
+| Maven | 3.9+ | 后端构建          |
+| Node.js | `^20.19.0` 或 `>=22.12.0` | 前端构建与运行       |
+| MySQL | 8.x | 持久化数据存储       |
+| Redis | 6.x / 7.x | 缓存与Agent上下文存储 |
+| Nacos | 3.x | 服务注册、发现与配置    |
+| 向量数据库 | Elasticsearch / Milvus / PostgreSQL + pgvector / Qdrant 四选一 | 知识库向量检索       |
+
+### 1. 获取项目
+
+```bash
+git clone https://github.com/GIAFire/zhiran-agentOS
+cd zhiran-agentOS
+```
+
+### 2. 初始化数据库
+
+登录 MySQL 后执行：
+
+```sql
+CREATE DATABASE IF NOT EXISTS zhiran_agentos
+  DEFAULT CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE zhiran_agentos;
+SOURCE docs/sql/zhiran_agentos.sql;
+```
+
+### 3. 修改本地配置
+
+根据实际环境检查以下配置文件：
+
+| 配置文件 | 需要关注的内容                           |
+| --- |-----------------------------------|
+| `auth/src/main/resources/application.yml` | Nacos、MySQL、Redis、JWT Secret      |
+| `gateway/src/main/resources/application.yml` | Nacos、Redis、路由与 JWT Secret        |
+| `service-modules/agent/src/main/resources/application.yml` | Nacos、MySQL、Redis、向量库(非必须)、知识文件目录 |
+
+本地向量库可不配置，但也无法使用知识库功能，若要使用知识库，请配置service-modules/agent/src/main/resources/application.yml。可将 `rag.store.type` 修改为 `Elasticsearch`、`milvus`、`pgvector` 或 `qdrant`，并补充对应连接信息。
+
+> 生产环境请务必修改示例数据库口令、Nacos 口令和 JWT Secret，并将 `knowledge.source.root` 指向所有 Agent 实例均可读写的共享目录。
+
+### 4. 构建并启动后端
+
+先在项目根目录安装所有模块：
+
+```bash
+mvn clean install -DskipTests
+```
+
+确认 MySQL、Redis、Nacos 以及所选向量数据库已启动后，分别打开终端启动三个服务：
+
+```bash
+mvn -f auth/pom.xml spring-boot:run
+```
+
+```bash
+mvn -f service-modules/agent/pom.xml spring-boot:run
+```
+
+```bash
+mvn -f gateway/pom.xml spring-boot:run
+```
+
+### 5. 启动前端
+
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+浏览器访问：<http://localhost:5173>
+
+初始化脚本内置开发账号：
+
+```text
+用户名：zhiran
+密码：zhiran
+```
+
+
+### 默认服务端口
+
+| 服务 | 端口 | 说明 |
+| --- | ---: | --- |
+| UI | 5173 | Vite 开发服务器，`/api` 代理至 Gateway |
+| Gateway | 8081 | 平台统一 API 入口 |
+| Auth | 8082 | 认证服务，上下文路径 `/auth` |
+| Agent | 8100 | Agent 服务，上下文路径 `/agent` |
+
 ### 为什么选择 zhiran-AgentOS
 
 | 特性            | 说明                                          |
@@ -274,103 +371,6 @@ zhiran-agentos/
 ├── knowledge-uploads/            # 本地知识文档存储目录
 └── pom.xml                       # Maven 聚合工程
 ```
-
-## 快速开始
-
-### 环境要求
-
-| 组件 | 建议版本 | 用途            |
-| --- | --- |---------------|
-| JDK | 21 | 后端运行环境        |
-| Maven | 3.9+ | 后端构建          |
-| Node.js | `^20.19.0` 或 `>=22.12.0` | 前端构建与运行       |
-| MySQL | 8.x | 持久化数据存储       |
-| Redis | 6.x / 7.x | 缓存与Agent上下文存储 |
-| Nacos | 3.x | 服务注册、发现与配置    |
-| 向量数据库 | Elasticsearch / Milvus / PostgreSQL + pgvector / Qdrant 四选一 | 知识库向量检索       |
-
-### 1. 获取项目
-
-```bash
-git clone https://github.com/GIAFire/zhiran-agentOS
-cd zhiran-agentOS
-```
-
-### 2. 初始化数据库
-
-登录 MySQL 后执行：
-
-```sql
-CREATE DATABASE IF NOT EXISTS zhiran_agentos
-  DEFAULT CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
-
-USE zhiran_agentos;
-SOURCE docs/sql/zhiran_agentos.sql;
-```
-
-### 3. 修改本地配置
-
-根据实际环境检查以下配置文件：
-
-| 配置文件 | 需要关注的内容                           |
-| --- |-----------------------------------|
-| `auth/src/main/resources/application.yml` | Nacos、MySQL、Redis、JWT Secret      |
-| `gateway/src/main/resources/application.yml` | Nacos、Redis、路由与 JWT Secret        |
-| `service-modules/agent/src/main/resources/application.yml` | Nacos、MySQL、Redis、向量库(非必须)、知识文件目录 |
-
-本地向量库可不配置，但也无法使用知识库功能，若要使用知识库，请配置service-modules/agent/src/main/resources/application.yml。可将 `rag.store.type` 修改为 `Elasticsearch`、`milvus`、`pgvector` 或 `qdrant`，并补充对应连接信息。
-
-> 生产环境请务必修改示例数据库口令、Nacos 口令和 JWT Secret，并将 `knowledge.source.root` 指向所有 Agent 实例均可读写的共享目录。
-
-### 4. 构建并启动后端
-
-先在项目根目录安装所有模块：
-
-```bash
-mvn clean install -DskipTests
-```
-
-确认 MySQL、Redis、Nacos 以及所选向量数据库已启动后，分别打开终端启动三个服务：
-
-```bash
-mvn -f auth/pom.xml spring-boot:run
-```
-
-```bash
-mvn -f service-modules/agent/pom.xml spring-boot:run
-```
-
-```bash
-mvn -f gateway/pom.xml spring-boot:run
-```
-
-### 5. 启动前端
-
-```bash
-cd ui
-npm install
-npm run dev
-```
-
-浏览器访问：<http://localhost:5173>
-
-初始化脚本内置开发账号：
-
-```text
-用户名：zhiran
-密码：zhiran
-```
-
-
-### 默认服务端口
-
-| 服务 | 端口 | 说明 |
-| --- | ---: | --- |
-| UI | 5173 | Vite 开发服务器，`/api` 代理至 Gateway |
-| Gateway | 8081 | 平台统一 API 入口 |
-| Auth | 8082 | 认证服务，上下文路径 `/auth` |
-| Agent | 8100 | Agent 服务，上下文路径 `/agent` |
 
 ## 参与贡献
 
