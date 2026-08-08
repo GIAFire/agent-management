@@ -8,7 +8,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * Agent计划任务表：保存todo_write生成的结构化任务清单和执行状态 服务类
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-08
  */
 public interface AiAgentPlanTaskService extends IService<AiAgentPlanTaskEntity> {

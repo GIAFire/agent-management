@@ -19,7 +19,7 @@ import java.util.List;
  * Agent权限规则表：定义某个工具在不同调用模式下允许、拒绝或询问 前端控制器
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-06-28
  */
 @RestController

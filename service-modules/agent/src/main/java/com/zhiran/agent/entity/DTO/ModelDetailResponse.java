@@ -8,7 +8,6 @@ import java.util.List;
 public record ModelDetailResponse(
         Long id,
         String configName,
-        String providerName,
         String protocol,
         String baseURL,
         String apiKey,

@@ -18,7 +18,7 @@ import lombok.experimental.Accessors;
  * 知识库表：平台知识库抽象层，兼容RAGFlow及不同向量库
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-06
  */
 @Getter

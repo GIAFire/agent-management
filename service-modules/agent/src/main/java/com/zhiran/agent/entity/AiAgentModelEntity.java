@@ -40,12 +40,6 @@ public class AiAgentModelEntity extends BaseEntity {
     private String configName;
 
     /**
-     * 模型供应商显示名称
-     */
-    @TableField("provider_name")
-    private String providerName;
-
-    /**
      * 模型接口协议
      */
     @TableField("protocol")

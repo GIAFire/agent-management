@@ -16,7 +16,7 @@ import java.util.List;
  * 权限表（菜单/接口） 前端控制器
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-06-28
  */
 @RestController

@@ -16,7 +16,7 @@ import lombok.experimental.Accessors;
  * Agent消息时间线表：保存用户输入、思考、正文及工具、Skill、子Agent、Plan等可展示消息快照
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-18
  */
 @Getter

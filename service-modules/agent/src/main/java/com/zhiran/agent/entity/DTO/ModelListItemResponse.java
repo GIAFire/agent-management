@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 public record ModelListItemResponse(
         Long id,
         String configName,
-        String providerName,
         String protocol,
         String description,
         String modelName,

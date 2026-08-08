@@ -9,7 +9,6 @@ public record AgentListItemResponse(
         String description,
         Long modelId,
         String modelConfigName,
-        String providerName,
         String protocol,
         String modelName,
         long subagentCount,

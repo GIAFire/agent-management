@@ -16,7 +16,7 @@ import lombok.experimental.Accessors;
  * Agent计划任务表：保存todo_write生成的结构化任务清单和执行状态
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-08
  */
 @Getter

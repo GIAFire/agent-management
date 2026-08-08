@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
  * 子Agent任务表：记录agent_spawn/agent_send产生的同步或后台委派任务 服务实现类
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-11
  */
 @RequiredArgsConstructor

@@ -18,7 +18,7 @@ import java.util.List;
  * HTTP请求头配置表 前端控制器
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-26
  */
 @AllArgsConstructor

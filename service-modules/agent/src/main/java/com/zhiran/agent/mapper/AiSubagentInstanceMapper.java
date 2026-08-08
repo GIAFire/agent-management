@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Mapper;
  * 子Agent运行实例表：记录父Agent创建的子Agent实例、会话、工作区和暴露状态 Mapper 接口
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-11
  */
 @Mapper

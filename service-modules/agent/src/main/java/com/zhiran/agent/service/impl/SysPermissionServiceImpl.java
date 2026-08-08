@@ -11,7 +11,7 @@ import org.springframework.stereotype.Service;
  * 权限表（菜单/接口） 服务实现类
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-06-28
  */
 @Service

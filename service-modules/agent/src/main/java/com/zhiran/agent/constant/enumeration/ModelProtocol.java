@@ -10,7 +10,11 @@ public enum ModelProtocol implements IEnum<String> {
     OPENAI_COMPATIBLE("openaiCompatible", "OpenAI 兼容协议"),
     DASH_SCOPE("dashscope", "DashScope 协议"),
     ANTHROPIC("anthropic", "Anthropic 协议"),
-    OLLAMA("ollama", "Ollama 协议");
+    OLLAMA("ollama", "Ollama 协议"),
+    DEEPSEEK("DeepSeek", "DeepSeek 协议"),
+    GLM("GLM", "GLM 协议"),
+    KIMI("Kimi", "Kimi 协议"),
+    MINIMAX("MiniMax", "MiniMax 协议");
 
     private final String code;
     private final String description;

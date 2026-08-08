@@ -46,9 +46,6 @@ public class AiModelCallLogEntity extends BaseEntity {
     @TableField("config_name_snapshot")
     private String configNameSnapshot;
 
-    @TableField("provider_name_snapshot")
-    private String providerNameSnapshot;
-
     @TableField("protocol_snapshot")
     private String protocolSnapshot;
 

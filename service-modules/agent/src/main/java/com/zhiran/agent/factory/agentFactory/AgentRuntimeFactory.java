@@ -6,6 +6,7 @@ import com.zhiran.agent.entity.DTO.AgentConfigDTO;
 import com.zhiran.agent.event.AgentRuntimeEvent;
 import com.zhiran.agent.factory.agentFactory.entity.AgentRuntimeStream;
 import com.zhiran.agent.factory.compactionFactory.CompactionFactory;
+import com.zhiran.agent.factory.middleware.SystemPromptDebugMiddleware;
 import com.zhiran.agent.factory.modelFactory.ModelFactory;
 import com.zhiran.agent.factory.permissionFactory.PermissionFactory;
 import com.zhiran.agent.factory.runtimeContextFactory.RuntimeContextFactory;
@@ -77,6 +78,7 @@ public class AgentRuntimeFactory {
     private final AiAgentService agentService;
     private final StateStoreFactory stateStoreFactory;
     private final SkillUsageLogMiddlewareFactory skillUsageLogMiddlewareFactory;
+    private final SystemPromptDebugMiddleware systemPromptDebugMiddleware;
 
 
     public HarnessAgent getOrCreateAgent(AgentConfigDTO config, UserInfo userInfo, Long sessionId) {
@@ -127,6 +129,7 @@ public class AgentRuntimeFactory {
                                     .isolationScope(IsolationScope.GLOBAL)
                                     .mode(LocalFsMode.SANDBOXED)
                     )
+                    .middleware(systemPromptDebugMiddleware)
                     .toolResultEviction(toolResultEvictionConfig);
             if (config.getMemoryEnable() == 0){
                 agentBuilder

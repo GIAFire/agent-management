@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
  * Agent与Tool绑定表：定义某个Agent启用了哪些工具 前端控制器
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-12
  */
 @RestController

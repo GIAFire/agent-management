@@ -60,7 +60,6 @@ public class ModelFactory {
                 config.getAgentId(),
                 config.getAgentConfigId(),
                 config.getModelConfigName(),
-                config.getProviderName(),
                 config.getProtocol().getCode(),
                 config.getModelName(),
                 sourcePath,

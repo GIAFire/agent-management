@@ -15,7 +15,7 @@ import lombok.experimental.Accessors;
  * Agent计划操作日志表：记录plan_enter、plan_write、plan_exit、todo_write等计划相关事件
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-08
  */
 @Getter

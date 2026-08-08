@@ -14,7 +14,6 @@ public record ModelCallLogResponse(
         String sourcePath,
         String status,
         String configName,
-        String providerName,
         String protocol,
         String modelName,
         Integer inputTokens,

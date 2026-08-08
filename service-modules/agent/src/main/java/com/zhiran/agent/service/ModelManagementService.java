@@ -151,8 +151,8 @@ public class ModelManagementService {
         );
         Map<String, Long> distribution = new LinkedHashMap<>();
         for (AiAgentModelEntity model : models) {
-            String provider = StringUtils.hasText(model.getProviderName())
-                    ? model.getProviderName()
+            String provider = StringUtils.hasText(model.getProtocol().getCode())
+                    ? model.getProtocol().getCode()
                     : "未填写";
             distribution.merge(provider, 1L, Long::sum);
         }
@@ -184,16 +184,11 @@ public class ModelManagementService {
                 new LambdaQueryWrapper<AiAgentModelEntity>()
                         .eq(AiAgentModelEntity::getTenantId, tenantId)
                         .eq(status != null, AiAgentModelEntity::getStatus, status)
-                        .eq(StringUtils.hasText(provider),
-                                AiAgentModelEntity::getProviderName,
-                                trim(provider))
                         .eq(StringUtils.hasText(protocol),
                                 AiAgentModelEntity::getProtocol,
                                 parseProtocol(protocol))
                         .and(StringUtils.hasText(keyword), wrapper -> wrapper
                                 .like(AiAgentModelEntity::getConfigName, trim(keyword))
-                                .or()
-                                .like(AiAgentModelEntity::getProviderName, trim(keyword))
                                 .or()
                                 .like(AiAgentModelEntity::getModelName, trim(keyword)))
                         .orderByDesc(AiAgentModelEntity::getUpdatedAt)
@@ -263,7 +258,6 @@ public class ModelManagementService {
         return new ModelDetailResponse(
                 model.getId(),
                 model.getConfigName(),
-                model.getProviderName(),
                 model.getProtocol().getCode(),
                 model.getBaseURL(),
                 model.getApiKey(),
@@ -342,7 +336,6 @@ public class ModelManagementService {
                 null,
                 null,
                 model.getConfigName(),
-                model.getProviderName(),
                 model.getProtocol().getCode(),
                 model.getModelName(),
                 "manual-test",
@@ -431,7 +424,6 @@ public class ModelManagementService {
                 ? new AiAgentModelEntity()
                 : copyModel(stored);
         setIfNotNull(request.getConfigName(), model::setConfigName);
-        setIfNotNull(request.getProviderName(), model::setProviderName);
         if (request.getProtocol() != null) {
             model.setProtocol(parseProtocol(request.getProtocol()));
         }
@@ -474,7 +466,6 @@ public class ModelManagementService {
 
     private void validateModel(AiAgentModelEntity model, Long ignoredId) {
         model.setConfigName(required(model.getConfigName(), "配置名称"));
-        model.setProviderName(required(model.getProviderName(), "模型供应商"));
         model.setBaseURL(required(model.getBaseURL(), "Base URL"));
         model.setModelName(required(model.getModelName(), "模型名称"));
         if (model.getProtocol() == null) {
@@ -657,7 +648,6 @@ public class ModelManagementService {
         config.setTenantId(model.getTenantId());
         config.setModelId(model.getId());
         config.setModelConfigName(model.getConfigName());
-        config.setProviderName(model.getProviderName());
         config.setProtocol(model.getProtocol());
         config.setBaseUrl(model.getBaseURL());
         config.setApiKey(model.getApiKey());
@@ -682,7 +672,6 @@ public class ModelManagementService {
         return new ModelListItemResponse(
                 model.getId(),
                 model.getConfigName(),
-                model.getProviderName(),
                 model.getProtocol().getCode(),
                 model.getDescription(),
                 model.getModelName(),
@@ -707,7 +696,6 @@ public class ModelManagementService {
         return new ModelCandidateResponse(
                 model.getId(),
                 model.getConfigName(),
-                model.getProviderName(),
                 model.getProtocol().getCode(),
                 model.getModelName(),
                 model.getMaxTokens(),
@@ -727,7 +715,6 @@ public class ModelManagementService {
                 log.getSourcePath(),
                 log.getStatus(),
                 log.getConfigNameSnapshot(),
-                log.getProviderNameSnapshot(),
                 log.getProtocolSnapshot(),
                 log.getModelNameSnapshot(),
                 log.getInputTokens(),
@@ -762,7 +749,6 @@ public class ModelManagementService {
         AiAgentModelEntity target = new AiAgentModelEntity()
                 .setId(source.getId())
                 .setConfigName(source.getConfigName())
-                .setProviderName(source.getProviderName())
                 .setProtocol(source.getProtocol())
                 .setBaseURL(source.getBaseURL())
                 .setApiKey(source.getApiKey())

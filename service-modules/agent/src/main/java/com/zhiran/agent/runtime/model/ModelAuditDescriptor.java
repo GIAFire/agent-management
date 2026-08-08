@@ -9,7 +9,6 @@ public record ModelAuditDescriptor(
         Long agentId,
         Long agentConfigId,
         String configName,
-        String providerName,
         String protocol,
         String modelName,
         String sourcePath,

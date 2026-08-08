@@ -8,7 +8,7 @@ import com.baomidou.mybatisplus.extension.service.IService;
  * 角色表 服务类
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-06-28
  */
 public interface SysRoleService extends IService<SysRoleEntity> {

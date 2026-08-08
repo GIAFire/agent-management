@@ -15,7 +15,7 @@ import lombok.experimental.Accessors;
  * Agent 定义表：保存一个可视化 Agent 的基础身份信息
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-12
  */
 @Getter

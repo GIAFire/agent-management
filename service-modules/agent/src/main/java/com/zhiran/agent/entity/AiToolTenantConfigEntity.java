@@ -16,7 +16,7 @@ import lombok.experimental.Accessors;
  * 租户工具授权配置表
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-06-27
  */
 @Getter

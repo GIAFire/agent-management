@@ -11,7 +11,7 @@ import java.util.List;
  * HTTP请求头配置表 服务类
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-26
  */
 public interface AiHttpHeaderService extends IService<AiHttpHeaderEntity> {

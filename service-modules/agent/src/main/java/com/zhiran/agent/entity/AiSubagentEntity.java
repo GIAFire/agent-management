@@ -15,7 +15,7 @@ import lombok.experimental.Accessors;
  * 子Agent定义表
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-26
  */
 @Getter

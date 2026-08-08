@@ -16,7 +16,7 @@ import lombok.experimental.Accessors;
  * 角色表
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-06-28
  */
 @Getter

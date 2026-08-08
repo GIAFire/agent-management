@@ -13,7 +13,7 @@ import org.apache.ibatis.annotations.Param;
  * 知识切片表：记录文档切片内容、向量ID及引用元信息 Mapper 接口
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-06
  */
 @Mapper

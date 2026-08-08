@@ -10,7 +10,7 @@ import io.agentscope.core.agent.RuntimeContext;
  * Agent工作区文件表 服务类
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-05
  */
 public interface AiAgentWorkspaceFileService extends IService<AiAgentWorkspaceFileEntity> {

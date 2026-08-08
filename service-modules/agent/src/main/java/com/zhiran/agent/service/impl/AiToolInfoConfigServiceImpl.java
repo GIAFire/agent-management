@@ -16,7 +16,7 @@ import java.util.List;
  * 全局工具配置表 服务实现类
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-06-27
  */
 @Service

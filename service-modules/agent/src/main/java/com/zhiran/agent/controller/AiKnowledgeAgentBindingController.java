@@ -16,7 +16,7 @@ import java.util.List;
  * Agent知识库绑定表：控制Agent配置可访问的知识库及检索参数 前端控制器
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-11
  */
 @RestController

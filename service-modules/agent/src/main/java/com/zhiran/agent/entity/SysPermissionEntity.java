@@ -16,7 +16,7 @@ import lombok.experimental.Accessors;
  * 权限表（菜单/接口）
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-06-28
  */
 @Getter

@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Mapper;
  * 子Agent任务表：记录agent_spawn/agent_send产生的同步或后台委派任务 Mapper 接口
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-11
  */
 @Mapper

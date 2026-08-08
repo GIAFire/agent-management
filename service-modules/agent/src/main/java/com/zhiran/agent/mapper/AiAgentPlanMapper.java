@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Mapper;
  * Agent计划表：保存Plan Mode生成的计划元数据、内容快照、审批和执行状态 Mapper 接口
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-08
  */
 @Mapper

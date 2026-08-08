@@ -14,7 +14,7 @@ import lombok.experimental.Accessors;
  * 工具组配置表
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-06-27
  */
 @Getter

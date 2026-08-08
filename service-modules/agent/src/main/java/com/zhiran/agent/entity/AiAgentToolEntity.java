@@ -15,7 +15,7 @@ import lombok.experimental.Accessors;
  * Agent与Tool绑定表：定义某个Agent启用了哪些工具
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-12
  */
 @Getter

@@ -253,7 +253,6 @@ public class AgentManagementService {
                     agent.getDescription(),
                     model == null ? null : model.getId(),
                     model == null ? null : model.getConfigName(),
-                    model == null ? null : model.getProviderName(),
                     model == null || model.getProtocol() == null
                             ? null : model.getProtocol().getCode(),
                     model == null ? null : model.getModelName(),
@@ -294,7 +293,6 @@ public class AgentManagementService {
                 .configVersion(config.getVersion())
                 .modelId(model == null ? null : model.getId())
                 .modelConfigName(model == null ? null : model.getConfigName())
-                .providerName(model == null ? null : model.getProviderName())
                 .protocol(model == null || model.getProtocol() == null
                         ? null : model.getProtocol().getCode())
                 .modelName(model == null ? null : model.getModelName())

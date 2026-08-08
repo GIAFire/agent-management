@@ -38,7 +38,6 @@ public class ModelCallAuditService {
                 .setSourcePath(descriptor.sourcePath())
                 .setStatus("RUNNING")
                 .setConfigNameSnapshot(descriptor.configName())
-                .setProviderNameSnapshot(descriptor.providerName())
                 .setProtocolSnapshot(descriptor.protocol())
                 .setModelNameSnapshot(descriptor.modelName())
                 .setStartedAt(LocalDateTime.now());
