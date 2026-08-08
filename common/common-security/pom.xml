@@ -8,6 +8,7 @@
         <version>1.0.0</version>
     </parent>
     <artifactId>common-security</artifactId>
+    <packaging>jar</packaging>
     <name>common-security</name>
 
     <description>
@@ -18,12 +19,12 @@
         <dependency>
             <groupId>com.zhiran</groupId>
             <artifactId>common-core</artifactId>
-            <version>1.0.0</version>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.zhiran</groupId>
             <artifactId>common-redis</artifactId>
-            <version>1.0.0</version>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>

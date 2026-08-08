@@ -3,6 +3,8 @@ package com.zhiran.common.entity;
 import com.baomidou.mybatisplus.annotation.Version;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
@@ -13,7 +15,8 @@ import java.util.Date;
  *
  * @author weijianbo
  */
-@Data
+@Getter
+@Setter
 public class BaseEntity implements Serializable {
 
     private static final long serialVersionUID = 1L;

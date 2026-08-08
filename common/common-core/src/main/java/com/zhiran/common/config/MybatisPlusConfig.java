@@ -28,6 +28,9 @@ public class MybatisPlusConfig {
                     public Expression getTenantId() {
                         // 从当前上下文中获取租户ID
                         UserInfo userInfo = UserContext.get();
+                        if (userInfo == null || userInfo.getTenantId() == null) {
+                            throw new IllegalStateException("Tenant ID not available in current context");
+                        }
                         return new LongValue(userInfo.getTenantId());
                     }
 
@@ -39,7 +42,6 @@ public class MybatisPlusConfig {
 
                     @Override
                     public boolean ignoreTable(String tableName) {
-                        // 哪些表不需要加租户条件
                         return "sys_config".equalsIgnoreCase(tableName)
                                 || "sys_dict".equalsIgnoreCase(tableName)
                                 || "sys_user".equalsIgnoreCase(tableName)

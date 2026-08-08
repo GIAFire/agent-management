@@ -28,6 +28,7 @@ public class RedisConfig {
         // value 使用 JSON 序列化
         template.setValueSerializer(jsonSerializer);
         template.setHashValueSerializer(jsonSerializer);
+        template.setDefaultSerializer(jsonSerializer);
 
         template.afterPropertiesSet();
 

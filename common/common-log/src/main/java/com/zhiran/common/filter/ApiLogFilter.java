@@ -31,8 +31,9 @@ public class ApiLogFilter extends OncePerRequestFilter {
             String uri = request.getRequestURI();
             String queryString = request.getQueryString();
 
-            String url = StringUtils.hasText(queryString)
-                    ? uri + "?" + queryString
+            String sanitizedQueryString = sanitizeQueryString(queryString);
+            String url = StringUtils.hasText(sanitizedQueryString)
+                    ? uri + "?" + sanitizedQueryString
                     : uri;
 
             int status = response.getStatus();
@@ -43,5 +44,13 @@ public class ApiLogFilter extends OncePerRequestFilter {
                     status,
                     costTime);
         }
+    }
+
+    private String sanitizeQueryString(String queryString) {
+        if (!StringUtils.hasText(queryString)) {
+            return queryString;
+        }
+        // Mask sensitive parameters: token, password, api_key, secret, etc.
+        return queryString.replaceAll("(token|password|api_key|secret|credential|session_id)=[^&]*", "$1=***");
     }
 }

@@ -28,6 +28,12 @@ public final class JwtUtils {
             long expireSeconds,
             Map<String, Object> customClaims
     ) {
+        if (subject == null || subject.isBlank()) {
+            throw new IllegalArgumentException("JWT subject 不能为空");
+        }
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalArgumentException("JWT issuer 不能为空");
+        }
         if (expireSeconds <= 0) {
             throw new IllegalArgumentException("JWT 过期时间必须大于 0");
         }
@@ -76,10 +82,10 @@ public final class JwtUtils {
                     new TypeReference<>() {
                     }
             );
-//            long exp = longClaim(claims, "exp");
-//            if (exp <= Instant.now().getEpochSecond()) {
-//                throw new IllegalArgumentException("Token 已过期");
-//            }
+            long exp = longClaim(claims, "exp");
+            if (exp <= Instant.now().getEpochSecond()) {
+                throw new IllegalArgumentException("Token 已过期");
+            }
             Object tokenIssuer = claims.get("iss");
             if (issuer != null && !issuer.isBlank() && !issuer.equals(tokenIssuer)) {
                 throw new IllegalArgumentException("Token 签发方无效");

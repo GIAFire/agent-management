@@ -8,7 +8,7 @@
     </parent>
 
     <artifactId>common-log</artifactId>
-
+    <packaging>jar</packaging>
     <name>common-log</name>
 
     <description>
@@ -20,6 +20,10 @@
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-logging</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-core</artifactId>

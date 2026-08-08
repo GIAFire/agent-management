@@ -22,13 +22,19 @@ public class AESUtil {
     private static final String masterKeyB64key = "SzdnWThuUDJzWDltUTR2RjN3UjZ0RTFhTDVvWjhjVTA=";     // bytes
 
     /**
-     * 解密前端加密的数据（完全配套）
+     * 解密
      */
     public static String decrypt(String cipherTextB64) {
+        if (cipherTextB64 == null || cipherTextB64.isEmpty()) {
+            throw new IllegalArgumentException("Cipher text cannot be null or empty");
+        }
         // 1. 解码Base64
         byte[] combined = Base64.getDecoder().decode(cipherTextB64);
 
         // 2. 提取IV（前12字节）
+        if (combined.length < GCM_IV_LENGTH) {
+            throw new IllegalArgumentException("Invalid cipher text: too short");
+        }
         byte[] iv = new byte[GCM_IV_LENGTH];
         System.arraycopy(combined, 0, iv, 0, GCM_IV_LENGTH);
 
@@ -39,7 +45,7 @@ public class AESUtil {
         // 4. 解码主密钥
         byte[] keyBytes = Base64.getDecoder().decode(masterKeyB64key);
         SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
-        try{
+        try {
             // 5. 解密
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);
@@ -47,22 +53,26 @@ public class AESUtil {
 
             byte[] plainBytes = cipher.doFinal(cipherText);
             return new String(plainBytes, StandardCharsets.UTF_8);
-        }catch (Exception e){
-            // 处理异常
-            return null;
+        } catch (javax.crypto.AEADBadTagException e) {
+            throw new IllegalStateException("Decryption failed: authentication tag mismatch (possible tampering or wrong key)", e);
+        } catch (Exception e) {
+            throw new IllegalStateException("Decryption failed: " + e.getMessage(), e);
         }
 
     }
 
     /**
-     * 加密（后端加密，用于存储）
+     * 加密
      */
     public static String encrypt(String plainText, String masterKeyB64) throws Exception {
         byte[] keyBytes = Base64.getDecoder().decode(masterKeyB64);
+        if (keyBytes.length != 32) {
+            throw new IllegalArgumentException("Invalid key size: expected 32 bytes for AES-256, got " + keyBytes.length + " bytes");
+        }
         SecretKeySpec secretKey = new SecretKeySpec(keyBytes, "AES");
 
         byte[] iv = new byte[GCM_IV_LENGTH];
-        SecureRandom.getInstanceStrong().nextBytes(iv);
+        new SecureRandom().nextBytes(iv);
 
         Cipher cipher = Cipher.getInstance(ALGORITHM);
         GCMParameterSpec gcmSpec = new GCMParameterSpec(GCM_TAG_LENGTH, iv);

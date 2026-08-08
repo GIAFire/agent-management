@@ -2,10 +2,7 @@ package com.zhiran.common;
 
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.BoundSetOperations;
-import org.springframework.data.redis.core.HashOperations;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.*;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.ObjectMapper;
@@ -342,7 +339,16 @@ public class RedisService {
      * @return 对象列表
      */
     public Collection<String> keys(final String pattern) {
-        return redisTemplate.keys(pattern);
+        Set<String> keys = new HashSet<>();
+        try (Cursor<byte[]> cursor =
+                     redisTemplate.getConnectionFactory()
+                             .getConnection()
+                             .scan(ScanOptions.scanOptions().match(pattern).count(1000).build())) {
+            while (cursor.hasNext()) {
+                keys.add(new String(cursor.next()));
+            }
+        }
+        return keys;
     }
 
 

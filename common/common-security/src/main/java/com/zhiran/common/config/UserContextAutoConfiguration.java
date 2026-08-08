@@ -15,8 +15,8 @@ public class UserContextAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public UserContextInterceptor userContextInterceptor(RedisService redisService,JwtProperties jwtProperties) {
-        return new UserContextInterceptor(redisService,jwtProperties);
+    public UserContextInterceptor userContextInterceptor(RedisService redisService, JwtProperties jwtProperties) {
+        return new UserContextInterceptor(redisService, jwtProperties);
     }
 
     @Bean
@@ -27,7 +27,8 @@ public class UserContextAutoConfiguration {
             @Override
             public void addInterceptors(InterceptorRegistry registry) {
                 registry.addInterceptor(userContextInterceptor)
-                        .addPathPatterns("/**");
+                        .addPathPatterns("/**")
+                        .excludePathPatterns("/actuator/**", "/swagger-ui/**", "/v3/api-docs/**", "/static/**", "/error");
             }
         };
     }

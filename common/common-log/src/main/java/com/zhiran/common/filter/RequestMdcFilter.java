@@ -21,33 +21,25 @@ public class RequestMdcFilter extends OncePerRequestFilter {
 
     public static final String MDC_TENANT_ID = "tenantId";
     public static final String MDC_USER_ID = "userId";
-    public static final String MDC_CONVERSATION_ID = "conversationId";
 
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
-            FilterChain filterChain ) throws ServletException, IOException {
+            FilterChain filterChain) throws ServletException, IOException {
 
-        String tenantId = firstNonBlank(request.getHeader("X-Tenant-Id"),  null);
+        String tenantId = firstNonBlank(request.getHeader("X-Tenant-Id"), null);
 
-        String conversationId = firstNonBlank(request.getHeader("X-Conversation-Id"),null);
-
-        String userId = firstNonBlank(resolveUserId(),  null);
+        String userId = firstNonBlank(resolveUserId(), null);
 
         MDC.put(MDC_TENANT_ID, tenantId);
         MDC.put(MDC_USER_ID, userId);
-        MDC.put(MDC_CONVERSATION_ID, conversationId);
-
-        response.setHeader("X-Conversation-Id", conversationId);
 
         try {
             filterChain.doFilter(request, response);
-        }
-        finally {
+        } finally {
             MDC.remove(MDC_TENANT_ID);
             MDC.remove(MDC_USER_ID);
-            MDC.remove(MDC_CONVERSATION_ID);
         }
     }
 
@@ -58,7 +50,8 @@ public class RequestMdcFilter extends OncePerRequestFilter {
             return null;
         }
 
-        return authentication.getName();
+        String name = authentication.getName();
+        return name != null && !name.isBlank() ? name : null;
     }
 
     private String firstNonBlank(String value, String fallback) {

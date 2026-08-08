@@ -98,6 +98,6 @@ public class Result<T> implements Serializable {
     }
 
     public static <T> Boolean isSuccess(Result<T> ret) {
-        return Result.SUCCESS == ret.getCode();
+        return ret != null && Result.SUCCESS == ret.getCode();
     }
 }

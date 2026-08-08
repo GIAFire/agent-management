@@ -35,8 +35,8 @@ public class UserContextInterceptor implements HandlerInterceptor {
 
         // 1. 先校验 JWT 是否合法、是否过期
         try {
-            JwtUtils.parseToken(token, jwtProperties.getSecret(),jwtProperties.getIssuer());
-        } catch (Exception e) {
+            JwtUtils.parseToken(token, jwtProperties.getSecret(), jwtProperties.getIssuer());
+        } catch (IllegalArgumentException e) {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"code\":401,\"message\":\"登录已过期，请重新登录\"}");
@@ -47,9 +47,13 @@ public class UserContextInterceptor implements HandlerInterceptor {
                 RedisConstants.SESSION + token,
                 UserInfo.class
         );
-        if (userInfo != null) {
-            UserContext.set(userInfo);
+        if (userInfo == null) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json;charset=UTF-8");
+            response.getWriter().write("{\"code\":401,\"message\":\"会话已失效，请重新登录\"}");
+            return false;
         }
+        UserContext.set(userInfo);
         return true;
     }
 

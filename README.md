@@ -4,7 +4,7 @@
 
 ### 取名知然 AgentOS。知其然，更要知其所以然。
 
-基于AgentScope2.0开发，一站式连接模型、知识、技能、工具与业务流程，构建可协作、可治理、可观测的企业级 AI Agent。
+基于AgentScope2.0开发，以Harness理念搭建的Agent核心，可视化配置Harness Agent。可快速接入企业业务需求。
 
 [![Version](https://img.shields.io/badge/version-1.0.0-2f7cf6.svg)](#)
 [![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/projects/jdk/21/)
@@ -29,16 +29,16 @@
 
 ### 为什么选择 zhiran-AgentOS
 
-| 特性 | 说明 |
-| --- | --- |
-| **Agent 全生命周期** | 五步向导完成基础信息、模型与提示词、能力、知识库及高级运行配置 |
-| **多智能体协作** | 支持本地 Agent 复用与远程 Agent Protocol 接入，可并行委派并跟踪任务 |
-| **企业知识增强** | 文档上传、解析、切片、向量化、检索与 Agent 绑定形成完整 RAG 链路 |
-| **能力资产化** | 模型、提示词、知识库、Skill、Tool、Subagent 均可独立维护和复用 |
-| **安全可控执行** | 工具权限支持 `ALLOW / DENY / ASK / PASSTHROUGH`，关键动作可人工确认 |
-| **运行过程可见** | 流式呈现响应、工具调用、执行计划与任务进度，支持随时停止运行 |
-| **全链路可观测** | 汇总运行次数、成功率、耗时、Token，并保留模型、工具、技能与事件日志 |
-| **企业级基础设施** | 微服务架构、多租户、用户与角色、JWT 网关鉴权、Redis 与多数据源支持 |
+| 特性            | 说明                                          |
+|---------------|---------------------------------------------|
+| **快速接入业务**    | 通过nacos发现Agent服务,业务系统可直接调用Agent服务,实现企业项目智能化 |
+| **快速搭建Agent** | 五步创建向导完成基础信息、模型与提示词、能力、知识库及高级运行配置           |
+| **多智能体协作**    | 支持本地 Agent 复用与远程 Agent 接入，完成多智能体协作          |
+| **企业知识增强**    | 本地知识文档上传、解析、切片、向量化、检索形成完整 RAG 链路            |
+| **权限安全**      | 工具与技能可根据不同用户角色配置权限                |
+| **运行过程可见**    | 流式呈现响应、工具调用、执行计划与任务进度，支持随时停止运行              |
+| **全链路日志**     | 汇总运行次数、成功率、耗时、Token，并保留模型、工具、技能与事件日志        |
+| **企业级基础设施**   | 微服务架构、多租户、用户与角色、JWT 网关鉴权、Redis 与多数据源支持      |
 
 ## 核心能力
 
@@ -53,9 +53,9 @@
 ### 2. 多模型统一接入
 
 - 支持 **OpenAI 兼容协议、DashScope、Anthropic、Ollama**。
-- 统一管理 Base URL、API Key、自定义 Header、模型名称与供应商信息。
+- 统一管理 Base URL、API Key、自定义 Header、模型名称。
 - 支持流式输出、思考模式、Temperature、Top P、最大 Token、超时与重试参数。
-- 提供连接测试、调用次数、成功率、平均耗时、供应商分布与模型调用日志。
+- 提供连接测试、调用次数、成功率、平均耗时、模型调用日志。
 
 ### 3. 多智能体协作与委派
 
@@ -70,7 +70,7 @@
 - 支持按字符、按段落、按指定分隔符切片，并可配置切片长度与重叠区间。
 - 提供文档处理状态、切片正文、页码、章节与 Token 信息查看。
 - 支持独立 Embedding 模型、Top K、相似度阈值和 Agent 绑定。
-- 向量存储可在 **Elasticsearch、Milvus、pgvector、Qdrant** 之间切换。
+- 向量存储可在 **Elasticsearch、Milvus、pgvector、Qdrant** 中选择。
 
 ### 5. Skill 技能管理
 
@@ -211,7 +211,7 @@
 ```text
 用户打开管理后台
         ↓
-所有请求先经过 API 网关
+所有请求先经过 gateway 网关
         ↓
    ┌────┴────┐
 登录认证服务   智能体服务
@@ -232,23 +232,22 @@
 
 ## 技术栈
 
-| 层级 | 技术选型 | 版本 / 说明 |
-| --- | --- | --- |
-| 开发语言 | Java | 21 |
+| 层级       | 技术选型 | 版本 / 说明 |
+|----------| --- | --- |
+| 开发语言     | Java | 21 |
 | Agent 框架 | AgentScope Java | 2.0.0，Harness Agent |
-| 基础框架 | Spring Boot | 4.0.6 |
-| 微服务 | Spring Cloud / Spring Cloud Alibaba | 2025.1.0 / 2025.1.0.0 |
-| 服务治理 | Nacos / Sentinel / OpenFeign | 注册发现、配置中心、流量治理、服务调用 |
-| API 网关 | Spring Cloud Gateway WebFlux | JWT 鉴权与统一路由 |
-| 数据访问 | MyBatis-Plus / Dynamic Datasource | 3.5.15 / 4.5.0 |
-| 数据库 | MySQL / Druid | 8.x / 1.2.28 |
-| 缓存与状态 | Redis / Caffeine | 缓存、共享状态与本地运行时缓存 |
-| RAG | AgentScope RAG / Apache Tika | 文档读取、切片、Embedding 与检索 |
-| 向量数据库 | Elasticsearch / Milvus / pgvector / Qdrant | 配置化切换 |
-| 前端框架 | Vue / Vue Router / Pinia | `^3.5.32` / `^4.6.3` / `^2.3.1` |
-| UI 与交互 | Element Plus / markdown-it | `^2.11.5` / `^14.2.0` |
-| 前端工程化 | Vite / Vitest / Axios | `^8.0.8` / `^4.1.10` / `^1.13.1` |
-| 通信方式 | REST / SSE / JWT | 管理 API、流式运行事件、身份认证 |
+| 基础框架     | Spring Boot | 4.0.6 |
+| 微服务      | Spring Cloud / Spring Cloud Alibaba | 2025.1.0 / 2025.1.0.0 |
+| 服务治理     | Nacos / Sentinel / OpenFeign | 注册发现、配置中心、流量治理、服务调用 |
+| API 网关   | Spring Cloud Gateway WebFlux | JWT 鉴权与统一路由 |
+| 数据访问     | MyBatis-Plus / Dynamic Datasource | 3.5.15 / 4.5.0 |
+| 数据库      | MySQL / Druid | 8.x / 1.2.28 |
+| 缓存与状态    | Redis / Caffeine | 缓存、共享状态与本地运行时缓存 |
+| RAG      | AgentScope RAG / Apache Tika | 文档读取、切片、Embedding 与检索 |
+| 向量数据库    | Elasticsearch / Milvus / pgvector / Qdrant | 配置化切换 |
+| 前端框架     | Vue / Vue Router / Pinia | `^3.5.32` / `^4.6.3` / `^2.3.1` |
+| UI框架     | Element Plus | `^2.11.5`  |
+| 前端工程化    | Vite / Vitest / Axios | `^8.0.8` / `^4.1.10` / `^1.13.1` |
 
 ## 项目结构
 
@@ -280,15 +279,15 @@ zhiran-agentos/
 
 ### 环境要求
 
-| 组件 | 建议版本 | 用途 |
-| --- | --- | --- |
-| JDK | 21 | 后端运行环境 |
-| Maven | 3.9+ | 后端构建 |
-| Node.js | `^20.19.0` 或 `>=22.12.0` | 前端构建与运行 |
-| MySQL | 8.x | 业务与审计数据 |
-| Redis | 6.x / 7.x | 缓存与可选会话状态存储 |
-| Nacos | 3.x | 服务注册、发现与配置 |
-| 向量数据库 | Elasticsearch / Milvus / PostgreSQL + pgvector / Qdrant 四选一 | 知识库向量检索 |
+| 组件 | 建议版本 | 用途            |
+| --- | --- |---------------|
+| JDK | 21 | 后端运行环境        |
+| Maven | 3.9+ | 后端构建          |
+| Node.js | `^20.19.0` 或 `>=22.12.0` | 前端构建与运行       |
+| MySQL | 8.x | 持久化数据存储       |
+| Redis | 6.x / 7.x | 缓存与Agent上下文存储 |
+| Nacos | 3.x | 服务注册、发现与配置    |
+| 向量数据库 | Elasticsearch / Milvus / PostgreSQL + pgvector / Qdrant 四选一 | 知识库向量检索       |
 
 ### 1. 获取项目
 
@@ -314,13 +313,13 @@ SOURCE docs/sql/zhiran_agentos.sql;
 
 根据实际环境检查以下配置文件：
 
-| 配置文件 | 需要关注的内容 |
-| --- | --- |
-| `auth/src/main/resources/application.yml` | Nacos、MySQL、Redis、JWT Secret |
-| `gateway/src/main/resources/application.yml` | Nacos、Redis、路由与 JWT Secret |
-| `service-modules/agent/src/main/resources/application.yml` | Nacos、MySQL、Redis、向量库、知识文件目录 |
+| 配置文件 | 需要关注的内容                           |
+| --- |-----------------------------------|
+| `auth/src/main/resources/application.yml` | Nacos、MySQL、Redis、JWT Secret      |
+| `gateway/src/main/resources/application.yml` | Nacos、Redis、路由与 JWT Secret        |
+| `service-modules/agent/src/main/resources/application.yml` | Nacos、MySQL、Redis、向量库(非必须)、知识文件目录 |
 
-默认向量存储为 Elasticsearch，地址为 `http://127.0.0.1:9200`。如需切换，可将 `rag.store.type` 修改为 `milvus`、`pgvector` 或 `qdrant`，并补充对应连接信息。
+本地向量库可不配置，但也无法使用知识库功能，若要使用知识库，请配置service-modules/agent/src/main/resources/application.yml。可将 `rag.store.type` 修改为 `Elasticsearch`、`milvus`、`pgvector` 或 `qdrant`，并补充对应连接信息。
 
 > 生产环境请务必修改示例数据库口令、Nacos 口令和 JWT Secret，并将 `knowledge.source.root` 指向所有 Agent 实例均可读写的共享目录。
 
@@ -372,30 +371,6 @@ npm run dev
 | Gateway | 8081 | 平台统一 API 入口 |
 | Auth | 8082 | 认证服务，上下文路径 `/auth` |
 | Agent | 8100 | Agent 服务，上下文路径 `/agent` |
-
-## 常用命令
-
-```bash
-# 后端测试
-mvn test
-
-# 后端打包
-mvn clean package -DskipTests
-
-# 前端测试（当前暂无测试文件，允许空测试集）
-cd ui && npm run test -- --passWithNoTests
-
-# 前端生产构建
-cd ui && npm run build
-```
-
-## 配置与数据说明
-
-- 数据库初始化脚本包含 Agent、会话、消息、计划、模型、知识、Skill、Tool、Subagent、租户、用户、角色及审计日志等 46 张表。
-- 知识库默认将源文件保存在 `./knowledge-uploads`，多实例部署时应替换为共享存储。
-- 文件上传默认单文件上限为 50 MB；PDF 仅提取文本层，扫描件需要预先 OCR。
-- 本地文件状态存储适合单机开发；Redis 或 MySQL 更适合多实例和持久化场景。
-- Nacos 配置通过 `optional:nacos:` 导入，但服务发现仍需要可用的 Nacos Server。
 
 ## 参与贡献
 
