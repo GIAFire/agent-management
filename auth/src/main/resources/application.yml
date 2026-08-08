@@ -47,12 +47,6 @@ mybatis-plus:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
-auth:
-  jwt:
-    secret: agentScopeJwtSecretKeyForLocalDevChangeMe20260621
-    issuer: agent-scope
-    expire-seconds: 604800
-
 feign:
   client:
     config:
