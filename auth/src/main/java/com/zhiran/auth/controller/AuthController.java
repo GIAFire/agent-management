@@ -12,11 +12,13 @@ import com.zhiran.common.entity.Result;
 import com.zhiran.common.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.security.auth.login.LoginException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,17 +31,33 @@ public class AuthController {
     private final SysUserService sysUserService;
     private final JwtProperties jwtProperties;
     private final RedisService redisService;
+    private final PasswordEncoder passwordEncoder;
 
     @PostMapping("/login")
     public Result<LoginResponse> login(@RequestBody LoginRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("登录参数不能为空");
+        if (request.getUserName() == null || request.getUserName().isBlank())
+            throw new IllegalArgumentException("用户名不能为空");
+        if (request.getPassword() == null || request.getPassword().isBlank())
+            throw new IllegalArgumentException("密码不能为空");
+
+        UserInfoDTO user = sysUserService.login(request.getUserName());
+        if (user == null) {
+            throw new IllegalArgumentException("用户名或密码错误");
         }
-        UserInfoDTO user = sysUserService.authenticate(request.getUserName(), request.getPassword());
+
+        if (user.getStatus() == null || user.getStatus() != 1) {
+            throw new IllegalArgumentException("账号不可用");
+        }
+        boolean matched = passwordEncoder.matches(request.getPassword(),user.getPassword());
+        if (!matched) {
+            throw new IllegalArgumentException("用户名或密码错误");
+        }
+
         long expiresAt = Instant.now().plusSeconds(jwtProperties.getExpireSeconds()).toEpochMilli();
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", user.getId());
         claims.put("userName", user.getUserName());
+        claims.put("roleCodes", user.getRoleCodes());
         claims.put("tenantId", user.getTenantId());
 
         UserInfo userInfo = new UserInfo();
@@ -52,9 +70,9 @@ public class AuthController {
                 jwtProperties.getExpireSeconds(),
                 claims
         );
-        redisService.setCacheObject(RedisConstants.SESSION + token, userInfo,jwtProperties.getExpireSeconds(), TimeUnit.SECONDS);
+        redisService.setCacheObject(RedisConstants.SESSION + token, userInfo, jwtProperties.getExpireSeconds(), TimeUnit.SECONDS);
         LoginResponse loginResponse = new LoginResponse(token,
-                 "Bearer",
+                "Bearer",
                 jwtProperties.getExpireSeconds(),
                 expiresAt,
                 userInfo);

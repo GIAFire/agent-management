@@ -7,6 +7,7 @@ import com.zhiran.agent.service.SysUserService;
 import com.zhiran.common.entity.Result;
 import com.zhiran.common.support.EntityDefaults;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,7 +18,7 @@ import java.util.List;
  *  前端控制器
  * </p>
  *
- * @author 智纬
+ * @author zhiRan
  * @since 2026-07-14
  */
 @RequiredArgsConstructor
@@ -26,6 +27,7 @@ import java.util.List;
 public class SysUserController {
 
     private final SysUserService sysUserService;
+    private final PasswordEncoder passwordEncoder;
 
     @GetMapping("/list")
     public Result<List<SysUserEntity>> list() {
@@ -47,8 +49,9 @@ public class SysUserController {
 
     @PostMapping("/create")
     public Result<SysUserEntity> create(@RequestBody SysUserEntity entity) {
+        entity.setPassword(passwordEncoder.encode(entity.getPassword()));
         sysUserService.save(EntityDefaults.create(entity));
-        return Result.ok(entity);
+        return Result.ok();
     }
 
     @PostMapping("/update")
@@ -58,6 +61,8 @@ public class SysUserController {
             if (old != null) {
                 entity.setPassword(old.getPassword());
             }
+        }else {
+            entity.setPassword(passwordEncoder.encode(entity.getPassword()));
         }
         return Result.ok(sysUserService.updateById(EntityDefaults.update(entity)));
     }

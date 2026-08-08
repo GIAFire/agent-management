@@ -27,17 +27,7 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUserEntity
     private final SysUserMapper sysUserMapper;
 
     @Override
-    public UserInfoDTO authenticate(String userName, String password) {
-        if (!StringUtils.hasText(userName) || !StringUtils.hasText(password)) {
-            throw new IllegalArgumentException("用户名或密码不能为空");
-        }
-        UserInfoDTO user = sysUserMapper.login(userName, password);
-        if (user == null || !Objects.equals(user.getPassword(), password)) {
-            throw new IllegalArgumentException("用户名或密码错误");
-        }
-        if (user.getStatus() == null || user.getStatus() != 1) {
-            throw new IllegalArgumentException("账号已停用");
-        }
-        return user;
+    public UserInfoDTO login(String userName) {
+        return sysUserMapper.login(userName);
     }
 }

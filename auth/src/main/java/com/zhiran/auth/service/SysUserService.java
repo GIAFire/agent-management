@@ -14,5 +14,5 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface SysUserService extends IService<SysUserEntity> {
 
-    UserInfoDTO authenticate(String userName, String password);
+    UserInfoDTO login(String userName);
 }

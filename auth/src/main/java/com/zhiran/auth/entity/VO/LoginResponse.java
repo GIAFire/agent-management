@@ -1,10 +1,13 @@
 package com.zhiran.auth.entity.VO;
 
 import com.zhiran.common.context.UserInfo;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.*;
 
-@Data
+@EqualsAndHashCode
+@Getter
+@Setter
+@ToString(exclude = "token")
+@NoArgsConstructor
 @AllArgsConstructor
 public class LoginResponse {
 
